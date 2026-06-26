@@ -1,0 +1,181 @@
+---
+/**
+ * Live 1-D stochastic reaction–diffusion field, drawn ink-on-paper.
+ * Random injection events spike the field; explicit diffusion relaxes it.
+ * Ink-wash fill under a crisp trace + an oxblood running-mean line. The slider
+ * drives the diffusion rate k. Theme-aware, DPR-crisp, pauses when offscreen.
+ */
+---
+
+<div class="w-full">
+	<canvas id="diff-canvas" class="block w-full" style="height: 184px"></canvas>
+	<div class="mt-4 flex items-center gap-4 meta">
+		<label for="diff-rate" class="text-ink-muted">diffusion&nbsp;k</label>
+		<input
+			id="diff-rate"
+			type="range"
+			min="2"
+			max="96"
+			value="38"
+			step="1"
+			class="h-4 flex-1 cursor-pointer accent-(--color-accent)"
+			aria-label="Diffusion rate k"
+		/>
+		<span id="diff-readout" class="w-12 text-right tabular-nums text-accent">0.38</span>
+	</div>
+</div>
+
+<script>
+	function hexToRgba(hex: string, a: number): string {
+		const h = hex.replace("#", "").trim();
+		if (h.length < 6) return `rgba(26,26,23,${a})`;
+		const r = parseInt(h.slice(0, 2), 16);
+		const g = parseInt(h.slice(2, 4), 16);
+		const b = parseInt(h.slice(4, 6), 16);
+		return `rgba(${r},${g},${b},${a})`;
+	}
+
+	function initDiffusion(): void {
+		const canvas = document.getElementById("diff-canvas");
+		const slider = document.getElementById("diff-rate");
+		const readout = document.getElementById("diff-readout");
+		if (
+			!(canvas instanceof HTMLCanvasElement) ||
+			!(slider instanceof HTMLInputElement) ||
+			!readout ||
+			canvas.dataset.wired
+		)
+			return;
+		canvas.dataset.wired = "true";
+		const cv = canvas;
+		const ctx = cv.getContext("2d");
+		if (!ctx) return;
+
+		const N = 240;
+		const u = new Float64Array(N);
+		const prev = new Float64Array(N); // scratch — reused, no per-frame alloc
+		let k = 0.38;
+
+		// seed a few peaks so the field is visibly alive on first paint
+		for (let s = 0; s < 5; s++) {
+			const i = 18 + Math.floor(Math.random() * (N - 36));
+			u[i] = (u[i] ?? 0) + 1.0 + Math.random() * 0.9;
+		}
+
+		slider.addEventListener("input", () => {
+			k = Number(slider.value) / 100;
+			readout.textContent = k.toFixed(2);
+		});
+
+		let cssW = 720;
+		let cssH = 184;
+		const sizeCanvas = (): void => {
+			const dpr = Math.min(window.devicePixelRatio || 1, 2);
+			cssW = cv.clientWidth || 720;
+			cv.width = Math.round(cssW * dpr);
+			cv.height = Math.round(cssH * dpr);
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		};
+
+		function step(): void {
+			if (Math.random() < 0.3) {
+				const i = 4 + Math.floor(Math.random() * (N - 8));
+				u[i] = (u[i] ?? 0) + 0.6 + Math.random() * 0.8;
+			}
+			prev.set(u);
+			for (let i = 1; i < N - 1; i++) {
+				const left = prev[i - 1] ?? 0;
+				const mid = prev[i] ?? 0;
+				const right = prev[i + 1] ?? 0;
+				u[i] = (mid + k * 0.45 * (left - 2 * mid + right)) * 0.9965;
+			}
+			u[0] = u[1] ?? 0;
+			u[N - 1] = u[N - 2] ?? 0;
+		}
+
+		function draw(): void {
+			if (!ctx) return;
+			const cs = getComputedStyle(document.documentElement);
+			const ink = cs.getPropertyValue("--color-ink").trim() || "#1a1a17";
+			const accent = cs.getPropertyValue("--color-accent").trim() || "#7a1f1f";
+			const faint = cs.getPropertyValue("--color-ink-faint").trim() || "#9d9a8c";
+
+			const w = cssW;
+			const h = cssH;
+			const base = h - 16;
+			const amp = base - 12;
+			const yOf = (i: number): number => base - (Math.min(u[i] ?? 0, 2.2) / 2.2) * amp;
+			ctx.clearRect(0, 0, w, h);
+
+			// baseline (hairline)
+			ctx.strokeStyle = hexToRgba(faint, 0.5);
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.moveTo(0, base + 0.5);
+			ctx.lineTo(w, base + 0.5);
+			ctx.stroke();
+
+			// ink-wash fill under the curve
+			ctx.beginPath();
+			ctx.moveTo(0, base);
+			for (let i = 0; i < N; i++) ctx.lineTo((i / (N - 1)) * w, yOf(i));
+			ctx.lineTo(w, base);
+			ctx.closePath();
+			const grad = ctx.createLinearGradient(0, 0, 0, base);
+			grad.addColorStop(0, hexToRgba(ink, 0.16));
+			grad.addColorStop(1, hexToRgba(ink, 0));
+			ctx.fillStyle = grad;
+			ctx.fill();
+
+			// crisp trace
+			ctx.strokeStyle = ink;
+			ctx.lineWidth = 1.6;
+			ctx.lineJoin = "round";
+			ctx.beginPath();
+			for (let i = 0; i < N; i++) {
+				const x = (i / (N - 1)) * w;
+				const y = yOf(i);
+				if (i === 0) ctx.moveTo(x, y);
+				else ctx.lineTo(x, y);
+			}
+			ctx.stroke();
+
+			// running mean (oxblood, dashed)
+			let mean = 0;
+			for (let i = 0; i < N; i++) mean += u[i] ?? 0;
+			mean /= N;
+			const my = base - (Math.min(mean, 2.2) / 2.2) * amp;
+			ctx.strokeStyle = accent;
+			ctx.setLineDash([4, 5]);
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.moveTo(0, my);
+			ctx.lineTo(w, my);
+			ctx.stroke();
+			ctx.setLineDash([]);
+		}
+
+		let raf = 0;
+		const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const loop = (): void => {
+			for (let i = 0; i < 3; i++) step();
+			draw();
+			if (!reduced) raf = requestAnimationFrame(loop);
+		};
+
+		sizeCanvas();
+		window.addEventListener("resize", sizeCanvas, { passive: true });
+
+		const io = new IntersectionObserver((entries) => {
+			for (const e of entries) {
+				cancelAnimationFrame(raf);
+				if (e.isIntersecting) loop();
+			}
+		});
+		io.observe(cv);
+		draw(); // paint the seeded field immediately
+	}
+
+	initDiffusion();
+	document.addEventListener("astro:page-load", initDiffusion);
+</script>

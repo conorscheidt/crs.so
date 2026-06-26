@@ -1,0 +1,13 @@
+{
+	// Optional custom-event sink, deployed separately (not part of the static site
+	// builds). Receives JSON events from shared/scripts/analytics.ts `track()` and
+	// writes them to a Workers Analytics Engine dataset. Inert until you deploy it
+	// and point PUBLIC_ANALYTICS_URL at its URL.
+	//   bun x wrangler deploy --config workers/analytics/wrangler.jsonc
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "crsche-analytics",
+	"main": "index.ts",
+	"compatibility_date": "2026-06-19",
+	"observability": { "enabled": true },
+	"analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "crsche_events" }]
+}

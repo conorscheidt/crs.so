@@ -1,0 +1,6 @@
+# Redirects
+/github https://github.com/crsche 301
+/linkedin https://linkedin.com/in/crsche 301
+# Blog lives on its own subdomain
+/blog https://blog.crsche.com/ 301
+/blog/* https://blog.crsche.com/:splat 301

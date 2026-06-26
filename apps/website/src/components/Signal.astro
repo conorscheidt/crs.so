@@ -1,0 +1,81 @@
+---
+import { getCollection } from "astro:content";
+import { formatDate, GIT_STATS, RECENT_COMMITS, SITE_CONFIG } from "@shared/config";
+
+const posts = (await getCollection("blog")).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+const latest = posts[0];
+const blogUrl = SITE_CONFIG.urls.blog;
+---
+
+<section class="reveal" data-lift>
+	<header class="mb-6 flex items-baseline justify-between gap-4 border-t border-rule pt-3">
+		<h2 class="sec-label"><span class="sec-num">§1</span>&ensp;Activity</h2>
+		<a href="https://github.com/crsche" class="link text-[14px]">github.com/crsche</a>
+	</header>
+
+	<div class="grid grid-cols-1 gap-x-10 gap-y-8 md:grid-cols-3">
+		<!-- counts + languages -->
+		<div>
+			<div class="flex items-baseline gap-6">
+				<div>
+					<div class="display text-4xl text-ink tabular-nums" data-tick-target={GIT_STATS.repos}>{GIT_STATS.repos}</div>
+					<div class="meta mt-1">repositories</div>
+				</div>
+				<div>
+					<div class="display text-4xl text-ink tabular-nums" data-tick-target={GIT_STATS.commitsYtd}>{GIT_STATS.commitsYtd.toLocaleString("en-US")}</div>
+					<div class="meta mt-1">commits / yr</div>
+				</div>
+			</div>
+			<div class="mt-5">
+				<div class="flex h-1 gap-px overflow-hidden">
+					{GIT_STATS.languages.map((l) => (
+						<div style={`width:${l.pct}%; background:var(--color-ink); opacity:${0.25 + l.pct / 60}`}></div>
+					))}
+				</div>
+				<div class="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">
+					{GIT_STATS.languages.slice(0, 5).map((l) => (
+						<span class="meta">{l.name} {l.pct}</span>
+					))}
+				</div>
+			</div>
+		</div>
+
+		<!-- recent commits -->
+		<div class="md:border-l md:border-rule-soft md:pl-8">
+			<div class="meta mb-3">recent commits</div>
+			<ul class="mono text-[12.5px]">
+				{RECENT_COMMITS.map((c) => (
+					<li class="border-b border-rule-soft py-2 last:border-0">
+						<a href={SITE_CONFIG.urls.git} class="group flex items-baseline gap-2.5">
+							<span class="text-accent">{c.hash}</span>
+							<span class="truncate text-ink-soft transition-colors group-hover:text-ink">{c.message}</span>
+						</a>
+					</li>
+				))}
+			</ul>
+		</div>
+
+		<!-- latest writing -->
+		<div class="md:border-l md:border-rule-soft md:pl-8">
+			<div class="meta mb-3 flex items-baseline justify-between">
+				<span>latest note</span>
+				<a href={blogUrl} class="link">all ↗</a>
+			</div>
+			{latest ? (
+				<a href={`${blogUrl}/${latest.id}/`} class="group block">
+					<div class="meta mb-2">{formatDate(latest.data.pubDate)}</div>
+					<h3 class="display text-xl leading-snug text-ink transition-colors group-hover:text-accent">
+						{latest.data.title}
+					</h3>
+					<p class="mt-2 line-clamp-3 text-[14px] leading-relaxed text-ink-soft">
+						{latest.data.description}
+					</p>
+				</a>
+			) : (
+				<p class="text-[14px] text-ink-muted italic">Notes coming soon.</p>
+			)}
+		</div>
+	</div>
+</section>

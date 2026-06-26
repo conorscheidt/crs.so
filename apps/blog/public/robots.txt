@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://blog.crsche.com/sitemap-index.xml

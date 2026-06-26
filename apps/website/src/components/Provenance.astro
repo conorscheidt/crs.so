@@ -1,0 +1,24 @@
+---
+import { EDUCATION } from "@shared/config";
+---
+
+<section class="reveal" data-lift>
+	<header class="mb-6 flex items-baseline justify-between gap-4 border-t border-rule pt-3">
+		<h2 class="sec-label"><span class="sec-num">§4</span>&ensp;Education</h2>
+		<span class="meta">2021 — 2029</span>
+	</header>
+
+	<dl class="grid grid-cols-1 gap-x-10 gap-y-5 md:grid-cols-2">
+		{
+			EDUCATION.map((e) => (
+				<div class="flex items-baseline justify-between gap-6 border-b border-rule-soft pb-4">
+					<div>
+						<dt class="display text-xl text-ink">{e.school}</dt>
+						<dd class="cm mt-1 text-[15px] italic text-ink-muted">{e.degree}</dd>
+					</div>
+					<span class="meta shrink-0 pt-1">{e.period}</span>
+				</div>
+			))
+		}
+	</dl>
+</section>

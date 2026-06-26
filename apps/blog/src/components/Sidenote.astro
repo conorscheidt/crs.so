@@ -1,0 +1,12 @@
+---
+/** Tufte-style margin note — floats into the right margin on wide screens. */
+interface Props {
+	n?: number | string;
+}
+const { n } = Astro.props;
+---
+
+<span class="sidenote">
+	{n != null && <span class="sidenote-num">{n}</span>}
+	<slot />
+</span>

@@ -1,0 +1,28 @@
+---
+import { EXPERIENCE } from "@shared/config";
+---
+
+<section class="reveal" data-lift>
+	<header class="mb-6 flex items-baseline justify-between gap-4 border-t border-rule pt-3">
+		<h2 class="sec-label"><span class="sec-num">§2</span>&ensp;Experience</h2>
+		<span class="meta">2023 — now</span>
+	</header>
+
+	<ol>
+		{
+			EXPERIENCE.map((item) => (
+				<li class="grid grid-cols-1 gap-x-10 gap-y-1.5 border-b border-rule-soft py-6 last:border-0 md:grid-cols-[9rem_1fr_auto]">
+					<div class="meta pt-2">{item.period}</div>
+					<div>
+						<h3 class="display text-xl text-ink md:text-2xl">
+							{item.role}
+							<span class="cm ml-1 text-base italic text-ink-muted md:text-lg">— {item.org}</span>
+						</h3>
+						<p class="mt-2.5 max-w-[72ch] text-[15px] leading-relaxed text-ink-soft">{item.desc}</p>
+					</div>
+					<div class="cm pt-2 text-lg text-accent tabular-nums md:text-right">{item.metric}</div>
+				</li>
+			))
+		}
+	</ol>
+</section>

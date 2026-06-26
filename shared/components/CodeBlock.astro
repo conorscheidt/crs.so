@@ -1,0 +1,233 @@
+---
+interface Props {
+	language: string;
+	label: string;
+	code: string;
+	runnable?: boolean;
+	grammar?: string;
+	n?: number;
+}
+const { language, label, code, runnable = false, grammar, n = 1 } = Astro.props;
+const lang = grammar ?? language;
+const trimmed = code.replace(/\n+$/, "");
+---
+
+<figure
+	class="codeblock border border-rule bg-paper-2"
+	data-lang={lang}
+	data-runnable={runnable ? "true" : "false"}
+>
+	<figcaption class="flex items-center justify-between border-b border-rule-soft px-4 py-2.5">
+		<span class="meta">
+			Listing&thinsp;{n} — {label} ·
+			<span class="text-ink-muted">{runnable ? "editable" : "read-only"}</span>
+		</span>
+		{
+			runnable && (
+				<button
+					type="button"
+					class="run-btn meta flex cursor-pointer items-center gap-1.5 border border-accent px-3 py-1 text-accent transition-colors duration-200 hover:bg-accent hover:text-paper"
+				>
+					<svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<path d="M5 3l14 9-14 9V3z" />
+					</svg>
+					RUN
+				</button>
+			)
+		}
+	</figcaption>
+
+	<div class="cm-mount"></div>
+	<pre class="cm-src" hidden>{trimmed}</pre>
+
+	{
+		runnable && (
+			<div class="output-wrap border-t border-rule-soft bg-paper-3">
+				<div class="output-head meta flex items-center justify-between px-4 py-2">
+					<span class="output-label">output</span>
+					<span class="run-meta" />
+				</div>
+				<pre class="output whitespace-pre-wrap px-4 pb-3 font-mono text-[12.5px] leading-relaxed"><span class="out-none">ready</span></pre>
+			</div>
+		)
+	}
+</figure>
+
+<style is:global>
+	.codeblock .cm-mount .cm-editor {
+		max-height: 340px;
+	}
+	.codeblock .cm-scroller {
+		font-family: var(--font-mono);
+	}
+	.codeblock .output {
+		font-feature-settings: "calt" 1, "liga" 1;
+		margin: 0;
+	}
+	.codeblock .output-label {
+		color: var(--color-ink-faint);
+		letter-spacing: 0.06em;
+	}
+	.codeblock .out-stdout {
+		color: var(--color-ink-soft);
+	}
+	.codeblock .out-stderr {
+		display: block;
+		margin-top: 0.4em;
+		padding-left: 0.7em;
+		border-left: 2px solid var(--color-accent);
+		color: var(--color-accent);
+	}
+	.codeblock .out-none {
+		color: var(--color-ink-faint);
+		font-style: italic;
+	}
+	.codeblock .out-loading {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55em;
+		color: var(--color-ink-muted);
+		font-style: italic;
+	}
+	.codeblock .out-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 9999px;
+		background: var(--color-accent);
+		animation: out-pulse 1.1s ease-in-out infinite;
+	}
+	@keyframes out-pulse {
+		0%, 100% { opacity: 1; transform: scale(1); }
+		50% { opacity: 0.3; transform: scale(0.7); }
+	}
+	.codeblock .run-pill {
+		font-variant-numeric: tabular-nums;
+		padding: 0.1em 0.5em;
+		border-radius: 3px;
+		border: 1px solid var(--color-rule);
+	}
+	.codeblock .run-pill.ok {
+		color: var(--color-ink-muted);
+	}
+	.codeblock .run-pill.err {
+		color: var(--color-accent);
+		border-color: color-mix(in oklab, var(--color-accent) 40%, transparent);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.codeblock .out-dot { animation: none; }
+	}
+</style>
+
+<script>
+	import { mountEditor } from "../scripts/playground/editor";
+	import { RUNNABLE, run, warmCpp, warmLight } from "../scripts/playground/runner";
+
+	// First run shows a one-time size notice; later runs don't. If a post has a
+	// C/C++ or wat block we precompile the toolchain at idle right after load (in
+	// its own worker, off the main thread → no jank), so the first Run is instant.
+	// Caching: the gzipped binaries persist via the Cache
+	// API and the compiled wasm modules via IndexedDB → repeat visits skip both
+	// download and recompile. (The old emception eager-warm pinned the CPU; the
+	// vendored clang worker idles cleanly, so warming is safe now.)
+	const HEAVY = new Set(["c", "cpp", "c++"]);
+	const LIGHT_WAT = new Set(["wat", "wasm", "asm"]);
+	let toolchainLoaded = false;
+	let lightWarmed = false;
+	let cppWarmed = false;
+
+	function idle(fn: () => void, timeout: number): void {
+		if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout });
+		else setTimeout(fn, timeout / 2);
+	}
+
+	function initCodeBlocks(): void {
+		for (const fig of document.querySelectorAll<HTMLElement>(".codeblock:not([data-wired])")) {
+			fig.dataset.wired = "true";
+			const lang = fig.dataset.lang ?? "text";
+			const runnable = fig.dataset.runnable === "true";
+			const src = fig.querySelector<HTMLElement>(".cm-src")?.textContent ?? "";
+			const mount = fig.querySelector<HTMLElement>(".cm-mount");
+			fig.querySelector(".cm-src")?.remove();
+			if (!mount) continue;
+
+			const editor = mountEditor(mount, { code: src, lang, readOnly: !runnable });
+			if (!runnable) continue;
+
+			const btn = fig.querySelector<HTMLButtonElement>(".run-btn");
+			const outWrap = fig.querySelector<HTMLElement>(".output-wrap");
+			const out = fig.querySelector<HTMLElement>(".output");
+			const runMeta = fig.querySelector<HTMLElement>(".run-meta");
+			if (!btn || !outWrap || !out) continue;
+
+			// Precompile at idle so the first Run is instant (once per session each).
+			if (LIGHT_WAT.has(lang) && !lightWarmed) {
+				lightWarmed = true;
+				idle(warmLight, 2000);
+			}
+			if (HEAVY.has(lang) && !cppWarmed) {
+				cppWarmed = true;
+				idle(warmCpp, 3000);
+			}
+
+			btn.addEventListener("click", async (ev) => {
+				ev.preventDefault();
+				if (!RUNNABLE.has(lang) || btn.dataset.busy) return;
+				const heavyFirst = HEAVY.has(lang) && !toolchainLoaded;
+				// loading state: a pulsing dot + message, no stale pill
+				out.replaceChildren();
+				const status = document.createElement("span");
+				status.className = "out-loading";
+				status.innerHTML = `<i class="out-dot"></i>${heavyFirst ? "compiling clang…" : "running…"}`;
+				out.appendChild(status);
+				if (runMeta) runMeta.replaceChildren();
+				// mark busy without disabling: disabling the focused button moves focus to
+				// <body>, which can scroll the page; a flag + pointer-events avoids that
+				btn.dataset.busy = "true";
+				btn.setAttribute("aria-busy", "true");
+				btn.style.pointerEvents = "none";
+
+				// C/C++ compile runs in its own worker now → main thread + field stay
+				// fully responsive in parallel, no need to pause anything
+				const r = await run(lang, editor.getValue());
+				if (HEAVY.has(lang) && r.ok) toolchainLoaded = true;
+
+				out.replaceChildren();
+				if (r.stdout) {
+					const s = document.createElement("span");
+					s.className = "out-stdout";
+					s.textContent = r.stdout.replace(/\n$/, "");
+					out.appendChild(s);
+				}
+				if (r.stderr) {
+					const e = document.createElement("span");
+					e.className = "out-stderr";
+					e.textContent = r.stderr.replace(/\n$/, "");
+					out.appendChild(e);
+				}
+				if (!r.stdout && !r.stderr) {
+					const none = document.createElement("span");
+					none.className = "out-none";
+					none.textContent = "no output";
+					out.appendChild(none);
+				}
+				if (runMeta) {
+					const pill = document.createElement("span");
+					pill.className = `run-pill ${r.ok ? "ok" : "err"}`;
+					pill.textContent = `exit ${r.ok ? 0 : 1} · ${r.ms} ms`;
+					runMeta.replaceChildren(pill);
+				}
+				delete btn.dataset.busy;
+				btn.removeAttribute("aria-busy");
+				btn.style.pointerEvents = "";
+			});
+		}
+
+		// NOTE: no eager toolchain warm. emception's worker pool stays alive spinning
+		// once booted, pinning the CPU and dropping the page to ~2fps for the whole
+		// session, far worse than a slow first Run. The toolchain boots on the first
+		// explicit Run instead.
+	}
+
+	initCodeBlocks();
+	document.addEventListener("astro:page-load", initCodeBlocks);
+</script>

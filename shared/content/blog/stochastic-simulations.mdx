@@ -1,0 +1,134 @@
+---
+title: "Vectorized Kernels for HPC Stochastic Simulations"
+description: "Cutting wall-clock by 80% on stochastic chemistry models — SoA layouts, SIMD, and a GPU compute pipeline, with code you can run."
+pubDate: "2024-06-15"
+tags: ["webgpu", "hpc", "math", "rust"]
+---
+
+import CodeBlock from '../../components/CodeBlock.astro';
+import Fig from '../../components/Figure.astro';
+import { barChart, pipeline } from '../../scripts/figures/presets';
+import Scrolly from '../../components/Scrolly.astro';
+import Step from '../../components/Step.astro';
+import InteractiveDiagram from '../../../apps/blog/src/components/InteractiveDiagram.astro';
+import DiffusionDemo from '../../../apps/blog/src/components/DiffusionDemo.astro';
+import Sidenote from '../../../apps/blog/src/components/Sidenote.astro';
+
+Building the stochastic chemistry simulators at the Gingrich Group, we hit a hard
+ceiling with single-threaded execution. Restructuring the update kernels for SIMD
+and migrating the hot loop to a [[gpu]]GPU compute pipeline[[/]] cut
+wall-clock time by **80%** across a parameter sweep of $10^8$ concurrent
+timesteps.<Sidenote n="1">A "timestep" here is one Euler–Maruyama update of the full reaction field — cheap individually, brutal at $10^8$.</Sidenote>
+
+The dynamics we model are the chemical master equation, reduced to a
+reaction–rate form:
+
+$$
+\frac{d[A]}{dt} = -k_1[A][B] + k_2[C]
+$$
+
+The bottleneck was never arithmetic — it was *memory layout*. A naive
+[[aos|One struct per particle: a particle's fields sit together, so a vector load straddles particles and must gather.]]array-of-structures[[/]] forces a gather on every lane; a
+[[soa|Each field in its own contiguous array, so a single aligned SIMD load fills a whole register.]]structure-of-arrays[[/]] makes the same loop trivially vectorizable.
+Hover either term — or the lane width $\htmlData{xref=soa}{w}$ in a packed load $[A]_{i\,\ldots\,i+w}$ — to light it up in the figure.
+
+<Fig n={1} caption="Memory layout: AoS scatters, SoA vectorizes" spec={{
+  type: "cells",
+  rows: [
+    { label: "Array of structures (AoS)", xref: "aos", cells: ["x₁","y₁","z₁","x₂","y₂","z₂","…"] },
+    { label: "Structure of arrays (SoA) — vectorizable", xref: "soa", accent: true, note: "← one SIMD register", cells: ["x₁","x₂","x₃","x₄"] },
+  ],
+}} />
+
+## The pipeline
+
+Each sweep streams through five stages — scroll to walk the dataflow; the figure
+tracks the stage you're reading.[^1]
+
+<Scrolly id="pipe">
+  <Fig slot="figure" n={2} caption="Sweep pipeline — the GPU does the integration" spec={pipeline([
+    { id: "seed", label: "Parameter seed", kind: "io" },
+    { id: "pack", label: "SoA pack", xref: "soa" },
+    { id: "gpu", label: "GPU compute", kind: "decision", xref: "gpu", loop: "integrate" },
+    { id: "reduce", label: "Reduce on host" },
+    { id: "obs", label: "Observables", kind: "io" },
+  ])} />
+  <Step i={0}>**Parameter seed.** A sweep begins on the CPU: a grid of rate constants and initial occupancies, one configuration per cell.</Step>
+  <Step i={1}>**SoA pack.** The configurations are repacked into a [[soa]]structure-of-arrays[[/]] so every field is one contiguous, vectorizable lane.</Step>
+  <Step i={2}>**GPU compute.** The hot loop moves to a [[gpu]]GPU compute pipeline[[/]] — each cell integrates independently, looping its Euler–Maruyama step thousands of times before it ever touches host memory.</Step>
+  <Step i={3}>**Reduce on host.** Finished lanes stream back; the CPU reduces them into running moments and histograms.</Step>
+  <Step i={4}>**Observables.** What survives is a handful of observables per sweep — the only thing we actually keep.</Step>
+</Scrolly>
+
+The payoff is stark once the integration moves off the CPU:
+
+<Fig n={3} caption="Wall-clock per sweep by implementation" spec={barChart([
+  ["naive", 100],
+  { x: "SIMD", y: 46, xref: "soa" },
+  { x: "GPU compute", y: 20, xref: "gpu", highlight: true },
+], { yLabel: "wall-clock (ms)", yUnit: "ms" })} />
+
+## The core kernel
+
+In Rust, the SoA kernel is a flat, branch-light loop — exactly what the
+autovectorizer wants.<Sidenote n="2">Rust can't be compiled in your browser without a server, so this listing is read-only. The C and WebAssembly blocks below genuinely compile client-side.</Sidenote>
+
+<CodeBlock language="rust" grammar="rust" label="Rust" n={1} code={`pub fn compute_rates(state: &[f32], rates: &mut [f32], k1: f32) {
+    // SoA: one contiguous lane, no gather
+    for (r, &s) in rates.iter_mut().zip(state) {
+        *r = if s >= 0.0 { k1 * s * (1.0 - s) } else { 0.0 };
+    }
+}`} />
+
+## Run it yourself
+
+The same logistic step in **C**, compiled to WebAssembly *in your browser* and run
+off the main thread. Edit it and press run.
+
+<CodeBlock language="c" label="C" runnable n={2} code={`#include <stdio.h>
+
+int main(void) {
+    float s = 0.02f, k = 3.9f;
+    for (int t = 0; t < 8; t++) {
+        s = k * s * (1.0f - s);          // logistic map — a 1-cell reaction
+        printf("t=%d  s=%.4f\\n", t, s);
+    }
+    return 0;
+}`} />
+
+You can go a level lower. Here is a hand-written **WebAssembly** module that prints
+the first integers — assembled and executed live.
+
+<CodeBlock language="wat" label="WebAssembly" runnable n={3} code={`(module
+  (import "env" "print" (func $print (param i32)))
+  (func (export "main")
+    (local $i i32)
+    (loop $l
+      (call $print (local.get $i))
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (br_if $l (i32.lt_s (local.get $i) (i32.const 6))))))`} />
+
+And the quick reductions we sketch in **JavaScript** before committing them to a
+kernel:
+
+<CodeBlock language="javascript" label="JavaScript" runnable n={4} code={`const sweep = Array.from({ length: 8 }, (_, t) => 0.02 * 2 ** t);
+const mean = sweep.reduce((a, b) => a + b, 0) / sweep.length;
+console.log("mean occupancy:", mean.toFixed(3));`} />
+
+## A live field
+
+The dynamics, running right now: a 1-D reaction–diffusion field driven by random
+injection events. Drag $k$ and watch it relax.
+
+<InteractiveDiagram caption="Fig. 4 — 1-D stochastic diffusion, live. Drag k to set the diffusion rate.">
+  <DiffusionDemo />
+</InteractiveDiagram>
+
+> The difference between a model that runs overnight and one that runs over lunch
+> is almost never the math. It is the layout.
+
+The full kernel architecture — including the WGSL compute shaders and the host-side
+reduction — is open-sourced on [GitHub](https://github.com/crsche).
+
+[^1]: Euler–Maruyama is first-order; we accepted the bias for throughput and
+corrected observables with a Richardson extrapolation across two step sizes.

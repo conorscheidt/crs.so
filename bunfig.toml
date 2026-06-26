@@ -1,0 +1,14 @@
+[run]
+# Use Bun runtime for scripts that support it. The `astro build` command
+# hangs under Bun due to Workerd subprocess management, but `astro dev`
+# works fine. Individual scripts opt out via node/npx or we can opt-in to Bun via bun --bun.
+# bun = true
+
+[install]
+# Enables pnpm-style isolated symlinks to prevent phantom dependencies.
+# Common root packages will be hoisted cleanly, but site-specific packages
+# will only be symlinked where they are explicitly declared.
+linker = "isolated"
+
+# Automatically link workspace packages to each other.
+linkWorkspacePackages = true
