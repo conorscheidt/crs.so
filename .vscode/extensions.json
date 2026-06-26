@@ -1,7 +1,0 @@
-{
-	"recommendations": [
-		"wgsl-analyzer.wgsl-analyzer",
-		"biomejs.biome",
-		"astro-build.astro-vscode"
-	]
-}

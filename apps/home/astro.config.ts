@@ -1,4 +1,6 @@
 import { fileURLToPath } from "node:url";
+// import { cloudflareStatic } from "../../shared/cloudflare-static";
+import cloudflare from "@astrojs/cloudflare";
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
@@ -7,7 +9,6 @@ import type { AstroUserConfig } from "astro";
 import { svgoOptimizer } from "astro/config";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
-import { cloudflareStatic } from "../../shared/cloudflare-static";
 import { fonts } from "../../shared/fonts";
 
 export default {
@@ -17,10 +18,10 @@ export default {
 	fonts,
 	build: {
 		// Single-page site: inline all CSS, zero render-blocking requests
-		inlineStylesheets: "always",
+		inlineStylesheets: "auto",
 	},
 	integrations: [sitemap(), mdx()],
-	adapter: cloudflareStatic(),
+	adapter: cloudflare(),
 	markdown: {
 		processor: unified({
 			remarkPlugins: [remarkMath],

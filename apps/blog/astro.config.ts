@@ -1,4 +1,6 @@
 import { fileURLToPath } from "node:url";
+// import { cloudflareStatic } from "../../shared/cloudflare-static";
+import cloudflare from "@astrojs/cloudflare";
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
@@ -8,7 +10,6 @@ import { svgoOptimizer } from "astro/config";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { cloudflareStatic } from "../../shared/cloudflare-static";
 import { fonts } from "../../shared/fonts";
 import { remarkXref } from "../../shared/remark-xref";
 import { paperShikiDark, paperShikiLight } from "../../shared/shiki-theme";
@@ -19,7 +20,7 @@ export default {
 	trailingSlash: "always",
 	fonts,
 	integrations: [sitemap(), mdx()],
-	adapter: cloudflareStatic(),
+	// adapter: cloudflare(),
 	vite: {
 		plugins: [tailwindcss()],
 		resolve: {

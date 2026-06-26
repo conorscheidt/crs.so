@@ -54,23 +54,84 @@ function build(name: string, type: "light" | "dark", c: Palette): ThemeRegistrat
 		fg: c.variable,
 		bg: c.bg,
 		settings: [
-			{ scope: ["comment", "punctuation.definition.comment"], settings: { foreground: c.comment, fontStyle: "italic" } },
 			{
-				scope: ["keyword", "storage.modifier", "keyword.control", "keyword.operator.new", "keyword.operator.expression", "storage.type.function.arrow"],
+				scope: ["comment", "punctuation.definition.comment"],
+				settings: { foreground: c.comment, fontStyle: "italic" },
+			},
+			{
+				scope: [
+					"keyword",
+					"storage.modifier",
+					"keyword.control",
+					"keyword.operator.new",
+					"keyword.operator.expression",
+					"storage.type.function.arrow",
+				],
 				settings: { foreground: c.keyword },
 			},
-			{ scope: ["constant.numeric", "constant.language.boolean", "constant.language", "constant.character.escape"], settings: { foreground: c.number } },
-			{ scope: ["string", "string.quoted", "string.template", "constant.character", "punctuation.definition.string"], settings: { foreground: c.string } },
 			{
-				scope: ["entity.name.type", "entity.name.class", "support.type", "support.class", "storage.type", "entity.name.namespace", "entity.other.inherited-class"],
+				scope: [
+					"constant.numeric",
+					"constant.language.boolean",
+					"constant.language",
+					"constant.character.escape",
+				],
+				settings: { foreground: c.number },
+			},
+			{
+				scope: [
+					"string",
+					"string.quoted",
+					"string.template",
+					"constant.character",
+					"punctuation.definition.string",
+				],
+				settings: { foreground: c.string },
+			},
+			{
+				scope: [
+					"entity.name.type",
+					"entity.name.class",
+					"support.type",
+					"support.class",
+					"storage.type",
+					"entity.name.namespace",
+					"entity.other.inherited-class",
+				],
 				settings: { foreground: c.type, fontStyle: "italic" },
 			},
-			{ scope: ["entity.name.function", "support.function", "meta.function-call.generic", "entity.name.function.preprocessor"], settings: { foreground: c.func } },
 			{
-				scope: ["variable", "variable.other", "entity.name.variable", "support.variable", "meta.definition.variable", "variable.parameter", "meta.object-literal.key"],
+				scope: [
+					"entity.name.function",
+					"support.function",
+					"meta.function-call.generic",
+					"entity.name.function.preprocessor",
+				],
+				settings: { foreground: c.func },
+			},
+			{
+				scope: [
+					"variable",
+					"variable.other",
+					"entity.name.variable",
+					"support.variable",
+					"meta.definition.variable",
+					"variable.parameter",
+					"meta.object-literal.key",
+				],
 				settings: { foreground: c.variable },
 			},
-			{ scope: ["punctuation", "keyword.operator", "meta.brace", "punctuation.separator", "punctuation.terminator", "punctuation.accessor"], settings: { foreground: c.punct } },
+			{
+				scope: [
+					"punctuation",
+					"keyword.operator",
+					"meta.brace",
+					"punctuation.separator",
+					"punctuation.terminator",
+					"punctuation.accessor",
+				],
+				settings: { foreground: c.punct },
+			},
 		],
 	};
 }
