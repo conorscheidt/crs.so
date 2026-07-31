@@ -53,6 +53,6 @@ export function initCursor(clock: Clock): void {
 		const k = Math.min(1, dt * 22);
 		x += (tx - x) * k;
 		y += (ty - y) * k;
-		ring.style.transform = `translate3d(${x - MOTION.cursorR}px, ${y - MOTION.cursorR}px, 0)`;
+		ring.style.translate = `${x - MOTION.cursorR}px ${y - MOTION.cursorR}px`;
 	});
 }
