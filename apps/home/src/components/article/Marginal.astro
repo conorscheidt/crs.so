@@ -1,10 +1,16 @@
 ---
 /**
- * Marginal note: a remark in the right rail, tied to its paragraph by a
- * hairline and highlighted when the paragraph is hovered. Separate from
- * footnotes, which hold references. The client script positions it beside its
- * anchor; on narrow viewports it renders inline.
+ * Marginal note: wraps the exact phrase it remarks on. The phrase carries a
+ * small ring marker, distinct from footnote numerals, and the note sits in the
+ * right rail on that phrase's line, hover-synced both ways. Narrow viewports
+ * render it as an inline aside instead.
  */
+type Props = { note: string };
+const { note } = Astro.props;
 ---
 
-<aside class="mnote" data-mnote><slot /></aside>
+<span class="manchor" data-manchor
+	><slot /><sup class="mmark" aria-hidden="true">∘</sup><span class="mnote" data-mnote hidden
+		>{note}</span
+	></span
+>

@@ -48,9 +48,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 				latest && (
 					<div class="latest">
 						<p class="ptitle">Latest</p>
-						<a class="latest-title" href={`/writing/${latest.id}`}>
-							<span style={`view-transition-name: post-${latest.id}`}>{latest.data.title}</span>
-						</a>
+						<a class="latest-title" href={`/writing/${latest.id}`}>{latest.data.title}</a>
 						<p class="entry-meta">
 							{fmt(latest.data.date)} · {latest.data.minutes} min
 						</p>
@@ -121,9 +119,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 					{
 						posts.map((post) => (
 							<article class="entry" data-id={`post:${post.id}`} data-ts={String(post.data.date.valueOf())} data-tags={post.data.tags?.join(" ")}>
-								<a class="entry-title" href={`/writing/${post.id}`}>
-									<span style={`view-transition-name: post-${post.id}`}>{post.data.title}</span>
-								</a>
+								<a class="entry-title" href={`/writing/${post.id}`}>{post.data.title}</a>
 								<p class="entry-meta">
 									{fmt(post.data.date)} · {post.data.minutes} min
 								</p>

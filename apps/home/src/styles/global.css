@@ -132,7 +132,7 @@ html.no-native-cursor textarea {
 	z-index: 99;
 	pointer-events: none;
 	transition:
-		scale 180ms ease,
+		scale 260ms cubic-bezier(0.34, 1.56, 0.4, 1),
 		opacity 180ms ease;
 	scale: 1;
 }
@@ -352,6 +352,16 @@ html.no-native-cursor textarea {
 	color: var(--ink);
 }
 
+.search input::-webkit-search-cancel-button,
+.search input::-webkit-search-decoration {
+	display: none;
+	-webkit-appearance: none;
+}
+
+.search input {
+	caret-color: var(--ink);
+}
+
 .search input::placeholder {
 	font-style: italic;
 	letter-spacing: 0.03em;
@@ -450,6 +460,9 @@ a.entry-title:hover {
 }
 
 .chips .chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	font-family: var(--font-text);
 	font-weight: 300;
 	font-size: 11px;
@@ -457,10 +470,27 @@ a.entry-title:hover {
 	color: var(--ink);
 	border: 1px solid var(--ink-45);
 	border-radius: 999px;
-	padding: 1px 9px;
+	padding: 1px 8px 1px 9px;
 	background: none;
 	cursor: pointer;
 	white-space: nowrap;
+	transition: border-color 120ms ease;
+}
+
+.chips .chip i {
+	font-style: normal;
+	font-size: 12px;
+	line-height: 1;
+	color: var(--ink-45);
+	transition: color 120ms ease;
+}
+
+.chips .chip:hover {
+	border-color: var(--ink);
+}
+
+.chips .chip:hover i {
+	color: var(--ink);
 }
 
 .entry[hidden] {
@@ -473,18 +503,21 @@ a.entry-title:hover {
 
 .autoc {
 	position: absolute;
-	left: 0;
-	right: 0;
-	top: 100%;
+	left: -2px;
+	right: -2px;
+	top: calc(100% + 1px);
 	background: var(--paper);
 	border: 1px solid var(--rule);
-	border-top: 0;
 	z-index: 5;
 	display: flex;
 	flex-direction: column;
+	padding: 3px;
 }
 
 .autoc button {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
 	font-family: var(--font-text);
 	font-weight: 300;
 	font-size: 12.5px;
@@ -493,13 +526,20 @@ a.entry-title:hover {
 	text-align: left;
 	background: none;
 	border: 0;
-	padding: 6px 10px;
+	padding: 5px 9px;
 	cursor: pointer;
+	transition: color 100ms ease;
+}
+
+.autoc button em {
+	font-style: normal;
+	color: var(--ink-45);
+	font-size: 11px;
 }
 
 .autoc button.on,
 .autoc button:hover {
-	background: var(--paper-deep);
+	background: color-mix(in srgb, var(--ink) 6%, transparent);
 	color: var(--ink);
 }
 

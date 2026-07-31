@@ -16,7 +16,11 @@ export default {
 	integrations: [mdx(), sitemap()],
 	markdown: {
 		remarkPlugins: [remarkMath],
-		rehypePlugins: [rehypeKatex],
+		// \htmlClass only — lets equations tag single variables for tandem
+		// hover with prose readouts and figure parts.
+		rehypePlugins: [
+			[rehypeKatex, { trust: (c: { command: string }) => c.command === "\\htmlClass" }],
+		],
 	},
 	vite: {
 		resolve: {

@@ -14,7 +14,7 @@ export const MOTION = {
 	 * Cursor ring radius == sim dimple radius, in CSS px.
 	 * The GPU uniform receives cursorR × devicePixelRatio.
 	 */
-	cursorR: 13,
+	cursorR: 10,
 	/** Lenis wheel smoothing (good range 0.16–0.22, tested on a trackpad). */
 	scrollLerp: 0.18,
 	/** Micro-interaction tokens (ms). */

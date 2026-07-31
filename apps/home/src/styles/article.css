@@ -112,6 +112,20 @@
 	color: var(--ink-45);
 }
 
+.atags {
+	margin-top: var(--s2);
+}
+
+.atags i {
+	font-style: normal;
+	font-size: 10.5px;
+	letter-spacing: 0.06em;
+	color: var(--ink-45);
+	border: 1px solid var(--rule);
+	border-radius: 999px;
+	padding: 1px 8px;
+}
+
 .prose {
 	margin-top: var(--s4);
 	font-size: 16.5px;
@@ -274,6 +288,26 @@
 		border-color 160ms ease;
 }
 
+/* the anchored phrase gets a small ring marker: footnotes are numerals,
+   margin notes are rings, so the two never collide */
+.mmark {
+	font-style: normal;
+	color: var(--ink-45);
+	font-size: 0.75em;
+	margin-left: 1px;
+	transition: color 160ms ease;
+}
+
+.manchor:hover .mmark,
+.manchor.mlit .mmark {
+	color: var(--ink);
+}
+
+.mnote-inline {
+	display: block;
+	margin: var(--s1) 0 var(--s2) var(--s3);
+}
+
 .arail-r .mnote {
 	position: absolute;
 	width: 180px;
@@ -341,6 +375,21 @@
 	margin: var(--s3) 0;
 	border: 1px solid var(--rule);
 	background: var(--paper-deep);
+	position: relative;
+}
+
+/* static blocks: no chrome, just a corner watermark with the language */
+.codeblk.static .langmark {
+	position: absolute;
+	top: 6px;
+	right: 10px;
+	font-family: var(--font-mark);
+	font-size: 9.5px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--ink-45);
+	opacity: 0.7;
+	pointer-events: none;
 }
 
 .codehead {
@@ -364,20 +413,35 @@
 .codehead .run {
 	margin-left: auto;
 	background: none;
-	border: 0;
-	font: inherit;
-	letter-spacing: 0.08em;
+	border: 1px solid var(--rule);
+	border-radius: 50%;
+	width: 22px;
+	height: 22px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 0 0 2px;
+	font-size: 9px;
 	color: var(--ink-70);
 	cursor: pointer;
-	transition: color 120ms ease;
+	transition:
+		color 120ms ease,
+		border-color 120ms ease;
 }
 
 .codehead .run:hover {
 	color: var(--ink);
+	border-color: var(--ink-45);
 }
 
 .codehead .run:disabled {
-	opacity: 0.4;
+	animation: runbreath 900ms ease-in-out infinite;
+}
+
+@keyframes runbreath {
+	50% {
+		opacity: 0.3;
+	}
 }
 
 .codemount .cm-editor {

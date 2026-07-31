@@ -44,11 +44,20 @@ const date = post.data.date.toLocaleDateString("en-US", {
 
 		<article class="aprose" data-prose>
 			<header class="ahead">
-				<h1 class="press" style={`view-transition-name: post-${post.id}`}>{post.data.title}</h1>
+				<h1 class="press">{post.data.title}</h1>
 				<p class="ameta">
 					{date} · {post.data.minutes} min read
 					{post.data.sample && <span> · sample</span>}
 				</p>
+				{
+					post.data.tags.length > 0 && (
+						<div class="tags atags">
+							{post.data.tags.map((t) => (
+								<i>{t}</i>
+							))}
+						</div>
+					)
+				}
 			</header>
 			<div class="prose">
 				<Content />

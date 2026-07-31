@@ -24,6 +24,10 @@ export function initToc(): void {
 		for (const [i, h] of heads.entries()) {
 			if (h.getBoundingClientRect().top < innerHeight * 0.33) active = i;
 		}
+		// short last sections never cross the threshold — the page bottom wins
+		if (scrollY + innerHeight >= document.documentElement.scrollHeight - 4) {
+			active = heads.length - 1;
+		}
 		for (const [i, a] of links.entries()) {
 			a.classList.toggle("on", i === active);
 			if (i === active) a.setAttribute("aria-current", "true");
@@ -69,13 +73,19 @@ export function initMarginals(): void {
 	const rail = document.querySelector<HTMLElement>("[data-mrail]");
 	const prose = document.querySelector<HTMLElement>("[data-prose]");
 	if (!(rail && prose)) return;
-	const wide = matchMedia("(min-width: 1080px)");
-	for (const note of document.querySelectorAll<HTMLElement>("[data-mnote]")) {
-		const anchor = note.previousElementSibling as HTMLElement | null;
-		if (!(anchor && wide.matches)) continue;
+	const wide = matchMedia("(min-width: 1080px)").matches;
+	for (const anchor of document.querySelectorAll<HTMLElement>("[data-manchor]")) {
+		const note = anchor.querySelector<HTMLElement>("[data-mnote]");
+		if (!note) continue;
+		note.hidden = false;
+		if (!wide) {
+			// narrow: quiet inline aside directly after the anchored phrase
+			note.classList.add("mnote-inline");
+			continue;
+		}
 		rail.appendChild(note);
 		const place = (): void => {
-			note.style.top = `${anchor.getBoundingClientRect().top - prose.getBoundingClientRect().top}px`;
+			note.style.top = `${anchor.getBoundingClientRect().top + scrollY - (prose.getBoundingClientRect().top + scrollY)}px`;
 		};
 		place();
 		new ResizeObserver(place).observe(prose);
@@ -93,7 +103,9 @@ export function initFigures(): void {
 		const factory = FIGURES[kind];
 		if (!(canvas && factory)) continue;
 		const figId = root.dataset.figRoot ?? "";
-		const binds = document.querySelectorAll<HTMLElement>(`[data-bind][data-fig="${figId}"]`);
+		const binds = document.querySelectorAll<HTMLElement>(
+			`[data-bind][data-fig="${figId}"], [class*="vbind-${figId}-"]`,
+		);
 		const impl: FigureImpl = factory(canvas, {
 			onParams(params) {
 				for (const b of binds) {
