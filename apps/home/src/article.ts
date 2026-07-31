@@ -4,6 +4,7 @@
  * ClientRouter.
  */
 import Lenis from "lenis";
+import { initArticleFeatures } from "./article-features";
 import { Clock } from "./clock";
 import { initCursor } from "./cursor";
 import { MOTION } from "./motion";
@@ -20,3 +21,5 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
 	});
 	clock.subscribe((t) => lenis.raf(t));
 }
+
+initArticleFeatures();

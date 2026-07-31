@@ -114,10 +114,11 @@ interface Req {
 	src?: string;
 	cpp?: boolean;
 	warm?: boolean;
+	stdin?: string;
 }
 
 self.onmessage = async (e: MessageEvent<Req>): Promise<void> => {
-	const { id, src, cpp, warm } = e.data;
+	const { id, src, cpp, warm, stdin } = e.data;
 	const t0 = performance.now();
 
 	if (warm) {
@@ -137,7 +138,9 @@ self.onmessage = async (e: MessageEvent<Req>): Promise<void> => {
 	let ok = true;
 	let errMsg = "";
 	try {
-		await ensureDriver().compileLinkRun(src ?? "", !!cpp);
+		const d = ensureDriver();
+		d.setStdin(stdin ?? "");
+		await d.compileLinkRun(src ?? "", !!cpp);
 	} catch (err) {
 		ok = false;
 		errMsg = err instanceof Error ? err.message : String(err);

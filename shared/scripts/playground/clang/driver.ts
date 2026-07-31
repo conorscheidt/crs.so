@@ -97,6 +97,11 @@ class MemFS {
 	hostWrite: (s: string) => void;
 	stdinStr = "";
 	stdinStrPos = 0;
+
+	setStdin(text: string): void {
+		this.stdinStr = text;
+		this.stdinStrPos = 0;
+	}
 	hostMem_: Memory | null = null;
 	// biome-ignore lint/suspicious/noExplicitAny: wasm exports are untyped
 	exports!: any;
@@ -382,6 +387,10 @@ export interface DriverOpts {
 export class ClangDriver {
 	private moduleCache: Record<string, WebAssembly.Module> = {};
 	private memfs: MemFS;
+
+	setStdin(text: string): void {
+		this.memfs.setStdin(text);
+	}
 	private ready: Promise<void>;
 	private readonly common = [
 		"-disable-free",

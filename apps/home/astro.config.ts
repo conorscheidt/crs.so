@@ -1,7 +1,10 @@
 import { fileURLToPath } from "node:url";
+import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import type { AstroUserConfig } from "astro";
 import { svgoOptimizer } from "astro/config";
+import rehypeKatex from "rehype-katex";
+import remarkMath from "remark-math";
 
 export default {
 	site: "https://crs.so",
@@ -10,7 +13,11 @@ export default {
 	build: {
 		inlineStylesheets: "auto",
 	},
-	integrations: [sitemap()],
+	integrations: [mdx(), sitemap()],
+	markdown: {
+		remarkPlugins: [remarkMath],
+		rehypePlugins: [rehypeKatex],
+	},
 	vite: {
 		resolve: {
 			alias: { "@shared": fileURLToPath(new URL("../../shared", import.meta.url)) },

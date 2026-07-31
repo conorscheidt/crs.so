@@ -1,7 +1,10 @@
 {
 	"extends": "astro/tsconfigs/strictest",
 	"compilerOptions": {
-		"types": ["@types/bun", "@webgpu/types"]
+		"types": ["@types/bun", "@webgpu/types"],
+		"paths": {
+			"@shared/*": ["../../shared/*"]
+		}
 	},
 	"include": [".astro/types.d.ts", "**/*"],
 	"exclude": ["dist"]

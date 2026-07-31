@@ -14,6 +14,7 @@
 		"check": "bun --bun biome check --fix --unsafe . && bunx astro check --root apps/home --minimumSeverity error && bunx astro check --root apps/blog --minimumSeverity error"
 	},
 	"dependencies": {
+		"@astrojs/mdx": "^7.0.5",
 		"@codemirror/commands": "^6.10.3",
 		"@codemirror/lang-cpp": "^6.0.3",
 		"@codemirror/lang-javascript": "^6.2.5",
@@ -38,7 +39,9 @@
 		"katex": "^0.17.0",
 		"lenis": "1.3.25",
 		"minisearch": "7.2.0",
+		"rehype-katex": "^7.0.1",
 		"remark-gfm": "^4.0.1",
+		"remark-math": "^6.0.0",
 		"sucrase": "^3.35.1",
 		"wabt": "^1.0.39"
 	},

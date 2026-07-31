@@ -1,0 +1,447 @@
+/* Article layout: rails mirroring the hub, 60ch prose, live ToC with hairline
+   progress, footnotes and margin notes, plates, code. Shares the hub's
+   styling: night by default, instant theme switch, one Fraunces weight. */
+
+.apage {
+	display: grid;
+	grid-template-columns: 210px minmax(0, 640px) 230px;
+	justify-content: center;
+	column-gap: var(--s3);
+	position: relative;
+}
+
+/* ---- left rail: identity + live contents ---- */
+
+.arail-l {
+	position: sticky;
+	top: 0;
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	padding: var(--s5) var(--s2) var(--s4) var(--s4);
+}
+
+.aname {
+	font-family: var(--font-display);
+	font-weight: 260;
+	font-variation-settings: "opsz" 144;
+	font-size: 18px;
+	line-height: 1.15;
+	color: var(--ink);
+	text-decoration: none;
+}
+
+.aback {
+	margin-top: var(--s1);
+	font-size: 12.5px;
+	letter-spacing: 0.04em;
+	color: var(--ink-45);
+	text-decoration: none;
+	width: max-content;
+}
+
+.aback:hover {
+	color: var(--ink);
+}
+
+.atoc {
+	margin-top: var(--s5);
+	display: flex;
+	gap: var(--s2);
+	min-height: 0;
+}
+
+.atoc-track {
+	width: 1px;
+	background: var(--rule);
+	position: relative;
+	flex: none;
+}
+
+.atoc-fill {
+	position: absolute;
+	inset: 0;
+	background: var(--ink);
+	transform: scaleY(0);
+	transform-origin: top;
+}
+
+.atoc-links {
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+}
+
+.atoc-links a {
+	font-size: 12.5px;
+	letter-spacing: 0.03em;
+	line-height: 1.4;
+	color: var(--ink-45);
+	text-decoration: none;
+	transition: color 160ms ease;
+}
+
+.atoc-links a:hover {
+	color: var(--ink-70);
+}
+
+.atoc-links a.on {
+	color: var(--ink);
+}
+
+/* ---- centre column ---- */
+
+.aprose {
+	position: relative;
+	min-width: 0;
+	padding: var(--s5) 0 calc(var(--s5) * 2);
+}
+
+.ahead h1 {
+	font-family: var(--font-display);
+	font-weight: 260;
+	font-variation-settings: "opsz" 144;
+	font-size: clamp(30px, 3.2vw, 40px);
+	line-height: 1.14;
+}
+
+.ameta {
+	margin-top: var(--s1);
+	font-size: 12.5px;
+	letter-spacing: 0.05em;
+	color: var(--ink-45);
+}
+
+.prose {
+	margin-top: var(--s4);
+	font-size: 16.5px;
+	line-height: 1.74;
+	font-weight: 300;
+}
+
+.prose p {
+	margin-bottom: var(--s2);
+}
+
+.prose h2 {
+	font-family: var(--font-display);
+	font-weight: 260;
+	font-variation-settings: "opsz" 60;
+	font-size: 23px;
+	margin: var(--s4) 0 var(--s2);
+	scroll-margin-top: var(--s4);
+}
+
+.prose a {
+	color: var(--ink);
+	text-decoration: underline;
+	text-decoration-color: var(--ink-45);
+	text-underline-offset: 3px;
+}
+
+.prose a:hover {
+	text-decoration-color: var(--ink);
+}
+
+.prose blockquote {
+	font-style: italic;
+	color: var(--ink-70);
+	margin: var(--s3) 0;
+	padding-left: var(--s3);
+	border-left: 1px solid var(--rule);
+}
+
+.prose code {
+	font-family: var(--font-mark);
+	font-size: 0.86em;
+}
+
+.prose .mlit {
+	background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+/* KaTeX in the site's ink */
+.prose .katex {
+	font-size: 1.04em;
+}
+
+.prose .katex-display {
+	margin: var(--s3) 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+/* live-bound terms in prose */
+.prose [data-bind] {
+	font-weight: 400;
+	font-variant-numeric: tabular-nums;
+	border-bottom: 1px dotted var(--ink-45);
+}
+
+.prose [data-bind].lit,
+.prose [data-bind]:hover {
+	border-bottom-color: var(--ink);
+	background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+/* ---- footnotes: hover card + endnote highlight ---- */
+
+.fnref {
+	position: relative;
+}
+
+.fnref a {
+	text-decoration: none;
+	color: var(--ink);
+}
+
+.fncard {
+	position: absolute;
+	left: 0;
+	bottom: 130%;
+	width: 260px;
+	background: var(--paper-deep);
+	border: 1px solid var(--rule);
+	padding: 9px 12px;
+	font-size: 12.5px;
+	font-style: normal;
+	line-height: 1.55;
+	color: var(--ink-70);
+	display: none;
+	z-index: 6;
+}
+
+.fncard p {
+	margin: 0;
+}
+
+.fnref:hover .fncard {
+	display: block;
+}
+
+.prose section[data-footnotes] {
+	border-top: 1px solid var(--rule);
+	margin-top: var(--s5);
+	padding-top: var(--s2);
+}
+
+.prose section[data-footnotes] h2 {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+}
+
+.prose section[data-footnotes] li {
+	font-size: 13px;
+	color: var(--ink-45);
+	line-height: 1.6;
+	margin-bottom: 6px;
+	transition: color 160ms ease;
+}
+
+.prose section[data-footnotes] li.lit {
+	color: var(--ink);
+}
+
+.prose section[data-footnotes] ol {
+	padding-left: 1.2em;
+}
+
+[data-footnote-backref] {
+	color: var(--ink-45);
+	text-decoration: none;
+	margin-left: 4px;
+}
+
+/* ---- marginal notes ---- */
+
+.arail-r {
+	position: relative;
+	padding: var(--s5) var(--s3) 0 var(--s2);
+}
+
+.mnote {
+	font-size: 12.5px;
+	line-height: 1.55;
+	color: var(--ink-45);
+	font-style: italic;
+	padding-left: 10px;
+	border-left: 1px solid var(--rule);
+	transition:
+		color 160ms ease,
+		border-color 160ms ease;
+}
+
+.arail-r .mnote {
+	position: absolute;
+	width: 180px;
+}
+
+.mnote.lit {
+	color: var(--ink-70);
+	border-left-color: var(--ink-45);
+}
+
+/* narrow: marginal notes fall inline as quiet asides */
+@media (max-width: 1079px) {
+	.arail-r {
+		display: none;
+	}
+
+	.mnote {
+		margin: var(--s2) 0 var(--s2) var(--s3);
+	}
+}
+
+/* ---- figures (plates) ---- */
+
+.afig {
+	margin: var(--s3) 0;
+	border: 1px solid var(--rule);
+	padding: var(--s2) var(--s2) var(--s1);
+}
+
+.afig canvas {
+	width: 100%;
+	height: 170px;
+	display: block;
+	touch-action: none;
+}
+
+.afig figcaption {
+	font-size: 12.5px;
+	color: var(--ink-45);
+	font-style: italic;
+	margin-top: 6px;
+}
+
+.afig figcaption b {
+	font-style: normal;
+	font-weight: 400;
+	color: var(--ink-70);
+}
+
+.figreset {
+	float: right;
+	cursor: pointer;
+	font-style: normal;
+	opacity: 0.6;
+	transition: opacity 120ms ease;
+}
+
+.figreset:hover {
+	opacity: 1;
+}
+
+/* ---- code blocks ---- */
+
+.codeblk {
+	margin: var(--s3) 0;
+	border: 1px solid var(--rule);
+	background: var(--paper-deep);
+}
+
+.codehead {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 12px;
+	border-bottom: 1px solid var(--rule);
+	font-family: var(--font-mark);
+	font-size: 10.5px;
+	letter-spacing: 0.08em;
+	color: var(--ink-45);
+}
+
+.vim-badge {
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	padding: 0 5px;
+}
+
+.codehead .run {
+	margin-left: auto;
+	background: none;
+	border: 0;
+	font: inherit;
+	letter-spacing: 0.08em;
+	color: var(--ink-70);
+	cursor: pointer;
+	transition: color 120ms ease;
+}
+
+.codehead .run:hover {
+	color: var(--ink);
+}
+
+.codehead .run:disabled {
+	opacity: 0.4;
+}
+
+.codemount .cm-editor {
+	background: transparent;
+	font-size: 13px;
+}
+
+.codemount .cm-editor.cm-focused {
+	outline: none;
+}
+
+.codeout {
+	border-top: 1px solid var(--rule);
+	padding: var(--s1) 12px;
+	font-family: var(--font-mark);
+	font-size: 12.5px;
+	line-height: 1.6;
+	color: var(--ink-70);
+}
+
+.stdinrow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+	font-size: 10.5px;
+	letter-spacing: 0.08em;
+	color: var(--ink-45);
+}
+
+.stdinrow input {
+	flex: 1;
+	background: none;
+	border: 0;
+	border-bottom: 1px solid var(--rule);
+	font-family: var(--font-mark);
+	font-size: 12.5px;
+	color: var(--ink);
+	outline: none;
+	padding: 2px 0;
+}
+
+.outtext {
+	white-space: pre-wrap;
+	word-break: break-word;
+	margin: 0;
+}
+
+/* rails collapse on narrow viewports; prose stands alone */
+@media (max-width: 899px) {
+	.apage {
+		grid-template-columns: 1fr;
+	}
+
+	.arail-l {
+		position: static;
+		height: auto;
+		flex-direction: row;
+		align-items: baseline;
+		gap: var(--s3);
+		padding-bottom: 0;
+	}
+
+	.atoc {
+		display: none;
+	}
+}

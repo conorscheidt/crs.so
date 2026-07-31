@@ -1,0 +1,24 @@
+---
+/**
+ * Interactive figure: a live canvas owned by a registered figure
+ * implementation (src/figures/<kind>.ts). Direct manipulation happens in the
+ * figure; prose binds via <b data-bind="param" data-fig="<id>"> spans for live
+ * readouts and hover sync. No inline scrubbing.
+ */
+type Props = {
+	kind: string;
+	id: string;
+	caption: string;
+	n?: number;
+};
+const { kind, id, caption, n = 1 } = Astro.props;
+const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"][n - 1] ?? String(n);
+---
+
+<figure class="afig" data-fig-root={id} data-kind={kind}>
+	<canvas data-fig-canvas></canvas>
+	<figcaption>
+		<b>fig. {roman}</b> — {caption}
+		<span class="figreset" data-fig-reset title="reset">↺</span>
+	</figcaption>
+</figure>

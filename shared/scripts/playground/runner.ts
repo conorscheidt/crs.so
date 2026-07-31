@@ -79,7 +79,7 @@ export function warmLight(): void {
 	ensureWorker().postMessage({ id: ++seq, warm: true });
 }
 
-export function run(lang: string, code: string): Promise<RunResult> {
+export function run(lang: string, code: string, stdin = ""): Promise<RunResult> {
 	track("code-run", { lang });
 	const id = ++seq;
 	const isCpp = lang === "c" || lang === "cpp" || lang === "c++";
@@ -99,7 +99,7 @@ export function run(lang: string, code: string): Promise<RunResult> {
 			window.clearTimeout(timer);
 			resolve(r);
 		});
-		w.postMessage(isCpp ? { id, cpp: lang !== "c", src: code } : { id, lang, code });
+		w.postMessage(isCpp ? { id, cpp: lang !== "c", src: code, stdin } : { id, lang, code });
 	});
 }
 
