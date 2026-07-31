@@ -16,7 +16,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 
 <div class="hub" data-section={section}>
 	<header class="col-l">
-		<a class="name press" href="/">Conor<br />Scheidt</a>
+		<a class="name press inkable" href="/">Conor<br />Scheidt</a>
 		<p class="role">software · mathematics</p>
 		<nav aria-label="Sections">
 			<a href="/" aria-current={section === "index" ? "page" : undefined}>Index</a>
@@ -48,7 +48,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 				latest && (
 					<div class="latest">
 						<p class="ptitle">Latest</p>
-						<a class="latest-title" href={`/writing/${latest.id}`}>{latest.data.title}</a>
+						<a class="latest-title inkable" href={`/writing/${latest.id}`}>{latest.data.title}</a>
 						<p class="entry-meta">
 							{fmt(latest.data.date)} · {latest.data.minutes} min
 						</p>
@@ -82,11 +82,11 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 						projects.map((p) => (
 							<article class="entry" data-id={`project:${p.name}`} data-ts={String(Date.UTC(p.year, 6, 1))} data-tags={p.tags.join(" ")}>
 								{p.href ? (
-									<a class="entry-title" href={p.href}>
+									<a class="entry-title inkable" href={p.href}>
 										{p.name}
 									</a>
 								) : (
-									<span class="entry-title">{p.name}</span>
+									<span class="entry-title inkable">{p.name}</span>
 								)}
 								<p class="entry-desc">{p.description}</p>
 								<div class="tags">
@@ -119,7 +119,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 					{
 						posts.map((post) => (
 							<article class="entry" data-id={`post:${post.id}`} data-ts={String(post.data.date.valueOf())} data-tags={post.data.tags?.join(" ")}>
-								<a class="entry-title" href={`/writing/${post.id}`}>{post.data.title}</a>
+								<a class="entry-title inkable" href={`/writing/${post.id}`}>{post.data.title}</a>
 								<p class="entry-meta">
 									{fmt(post.data.date)} · {post.data.minutes} min
 								</p>

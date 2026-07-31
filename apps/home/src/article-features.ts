@@ -4,10 +4,13 @@
  * bindings, and the editable/runnable code blocks (CodeMirror + vim, clang
  * worker, real stdio). Loaded only on article pages.
  */
+import { distribution } from "./figures/distribution";
+import { geometry } from "./figures/geometry";
+import { graph } from "./figures/graph";
 import { oscillator } from "./figures/oscillator";
 import type { FigureImpl } from "./figures/registry";
 
-const FIGURES = { oscillator };
+const FIGURES = { oscillator, geometry, graph, distribution };
 
 export function initToc(): void {
 	const toc = document.querySelector<HTMLElement>("[data-toc]");
@@ -139,8 +142,8 @@ export function initCode(): void {
 	const load = (): void => {
 		void import("./article-code").then((m) => m.initCodeBlocks(blocks));
 	};
-	if ("requestIdleCallback" in window) requestIdleCallback(load, { timeout: 2000 });
-	else setTimeout(load, 300);
+	if ("requestIdleCallback" in globalThis) requestIdleCallback(load, { timeout: 2000 });
+	else globalThis.setTimeout(load, 300);
 }
 
 export function initArticleFeatures(): void {

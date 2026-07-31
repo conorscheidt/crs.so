@@ -73,24 +73,21 @@ fn icosahedron(i: f32, phase: f32) -> vec4f {
 	return vec4f(p, 0.55);
 }
 
-fn weave(i: f32, phase: f32) -> vec4f {
-	let fam = i % 2.0;
-	let k = floor(i / 2.0) % 3.0;
-	let per = floor(N / 6.0);
-	let s = (floor(i / 6.0) / per) * TAU + phase * 0.12;
-	var dir = 1.0;
-	var r = 0.352;
-	if (fam >= 1.0) {
-		dir = -1.0;
-		r = 0.328;
-	}
-	let m = dir * 6.0 * s + (k * TAU) / 3.0 + phase * 0.55 * dir;
-	let w = 0.72 + r * cos(m);
+fn loxodrome(i: f32, phase: f32) -> vec4f {
+	let strands = 4.0;
+	let k = i % strands;
+	let speed = 0.05 + hash(i, 4.0) * 0.045;
+	let u = fract(hash(i, 5.0) + phase * speed);
+	let lat = (u * 2.0 - 1.0) * 1.38;
+	let merc = log(tan(0.78539816 + lat / 2.0));
+	let lon = 3.4 * merc + (k * TAU) / strands + phase * 0.1;
+	let cl = cos(lat);
+	let edge = 1.0 - min(1.0, pow(abs(u * 2.0 - 1.0), 6.0));
 	return vec4f(
-		w * cos(s) + (hash(i, 6.0) - 0.5) * 0.012,
-		r * sin(m) * 1.04 + (hash(i, 7.0) - 0.5) * 0.012,
-		w * sin(s) + (hash(i, 8.0) - 0.5) * 0.012,
-		0.6,
+		cl * cos(lon) + (hash(i, 6.0) - 0.5) * 0.02,
+		sin(lat) + (hash(i, 7.0) - 0.5) * 0.02,
+		cl * sin(lon) + (hash(i, 8.0) - 0.5) * 0.02,
+		0.62 * (0.25 + 0.75 * edge),
 	);
 }
 
@@ -113,7 +110,7 @@ fn shape(obj: f32, i: f32, phase: f32) -> vec4f {
 	switch (u32(obj)) {
 		case 0u: { return trefoil(i, phase); }
 		case 1u: { return icosahedron(i, phase); }
-		case 2u: { return weave(i, phase); }
+		case 2u: { return loxodrome(i, phase); }
 		default: { return borromean(i, phase); }
 	}
 }

@@ -35,6 +35,29 @@
 @view-transition {
 	navigation: auto;
 }
+
+/* Page transition: outgoing content lifts off, incoming content settles in
+   with a small rise; exponential ease, no bounce, no morphs. */
+::view-transition-old(root) {
+	animation: vt-lift 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+::view-transition-new(root) {
+	animation: vt-settle 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vt-lift {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes vt-settle {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+}
 @media (prefers-reduced-motion: reduce) {
 	@view-transition {
 		navigation: none;
@@ -43,7 +66,9 @@
 
 @font-face {
 	font-family: "Fraunces Variable";
-	src: url("@fontsource-variable/fraunces/files/fraunces-latin-opsz-normal.woff2") format("woff2");
+	/* the full variable file (opsz + wght + SOFT + WONK): SOFT drives the
+	   ink-burn hover, worth the extra bytes over the opsz-only cut */
+	src: url("@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2") format("woff2");
 	font-weight: 100 900;
 	font-display: block;
 }
@@ -126,8 +151,7 @@ html.no-native-cursor textarea {
 	position: fixed;
 	left: 0;
 	top: 0;
-	border: 1px solid var(--ink);
-	border-radius: 50%;
+	color: var(--ink);
 	opacity: 0;
 	z-index: 99;
 	pointer-events: none;
@@ -135,6 +159,11 @@ html.no-native-cursor textarea {
 		scale 220ms cubic-bezier(0.22, 1, 0.36, 1),
 		opacity 180ms ease;
 	scale: 1;
+}
+
+#cursor svg {
+	display: block;
+	overflow: visible;
 }
 
 #cursor.on {
@@ -158,6 +187,58 @@ html.no-native-cursor textarea {
 	text-shadow:
 		0 -1px 1px var(--press-shade),
 		0 1px 0 var(--press-light);
+}
+
+/* Ink-burn: on hover, display type softens (SOFT axis), gains a little
+   weight and blooms, then settles while the hover persists. Used wherever
+   Fraunces is interactive. */
+.inkable {
+	font-variation-settings:
+		"opsz" var(--opsz, 144),
+		"SOFT" 0;
+	transition:
+		font-variation-settings 420ms cubic-bezier(0.22, 1, 0.36, 1),
+		font-weight 420ms cubic-bezier(0.22, 1, 0.36, 1),
+		text-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.inkable:hover {
+	animation: inkburn 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes inkburn {
+	0% {
+		font-variation-settings:
+			"opsz" var(--opsz, 144),
+			"SOFT" 0;
+		font-weight: 260;
+	}
+	40% {
+		font-variation-settings:
+			"opsz" var(--opsz, 144),
+			"SOFT" 85;
+		font-weight: 335;
+		text-shadow: 0 0 7px color-mix(in srgb, var(--ink) 45%, transparent);
+	}
+	100% {
+		font-variation-settings:
+			"opsz" var(--opsz, 144),
+			"SOFT" 55;
+		font-weight: 300;
+		text-shadow: 0 0 2.5px color-mix(in srgb, var(--ink) 30%, transparent);
+	}
+}
+
+/* Spectral (text face, static weight): a quieter hover for links */
+.inklink {
+	transition:
+		color 200ms ease,
+		text-shadow 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.inklink:hover {
+	color: var(--ink);
+	text-shadow: 0 0 4px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 .sr-only {
@@ -186,9 +267,9 @@ html.no-native-cursor textarea {
 }
 
 .name {
+	--opsz: 144;
 	font-family: var(--font-display);
 	font-weight: 260;
-	font-variation-settings: "opsz" 144;
 	font-size: 31px;
 	line-height: 1.1;
 	color: var(--ink);
@@ -299,7 +380,7 @@ html.no-native-cursor textarea {
 	opacity: 0;
 	visibility: hidden;
 	transition:
-		opacity 240ms ease,
+		opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
 		visibility 0s 240ms;
 }
 
@@ -310,7 +391,7 @@ html.no-native-cursor textarea {
 	opacity: 1;
 	visibility: visible;
 	transition:
-		opacity 240ms ease,
+		opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
 		visibility 0s;
 }
 
@@ -391,6 +472,7 @@ html.no-native-cursor textarea {
 }
 
 .entry-title {
+	--opsz: 48;
 	font-family: var(--font-display);
 	font-weight: 260;
 	font-variation-settings: "opsz" 48;
@@ -552,6 +634,7 @@ a.entry-title:hover {
 
 /* Index panel. */
 .latest-title {
+	--opsz: 60;
 	font-family: var(--font-display);
 	font-weight: 260;
 	font-variation-settings: "opsz" 60;

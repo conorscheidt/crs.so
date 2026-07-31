@@ -18,7 +18,7 @@ export const OBJECT_INDEX: Record<Section, number> = {
 };
 
 /** Per-object base camera pitch (radians) — lerped through morphs. */
-export const BASE_PITCH = [0.16, 0.16, 0.5, 0.32] as const;
+export const BASE_PITCH = [0.16, 0.16, 0.38, 0.32] as const;
 
 export const N = 3000;
 /** Icosahedron vertex accents ride as extra instances after the pool. */
@@ -96,24 +96,24 @@ export function icosahedron(i: number, _n: number, phase: number, out: Pt): void
 }
 
 /**
- * 2 · Writing — woven torus: two crossing families of helical strands, one
- * winding +q, one −q, laid at slightly different radii so they pass over and
- * under. Points stream along every strand; the weave counter-rotates.
+ * 2 · Writing — loxodrome sphere: four interleaved rhumb lines spiralling
+ * pole to pole around a solid globe, points streaming along each spiral.
  */
-export function weave(i: number, n: number, phase: number, out: Pt): void {
-	const FAM_STRANDS = 3;
-	const fam = i % 2;
-	const k = Math.floor(i / 2) % FAM_STRANDS;
-	const per = Math.floor(n / (2 * FAM_STRANDS));
-	const s = (Math.floor(i / (2 * FAM_STRANDS)) / per) * TAU + phase * 0.12;
-	const dir = fam === 0 ? 1 : -1;
-	const m = dir * 6 * s + (k * TAU) / FAM_STRANDS + phase * 0.55 * dir;
-	const r = 0.34 + (fam === 0 ? 0.012 : -0.012);
-	const w = 0.72 + r * Math.cos(m);
-	out.x = w * Math.cos(s) + (hash(i, 6) - 0.5) * 0.012;
-	out.y = r * Math.sin(m) * 1.04 + (hash(i, 7) - 0.5) * 0.012;
-	out.z = w * Math.sin(s) + (hash(i, 8) - 0.5) * 0.012;
-	out.a = 0.6;
+export function loxodrome(i: number, _n: number, phase: number, out: Pt): void {
+	const STRANDS = 4;
+	const k = i % STRANDS;
+	const speed = 0.05 + hash(i, 4) * 0.045;
+	const u = (hash(i, 5) + phase * speed) % 1;
+	const lat = (u * 2 - 1) * 1.38;
+	const merc = Math.log(Math.tan(Math.PI / 4 + lat / 2));
+	const lon = 3.4 * merc + (k * TAU) / STRANDS + phase * 0.1;
+	const cl = Math.cos(lat);
+	out.x = cl * Math.cos(lon) + (hash(i, 6) - 0.5) * 0.02;
+	out.y = Math.sin(lat) + (hash(i, 7) - 0.5) * 0.02;
+	out.z = cl * Math.sin(lon) + (hash(i, 8) - 0.5) * 0.02;
+	// fade near the poles so respawn never pops
+	const edge = 1 - Math.min(1, Math.abs(u * 2 - 1) ** 6);
+	out.a = 0.62 * (0.25 + 0.75 * edge);
 }
 
 /**
@@ -146,7 +146,7 @@ export function borromean(i: number, n: number, phase: number, out: Pt): void {
 	out.a = 0.58;
 }
 
-export const SHAPES = [trefoil, icosahedron, weave, borromean] as const;
+export const SHAPES = [trefoil, icosahedron, loxodrome, borromean] as const;
 
 /** Morph stagger — per-particle cascade so the cloud doesn't move in lockstep. */
 export function staggeredT(morphT: number, i: number): number {
