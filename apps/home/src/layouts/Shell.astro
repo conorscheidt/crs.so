@@ -49,6 +49,7 @@ const jsonLd = JSON.stringify({
 					sessionStorage.setItem("crs-seen", "1");
 				} catch {}
 				const d = document.documentElement;
+				d.classList.add("js");
 				d.dataset.theme = theme;
 				d.dataset.reveal = seen ? "settle" : "draw";
 			})();

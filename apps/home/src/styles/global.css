@@ -107,3 +107,31 @@ main {
 		0 -1px 1px var(--press-shade),
 		0 1px 0 var(--press-light);
 }
+
+/* Colophon line overlay — one hairline path, drawn by the engine. */
+#colophon {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 2;
+}
+
+#colophon path {
+	fill: none;
+	stroke: var(--rule);
+	stroke-width: 1;
+	transition: stroke 0.9s;
+}
+
+/* Draw-in: line-anchored elements stay hidden until the pen reaches them
+   (hub-client). Without JS everything stays visible. */
+html.js [data-line] {
+	opacity: 0;
+	transition: opacity 0.45s var(--ease-settle, ease-out);
+}
+
+html.js [data-line].lit {
+	opacity: 1;
+}
