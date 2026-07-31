@@ -1,6 +1,4 @@
 import { fileURLToPath } from "node:url";
-// import { cloudflareStatic } from "../../shared/cloudflare-static";
-import cloudflare from "@astrojs/cloudflare";
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";

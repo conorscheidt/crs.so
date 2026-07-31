@@ -8,14 +8,14 @@
 interface Props {
 	title: string;
 	description: string;
-	canonicalURL?: URL | string;
-	image?: string;
-	type?: "website" | "article";
-	siteName?: string;
-	author?: string;
-	publishedTime?: Date;
-	modifiedTime?: Date;
-	tags?: string[];
+	canonicalURL?: URL | string | undefined;
+	image?: string | undefined;
+	type?: "website" | "article" | undefined;
+	siteName?: string | undefined;
+	author?: string | undefined;
+	publishedTime?: Date | undefined;
+	modifiedTime?: Date | undefined | undefined;
+	tags?: string[] | undefined;
 }
 
 const {
@@ -70,7 +70,7 @@ const jsonLd =
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
 <link rel="canonical" href={canonical} />
 
-{/* OpenGraph */}
+<!-- OpenGraph -->
 <meta property="og:type" content={type} />
 <meta property="og:site_name" content={siteName} />
 <meta property="og:locale" content="en_US" />
@@ -98,7 +98,7 @@ const jsonLd =
 	)
 }
 
-{/* Twitter */}
+<!-- Twitter -->
 <meta name="twitter:card" content={imageURL ? "summary_large_image" : "summary"} />
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />

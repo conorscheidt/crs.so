@@ -29,9 +29,9 @@
 	function hexToRgba(hex: string, a: number): string {
 		const h = hex.replace("#", "").trim();
 		if (h.length < 6) return `rgba(26,26,23,${a})`;
-		const r = parseInt(h.slice(0, 2), 16);
-		const g = parseInt(h.slice(2, 4), 16);
-		const b = parseInt(h.slice(4, 6), 16);
+		const r = Number.parseInt(h.slice(0, 2), 16);
+		const g = Number.parseInt(h.slice(2, 4), 16);
+		const b = Number.parseInt(h.slice(4, 6), 16);
 		return `rgba(${r},${g},${b},${a})`;
 	}
 
@@ -40,9 +40,7 @@
 		const slider = document.getElementById("diff-rate");
 		const readout = document.getElementById("diff-readout");
 		if (
-			!(canvas instanceof HTMLCanvasElement) ||
-			!(slider instanceof HTMLInputElement) ||
-			!readout ||
+			!(((canvas instanceof HTMLCanvasElement) &&(slider instanceof HTMLInputElement) ) &&readout ) ||
 			canvas.dataset.wired
 		)
 			return;
@@ -68,7 +66,7 @@
 		});
 
 		let cssW = 720;
-		let cssH = 184;
+		const cssH = 184;
 		const sizeCanvas = (): void => {
 			const dpr = Math.min(window.devicePixelRatio || 1, 2);
 			cssW = cv.clientWidth || 720;

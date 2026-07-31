@@ -3,6 +3,7 @@ title: "What this site will do"
 description: "A placeholder essay that doubles as a promise: the reading experience this site is being built toward."
 date: 2026-07-31
 minutes: 4
+tags: [blog, meta]
 sample: true
 ---
 

@@ -1,11 +1,12 @@
-/* Tokens: day values are the base; night inverts paper and ink. */
+/* Tokens: day values are the base; night inverts paper and ink. Theme
+   switches are instant, so nothing transitions on themed properties. */
 :root {
 	--paper: #f2f0ea;
 	--paper-deep: #e9e6df;
 	--ink: #221f1a;
 	--ink-70: rgba(34, 31, 26, 0.7);
 	--ink-45: rgba(34, 31, 26, 0.45);
-	--rule: rgba(34, 31, 26, 0.55);
+	--rule: rgba(34, 31, 26, 0.16);
 	--press-shade: rgba(0, 0, 0, 0.28);
 	--press-light: rgba(255, 255, 255, 0.6);
 	--s1: 8px;
@@ -24,9 +25,20 @@
 	--ink: #e8e4d9;
 	--ink-70: rgba(232, 228, 217, 0.7);
 	--ink-45: rgba(232, 228, 217, 0.45);
-	--rule: rgba(232, 228, 217, 0.5);
+	--rule: rgba(232, 228, 217, 0.16);
 	--press-shade: rgba(0, 0, 0, 0.6);
 	--press-light: rgba(255, 255, 255, 0.06);
+}
+
+/* Article ⇄ hub: native cross-document view transitions.
+   Per-slug names live inline on list titles and article h1. */
+@view-transition {
+	navigation: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+	@view-transition {
+		navigation: none;
+	}
 }
 
 @font-face {
@@ -73,33 +85,20 @@ body {
 	background: var(--paper);
 	color: var(--ink);
 	font-family: var(--font-text);
+	font-weight: 300;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
-	transition: background 0.9s, color 0.9s;
 }
 
-/* Hub routes never scroll; article routes opt out via .scrollable. */
+/* Hub routes never page-scroll; article routes opt in via .scrollable. */
 body:not(.scrollable) {
 	overflow: hidden;
 	overscroll-behavior: none;
 }
 
-#stage {
-	position: fixed;
-	inset: 0;
-	z-index: 0;
-	pointer-events: none;
-}
-
-#paper {
-	width: 100%;
-	height: 100%;
-	display: block;
-}
-
 main {
 	position: relative;
-	z-index: 1;
+	height: 100%;
 }
 
 .press {
@@ -108,30 +107,356 @@ main {
 		0 1px 0 var(--press-light);
 }
 
-/* Colophon line overlay — one hairline path, drawn by the engine. */
-#colophon {
-	position: fixed;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-	pointer-events: none;
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+/* ---------- Hub layout: left menu / central object / right panel */
+
+.hub {
+	display: grid;
+	grid-template-columns: 232px 1fr 324px;
+	height: 100dvh;
+}
+
+.col-l {
+	display: flex;
+	flex-direction: column;
+	padding: var(--s5) 0 var(--s4) var(--s4);
+	position: relative;
 	z-index: 2;
 }
 
-#colophon path {
-	fill: none;
-	stroke: var(--rule);
-	stroke-width: 1;
-	transition: stroke 0.9s;
+.name {
+	font-family: var(--font-display);
+	font-weight: 130;
+	font-variation-settings: "opsz" 144;
+	font-size: 30px;
+	line-height: 1.1;
+	color: var(--ink);
+	text-decoration: none;
 }
 
-/* Draw-in: line-anchored elements stay hidden until the pen reaches them
-   (hub-client). Without JS everything stays visible. */
-html.js [data-line] {
-	opacity: 0;
-	transition: opacity 0.45s var(--ease-settle, ease-out);
+.role {
+	margin-top: var(--s1);
+	font-style: italic;
+	font-size: 13px;
+	letter-spacing: 0.04em;
+	color: var(--ink-45);
 }
 
-html.js [data-line].lit {
+.col-l nav {
+	margin-top: var(--s5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--s2);
+}
+
+.col-l nav a {
+	color: var(--ink);
+	text-decoration: none;
+	font-size: 15px;
+	letter-spacing: 0.045em;
+	width: max-content;
+	position: relative;
+	opacity: 0.86;
+	transition: opacity 120ms ease;
+}
+
+.col-l nav a:hover {
 	opacity: 1;
+}
+
+.col-l nav a[aria-current="page"]::before {
+	content: "";
+	position: absolute;
+	left: -16px;
+	top: 52%;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--ink);
+	transform: translateY(-50%);
+}
+
+.meta {
+	margin-top: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--s1);
+	align-items: flex-start;
+}
+
+.meta a,
+.meta button {
+	font-family: var(--font-text);
+	font-weight: 300;
+	font-size: 13px;
+	letter-spacing: 0.03em;
+	color: var(--ink-45);
+	text-decoration: none;
+	background: none;
+	border: 0;
+	cursor: pointer;
+	transition: color 120ms ease;
+}
+
+.meta a:hover,
+.meta button:hover {
+	color: var(--ink);
+}
+
+/* Central object. */
+.col-c {
+	position: relative;
+	z-index: 1;
+}
+
+#sim {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+
+/* Right column: all four panels stay mounted; the active one is visible.
+   Crossfade is CSS-driven off data-section, so one lenis instance persists. */
+.col-r {
+	position: relative;
+	z-index: 2;
+	padding: var(--s5) var(--s4) var(--s3) var(--s1);
+	min-height: 0;
+}
+
+.panel {
+	position: absolute;
+	inset: var(--s5) var(--s4) var(--s3) var(--s1);
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	opacity: 0;
+	visibility: hidden;
+	transition:
+		opacity 240ms ease,
+		visibility 0s 240ms;
+}
+
+.hub[data-section="index"] .panel[data-panel="index"],
+.hub[data-section="projects"] .panel[data-panel="projects"],
+.hub[data-section="writing"] .panel[data-panel="writing"],
+.hub[data-section="about"] .panel[data-panel="about"] {
+	opacity: 1;
+	visibility: visible;
+	transition:
+		opacity 240ms ease,
+		visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.panel {
+		transition: none;
+	}
+}
+
+.ptitle {
+	font-size: 11px;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--ink-45);
+	margin-bottom: var(--s2);
+}
+
+.ptitle.sub {
+	margin-top: var(--s3);
+}
+
+.search {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	border-bottom: 1px solid var(--rule);
+	padding: 0 2px var(--s1);
+	margin-bottom: var(--s1);
+}
+
+.search input {
+	flex: 1;
+	background: none;
+	border: 0;
+	outline: none;
+	font-family: var(--font-text);
+	font-weight: 300;
+	font-size: 14px;
+	color: var(--ink);
+}
+
+.search input::placeholder {
+	font-style: italic;
+	letter-spacing: 0.03em;
+	color: var(--ink-45);
+}
+
+.list {
+	overflow-y: auto;
+	min-height: 0;
+	flex: 1;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+	padding-right: var(--s1);
+}
+
+.entry {
+	padding: var(--s3) 2px var(--s2);
+	border-bottom: 1px solid var(--rule);
+}
+
+.entry:last-child {
+	border-bottom: 0;
+}
+
+.entry-title {
+	font-family: var(--font-display);
+	font-weight: 180;
+	font-variation-settings: "opsz" 144;
+	font-size: 20px;
+	color: var(--ink);
+	text-decoration: none;
+	transition: opacity 120ms ease;
+}
+
+a.entry-title:hover {
+	opacity: 0.62;
+}
+
+.entry-meta {
+	font-size: 12px;
+	letter-spacing: 0.04em;
+	color: var(--ink-45);
+	margin-top: 5px;
+}
+
+.entry-desc {
+	font-size: 13px;
+	color: var(--ink-70);
+	margin-top: 5px;
+	line-height: 1.5;
+}
+
+.tags {
+	margin-top: var(--s1);
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.tags i {
+	font-style: normal;
+	font-size: 10.5px;
+	letter-spacing: 0.06em;
+	color: var(--ink-45);
+	border: 1px solid var(--rule);
+	border-radius: 999px;
+	padding: 1px 8px;
+}
+
+.tags i.sample {
+	opacity: 0.6;
+}
+
+/* Index panel. */
+.latest-title {
+	font-family: var(--font-display);
+	font-weight: 180;
+	font-variation-settings: "opsz" 144;
+	font-size: 22px;
+	line-height: 1.25;
+	color: var(--ink);
+	text-decoration: none;
+	transition: opacity 120ms ease;
+}
+
+.latest-title:hover {
+	opacity: 0.62;
+}
+
+.gitb {
+	margin-top: var(--s4);
+}
+
+.hm {
+	display: grid;
+	grid-template-columns: repeat(16, 7px);
+	gap: 3px;
+	margin: var(--s1) 0;
+}
+
+.hm b {
+	width: 7px;
+	height: 7px;
+	border-radius: 1.5px;
+	background: var(--ink);
+}
+
+.gitline {
+	font-size: 12.5px;
+	color: var(--ink-45);
+	line-height: 1.65;
+}
+
+.gitline em {
+	font-style: normal;
+	color: var(--ink);
+}
+
+/* About panel. */
+.blurb {
+	font-size: 14.5px;
+	line-height: 1.6;
+	margin-bottom: var(--s3);
+}
+
+.cvrow {
+	padding: var(--s2) 2px;
+	border-bottom: 1px solid var(--rule);
+}
+
+.cvrow:last-of-type {
+	border-bottom: 0;
+}
+
+.cvrow h3 {
+	font-family: var(--font-display);
+	font-weight: 200;
+	font-variation-settings: "opsz" 144;
+	font-size: 17px;
+}
+
+.cvrow span {
+	font-size: 12px;
+	letter-spacing: 0.05em;
+	color: var(--ink-45);
+}
+
+.cvrow p {
+	font-size: 13px;
+	color: var(--ink-70);
+	margin-top: 3px;
+	line-height: 1.45;
+}
+
+.resume {
+	display: inline-block;
+	margin-top: var(--s3);
+	font-size: 13px;
+	letter-spacing: 0.04em;
+	color: var(--ink);
+	text-decoration: none;
+	border-bottom: 1px solid var(--rule);
+	padding-bottom: 1px;
 }

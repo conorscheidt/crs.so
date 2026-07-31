@@ -3,8 +3,8 @@ import { getCollection, render } from "astro:content";
 import Shell from "../../layouts/Shell.astro";
 
 export async function getStaticPaths() {
-	const posts = await getCollection("writing");
-	return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+	const all = await getCollection("writing");
+	return all.map((entry) => ({ params: { slug: entry.id }, props: { post: entry } }));
 }
 
 const { post } = Astro.props;
@@ -19,13 +19,8 @@ const date = post.data.date.toLocaleDateString("en-US", {
 <Shell title={`${post.data.title} — Conor Scheidt`} description={post.data.description} scrollable>
 	<article class="page">
 		<header class="head">
-			<a class="home" href="/" aria-label="Back to the hub">
-				<svg viewBox="0 0 60 36" width="60" height="36" fill="none" aria-hidden="true">
-					<circle cx="30" cy="18" r="11" stroke="currentColor" stroke-width="1"></circle>
-					<circle cx="19" cy="18" r="7.5" fill="currentColor"></circle>
-				</svg>
-			</a>
-			<h1 class="press">{post.data.title}</h1>
+			<a class="home" href="/writing">← writing</a>
+			<h1 class="press" style={`view-transition-name: post-${post.id}`}>{post.data.title}</h1>
 			<p class="meta mono">
 				{date} · {post.data.minutes} min read
 				{post.data.sample && <span> · (sample)</span>}
@@ -51,6 +46,12 @@ const date = post.data.date.toLocaleDateString("en-US", {
 		margin-bottom: var(--s5);
 	}
 	.home {
+		color: var(--ink-45);
+		text-decoration: none;
+		font-size: 13px;
+		letter-spacing: 0.04em;
+	}
+	.home:hover {
 		color: var(--ink);
 	}
 	h1 {

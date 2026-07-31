@@ -1,16 +1,32 @@
 /**
- * Theme resolution, kept pure so it is unit-testable. The inline pre-paint
- * script in Shell.astro duplicates this logic verbatim (it cannot import
- * modules); theme.test.ts defines the behaviour both must match.
+ * Theme resolution, pure and unit-tested. Light is the default regardless of
+ * prefers-color-scheme: only a stored override changes the first paint. The
+ * inline pre-paint script in Shell.astro duplicates this logic verbatim (it
+ * cannot import modules); theme.test.ts defines the expected behaviour.
  */
 export type Theme = "day" | "night";
 
-export function resolveTheme(stored: string | null, prefersDark: boolean): Theme {
-	if (stored === "day" || stored === "night") return stored;
-	return prefersDark ? "night" : "day";
+export function resolveTheme(stored: string | null): Theme {
+	return stored === "night" ? "night" : "day";
 }
 
-/** First visit this session gets the full draw-in; later loads get the settle. */
-export function resolveReveal(sessionSeen: boolean, navigatedInternally: boolean): "draw" | "settle" {
-	return sessionSeen || navigatedInternally ? "settle" : "draw";
+export function readTheme(): Theme {
+	let stored: string | null = null;
+	try {
+		stored = localStorage.getItem("crs-theme");
+	} catch {}
+	return resolveTheme(stored);
+}
+
+/** DOM-only application (pageshow restore, boot re-assert). */
+export function setThemeAttr(theme: Theme): void {
+	document.documentElement.dataset.theme = theme;
+}
+
+/** User action: apply and persist. */
+export function storeTheme(theme: Theme): void {
+	setThemeAttr(theme);
+	try {
+		localStorage.setItem("crs-theme", theme);
+	} catch {}
 }

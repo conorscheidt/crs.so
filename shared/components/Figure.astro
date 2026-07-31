@@ -14,7 +14,7 @@ interface Props {
 	scrolly?: string;
 }
 const { spec, caption, n, scrolly } = Astro.props;
-// guard against "</script>" breaking the inline JSON island
+// guard against a literal closing script tag breaking the inline JSON island
 const json = JSON.stringify(spec).replace(/</g, "\\u003c");
 ---
 

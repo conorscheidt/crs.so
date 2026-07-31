@@ -1,24 +1,13 @@
 import { expect, test } from "bun:test";
-import { resolveReveal, resolveTheme } from "./theme";
+import { resolveTheme } from "./theme";
 
-test("stored theme wins over media preference", () => {
-	expect(resolveTheme("day", true)).toBe("day");
-	expect(resolveTheme("night", false)).toBe("night");
+test("light is the default, even for dark-mode visitors", () => {
+	expect(resolveTheme(null)).toBe("day");
+	expect(resolveTheme("")).toBe("day");
+	expect(resolveTheme("garbage")).toBe("day");
 });
 
-test("media preference decides when nothing stored", () => {
-	expect(resolveTheme(null, true)).toBe("night");
-	expect(resolveTheme(null, false)).toBe("day");
-});
-
-test("garbage in storage falls back to media preference", () => {
-	expect(resolveTheme("banana", true)).toBe("night");
-	expect(resolveTheme("", false)).toBe("day");
-});
-
-test("full draw only on the first external load of a session", () => {
-	expect(resolveReveal(false, false)).toBe("draw");
-	expect(resolveReveal(true, false)).toBe("settle");
-	expect(resolveReveal(false, true)).toBe("settle");
-	expect(resolveReveal(true, true)).toBe("settle");
+test("stored override wins", () => {
+	expect(resolveTheme("night")).toBe("night");
+	expect(resolveTheme("day")).toBe("day");
 });

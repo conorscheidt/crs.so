@@ -1,0 +1,30 @@
+---
+import Shell from "../layouts/Shell.astro";
+---
+
+<Shell title="Not found — Conor Scheidt" description="This page does not exist." scrollable>
+	<div class="lost">
+		<p class="code">404</p>
+		<p>This page does not exist.</p>
+		<a href="/">← back to the index</a>
+	</div>
+</Shell>
+
+<style>
+	.lost {
+		height: 100dvh;
+		display: grid;
+		place-content: center;
+		text-align: center;
+		gap: var(--s2);
+	}
+	.code {
+		font-family: var(--font-display);
+		font-weight: 130;
+		font-variation-settings: "opsz" 144;
+		font-size: 64px;
+	}
+	a {
+		color: var(--ink);
+	}
+</style>

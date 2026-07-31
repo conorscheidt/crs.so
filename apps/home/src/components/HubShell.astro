@@ -1,0 +1,164 @@
+---
+import { getCollection } from "astro:content";
+import { blurb, education, experience, resumeHref } from "../data/about";
+import { projects } from "../data/projects";
+import type { Section } from "../router";
+
+type Props = { section: Section };
+const { section } = Astro.props;
+
+const posts = (await getCollection("writing")).sort(
+	(a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+const latest = posts[0];
+const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+---
+
+<div class="hub" data-section={section}>
+	<header class="col-l">
+		<a class="name press" href="/">Conor<br />Scheidt</a>
+		<p class="role">software · mathematics</p>
+		<nav aria-label="Sections">
+			<a href="/" aria-current={section === "index" ? "page" : undefined}>Index</a>
+			<a href="/projects" aria-current={section === "projects" ? "page" : undefined}>Projects</a>
+			<a href="/writing" aria-current={section === "writing" ? "page" : undefined}>Writing</a>
+			<a href="/about" aria-current={section === "about" ? "page" : undefined}>About</a>
+		</nav>
+		<div class="meta">
+			<a href="https://git.crs.so" rel="me">git.crs.so ↗</a>
+			<button type="button" data-theme-toggle>◐ night</button>
+		</div>
+	</header>
+
+	<div class="col-c">
+		<canvas id="sim" aria-hidden="true"></canvas>
+	</div>
+
+	<div class="col-r">
+		<section class="panel" data-panel="index" aria-label="Latest">
+			<h2 class="sr-only" data-panel-head tabindex="-1">Index</h2>
+			{
+				latest && (
+					<div class="latest">
+						<p class="ptitle">Latest</p>
+						<a class="latest-title" href={`/writing/${latest.id}`}>
+							<span style={`view-transition-name: post-${latest.id}`}>{latest.data.title}</span>
+						</a>
+						<p class="entry-meta">
+							{fmt(latest.data.date)} · {latest.data.minutes} min
+						</p>
+						<p class="entry-desc">{latest.data.description}</p>
+						<div class="tags">
+							{latest.data.tags?.map((t: string) => <i>{t}</i>)}
+						</div>
+					</div>
+				)
+			}
+			<div class="gitb" data-git hidden>
+				<p class="ptitle">git.crs.so</p>
+				<div class="hm" data-git-heat></div>
+				<p class="gitline" data-git-totals></p>
+				<p class="ptitle sub">Recent</p>
+				<div data-git-recent></div>
+				<p class="ptitle sub">Most active</p>
+				<p class="gitline" data-git-active></p>
+			</div>
+		</section>
+
+		<section class="panel" data-panel="projects" aria-label="Projects">
+			<h2 class="sr-only" data-panel-head tabindex="-1">Projects</h2>
+			<div class="search" data-search="project">
+				<input type="search" placeholder="search projects · # tags" aria-label="Search projects" />
+			</div>
+			<div class="list" data-scroll>
+				<div>
+					{
+						projects.map((p) => (
+							<article class="entry">
+								{p.href ? (
+									<a class="entry-title" href={p.href}>
+										{p.name}
+									</a>
+								) : (
+									<span class="entry-title">{p.name}</span>
+								)}
+								<p class="entry-desc">{p.description}</p>
+								<div class="tags">
+									{p.tags.map((t) => (
+										<i>{t}</i>
+									))}
+									{p.sample && <i class="sample">sample</i>}
+								</div>
+							</article>
+						))
+					}
+				</div>
+			</div>
+		</section>
+
+		<section class="panel" data-panel="writing" aria-label="Writing">
+			<h2 class="sr-only" data-panel-head tabindex="-1">Writing</h2>
+			<div class="search" data-search="post">
+				<input
+					type="search"
+					placeholder="search posts · # tags · years"
+					aria-label="Search writing"
+				/>
+			</div>
+			<div class="list" data-scroll>
+				<div>
+					{
+						posts.map((post) => (
+							<article class="entry">
+								<a class="entry-title" href={`/writing/${post.id}`}>
+									<span style={`view-transition-name: post-${post.id}`}>{post.data.title}</span>
+								</a>
+								<p class="entry-meta">
+									{fmt(post.data.date)} · {post.data.minutes} min
+								</p>
+								<div class="tags">
+									{post.data.tags?.map((t: string) => <i>{t}</i>)}
+									{post.data.sample && <i class="sample">sample</i>}
+								</div>
+							</article>
+						))
+					}
+				</div>
+			</div>
+		</section>
+
+		<section class="panel" data-panel="about" aria-label="About">
+			<h2 class="sr-only" data-panel-head tabindex="-1">About</h2>
+			<div class="list" data-scroll>
+				<div>
+					<p class="blurb">{blurb}</p>
+					<p class="ptitle">Education</p>
+					{
+						education.map((e) => (
+							<div class="cvrow">
+								<h3>{e.school}</h3>
+								<span>{e.span}{e.detail && ` · ${e.detail}`}</span>
+							</div>
+						))
+					}
+					<p class="ptitle sub">Experience</p>
+					{
+						experience.map((e) => (
+							<div class="cvrow">
+								<h3>{e.role}</h3>
+								<span>{e.span}</span>
+								{e.detail && <p>{e.detail}</p>}
+								{e.sample && <div class="tags"><i class="sample">sample</i></div>}
+							</div>
+						))
+					}
+					<a class="resume" href={resumeHref} download>résumé ↓</a>
+				</div>
+			</div>
+		</section>
+	</div>
+</div>
+
+<script>
+	import "../hub";
+</script>

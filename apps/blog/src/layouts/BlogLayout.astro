@@ -9,15 +9,15 @@ import SEO from "@shared/components/SEO.astro";
 import { SITE_CONFIG } from "@shared/config";
 
 interface Props {
-	title?: string;
-	description?: string;
+	title?: string | undefined;
+	description?: string | undefined;
 	/** landing page → also draw the eclipse sphere + ring figure over the drift */
-	figure?: boolean;
+	figure?: boolean | undefined;
 	/** post pages pass article metadata for rich OpenGraph + BlogPosting JSON-LD */
-	type?: "website" | "article";
-	publishedTime?: Date;
-	modifiedTime?: Date;
-	tags?: string[];
+	type?: "website" | "article" | undefined;
+	publishedTime?: Date | undefined;
+	modifiedTime?: Date | undefined;
+	tags?: string[] | undefined;
 }
 
 const {
@@ -55,7 +55,7 @@ const home = SITE_CONFIG.urls.home;
 			tags={tags}
 		/>
 
-			{/* Self-hosted fonts: subset + preload the above-the-fold variants only */}
+			<!-- Self-hosted fonts: subset + preload the above-the-fold variants only -->
 			<Font cssVariable="--font-italiana" preload />
 			<Font cssVariable="--font-spectral" preload={[{ weight: 400, style: "normal" }]} />
 			<Font cssVariable="--font-jetbrains" preload={[{ style: "normal" }]} />
@@ -67,7 +67,7 @@ const home = SITE_CONFIG.urls.home;
 			// and fall back to per-origin localStorage.
 			const readTheme = () => {
 				const m = document.cookie.match(/(?:^|; )theme=(dark|light)/);
-				return (m && m[1]) || localStorage.getItem("theme") || "dark";
+				return (m?.[1]) || localStorage.getItem("theme") || "dark";
 			};
 			const applyTheme = () => {
 				const t = readTheme();
@@ -82,7 +82,7 @@ const home = SITE_CONFIG.urls.home;
 		</script>
 		<ClientRouter />
 
-		{/* Cloudflare Web Analytics — pageviews. Inert until PUBLIC_CF_BEACON is set. */}
+		<!-- Cloudflare Web Analytics — pageviews. Inert until PUBLIC_CF_BEACON is set. -->
 		{
 			import.meta.env.PUBLIC_CF_BEACON && (
 				<script
@@ -95,7 +95,7 @@ const home = SITE_CONFIG.urls.home;
 		}
 	</head>
 	<body class="grain bg-paper text-ink antialiased">
-		{/* ambient drift on every blog page; the eclipse figure only on the landing */}
+		<!-- background drift on every blog page; the eclipse figure only on the landing -->
 		<div class="bg-fixed" aria-hidden="true">
 			<canvas id="sigil-canvas" data-variant="ambient" data-figure={figure ? "" : undefined}></canvas>
 		</div>

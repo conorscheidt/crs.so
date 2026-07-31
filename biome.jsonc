@@ -5,6 +5,11 @@
 		"clientKind": "git",
 		"useIgnoreFile": true
 	},
+	"html": {
+		// Experimental in 2.5.x: full .astro support (frontmatter, script, style,
+		// template). Biome pinned exact — formatting may churn between minors.
+		"experimentalFullSupportEnabled": true
+	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",
@@ -13,7 +18,51 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"preset": "all",
+			// Disabled: framework rules that misread .astro
+			// templates, resolver rules blind to astro: virtuals / bun hoisting,
+			// and taste rules that contradict the codebase idiom (hex design
+			// tokens, sim math constants, terse ternaries).
+			"correctness": {
+				"noNodejsModules": "off",
+				"useImportExtensions": "off",
+				"noUndeclaredDependencies": "off",
+				"noUnresolvedImports": "off",
+				"useJsxKeyInIterable": "off",
+				"useQwikValidLexicalScope": "off"
+			},
+			"complexity": {
+				"noExcessiveLinesPerFunction": "off"
+			},
+			"suspicious": {
+				"noUnnecessaryConditions": "off",
+				"noEvolvingTypes": "off",
+				"noUnknownAttribute": "off",
+				"noEmptyBlockStatements": "off",
+				"noLeakedRender": "off",
+				"noReactSpecificProps": "off"
+			},
+			"performance": {
+				"useSolidForComponent": "off"
+			},
+			"style": {
+				"noExcessiveLinesPerFile": "off",
+				"noDescendingSpecificity": "off",
+				"noContinue": "off",
+				"useFilenamingConvention": "off",
+				"useBlockStatements": "off",
+				"noTernary": "off",
+				"noMagicNumbers": "off",
+				"noJsxLiterals": "off",
+				"noHexColors": "off",
+				"noImplicitBoolean": "off",
+				"noIncrementDecrement": "off",
+				"noDefaultExport": "off",
+				"useExportsLast": "off",
+				"useConsistentTypeDefinitions": "off",
+				"useDestructuring": "off",
+				"useNamingConvention": "off"
+			}
 		}
 	},
 	"assist": {
@@ -25,6 +74,10 @@
 	},
 	"files": {
 		"includes": [
+			"**",
+			"!apps/blog/public",
+			"!apps/home/public",
+			"!.github",
 			"**/*.ts",
 			"**/*.tsx",
 			"**/*.js",
@@ -35,22 +88,28 @@
 			"**/*.astro"
 		]
 	},
-	"css": {
-		"parser": {
-			"tailwindDirectives": true
-		}
-	},
 	"overrides": [
 		{
-			"includes": ["**/*.astro"],
+			// Blog predates the strict pins.
+			// Its idioms are intentional; revisit when the blog is reworked.
+			"includes": ["apps/blog/**", "shared/**", "workers/**"],
 			"linter": {
 				"rules": {
-					"correctness": {
-						"noUnusedVariables": "off",
-						"noUnusedImports": "off"
+					"preset": "recommended",
+					"style": {
+						"noNonNullAssertion": "off"
+					},
+					"a11y": {
+						"useSemanticElements": "off",
+						"useAriaPropsSupportedByRole": "off"
 					}
 				}
 			}
 		}
-	]
+	],
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	}
 }

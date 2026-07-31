@@ -22,7 +22,7 @@ Astro.response.headers.set("Cache-Control", "public, max-age=0, s-maxage=3600, m
 			</p>
 		</header>
 
-		{/* search · sort · tag filter — fully client-side, instant */}
+		<!-- search · sort · tag filter — fully client-side, instant -->
 		<div class="over-art mb-7 flex flex-wrap items-center gap-x-6 gap-y-3" data-blog-controls>
 			<label class="relative flex-1 min-w-[180px]">
 				<input
@@ -48,10 +48,10 @@ Astro.response.headers.set("Cache-Control", "public, max-age=0, s-maxage=3600, m
 						<span data-select-value>newest</span>
 						<svg class="xselect-caret" viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
 					</button>
-					<ul class="xselect-pop" role="listbox" data-select-pop aria-label="Sort posts">
-						<li class="xselect-opt" role="option" data-select-opt data-value="new" aria-selected="true">newest</li>
-						<li class="xselect-opt" role="option" data-select-opt data-value="old" aria-selected="false">oldest</li>
-						<li class="xselect-opt" role="option" data-select-opt data-value="title" aria-selected="false">title</li>
+					<ul class="xselect-pop" data-select-pop aria-label="Sort posts">
+						<li class="xselect-opt" data-select-opt data-value="new" aria-selected="true">newest</li>
+						<li class="xselect-opt" data-select-opt data-value="old" aria-selected="false">oldest</li>
+						<li class="xselect-opt" data-select-opt data-value="title" aria-selected="false">title</li>
 					</ul>
 				</div>
 			</div>

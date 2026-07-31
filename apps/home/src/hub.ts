@@ -1,0 +1,127 @@
+/**
+ * Hub client controller. One layout, four URLs.
+ * Section changes are client-side: pushState + title/aria swap + panel
+ * crossfade + object morph. All four panels stay mounted, so lenis
+ * instances persist for the page's lifetime. Article links pass through
+ * untouched (cross-document view transitions).
+ */
+import Lenis from "lenis";
+import { Clock } from "./clock";
+import { MOTION } from "./motion";
+import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
+import { readTheme, setThemeAttr, storeTheme } from "./theme";
+
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+export const clock = new Clock();
+
+function boot(): void {
+	const hub = document.querySelector<HTMLElement>(".hub");
+	if (!hub) return;
+
+	let section: Section = ROUTES[location.pathname] ?? "index";
+	const panels = new Map<Section, HTMLElement>();
+	for (const el of hub.querySelectorAll<HTMLElement>("[data-panel]")) {
+		panels.set(el.dataset.panel as Section, el);
+	}
+
+	// Lenis: one persistent instance per scrollable list; touch stays native.
+	const lenises = new Map<Section, Lenis>();
+	if (!reducedMotion) {
+		for (const [name, panel] of panels) {
+			const wrapper = panel.querySelector<HTMLElement>("[data-scroll]");
+			if (!wrapper?.firstElementChild) continue;
+			lenises.set(
+				name,
+				new Lenis({
+					wrapper,
+					content: wrapper.firstElementChild as HTMLElement,
+					autoRaf: false,
+					lerp: MOTION.scrollLerp,
+					wheelMultiplier: 1,
+					syncTouch: false,
+				}),
+			);
+		}
+		clock.subscribe((t) => {
+			for (const l of lenises.values()) l.raf(t);
+		});
+	}
+
+	const offsets = new Map<Section, number>();
+
+	const apply = (to: Section, focus: boolean): void => {
+		const from = section;
+		if (from === to) return;
+		offsets.set(from, panels.get(from)?.querySelector("[data-scroll]")?.scrollTop ?? 0);
+		section = to;
+		hub.dataset.section = to;
+		document.title = TITLES[to];
+		for (const a of hub.querySelectorAll("nav a")) {
+			if (a.getAttribute("href") === PATHS[to]) a.setAttribute("aria-current", "page");
+			else a.removeAttribute("aria-current");
+		}
+		const panel = panels.get(to);
+		const remembered = offsets.get(to) ?? 0;
+		const wrapper = panel?.querySelector<HTMLElement>("[data-scroll]");
+		if (wrapper) {
+			const l = lenises.get(to);
+			if (l) l.scrollTo(remembered, { immediate: true });
+			else wrapper.scrollTop = remembered;
+		}
+		if (focus)
+			panel?.querySelector<HTMLElement>("[data-panel-head]")?.focus({ preventScroll: true });
+		hub.dispatchEvent(new CustomEvent("sectionchange", { detail: { from, to } }));
+	};
+
+	document.addEventListener(
+		"click",
+		(ev) => {
+			const a = (ev.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
+			if (!a) return;
+			const to = interceptable(
+				{
+					origin: a.origin,
+					pathname: a.pathname,
+					target: a.target,
+					metaKey: ev.metaKey,
+					ctrlKey: ev.ctrlKey,
+					shiftKey: ev.shiftKey,
+					altKey: ev.altKey,
+					defaultPrevented: ev.defaultPrevented,
+				},
+				location.origin,
+			);
+			if (!to) return;
+			ev.preventDefault();
+			if (to !== section) {
+				history.pushState({ section: to }, "", PATHS[to]);
+				apply(to, true);
+			}
+		},
+		{ capture: true },
+	);
+
+	addEventListener("popstate", () => {
+		const to = ROUTES[location.pathname];
+		if (to) apply(to, false);
+	});
+
+	// Night toggle: instant, synchronous inversion with no transitions.
+	const toggle = hub.querySelector<HTMLElement>("[data-theme-toggle]");
+	toggle?.addEventListener("click", () => {
+		const next = document.documentElement.dataset.theme === "night" ? "day" : "night";
+		storeTheme(next);
+		if (toggle) toggle.textContent = next === "night" ? "◑ day" : "◐ night";
+	});
+
+	// bfcache restore: the frozen document may carry a stale theme and clock.
+	addEventListener("pageshow", (ev: PageTransitionEvent) => {
+		if (!ev.persisted) return;
+		setThemeAttr(readTheme());
+		clock.epochReset();
+		for (const l of lenises.values()) l.resize();
+	});
+}
+
+boot();

@@ -9,7 +9,7 @@ interface Props {
 }
 const { language, label, code, runnable = false, grammar, n = 1 } = Astro.props;
 const lang = grammar ?? language;
-const trimmed = code.replace(/\n+$/, "");
+const _trimmed = code.replace(/\n+$/, "");
 ---
 
 <figure
