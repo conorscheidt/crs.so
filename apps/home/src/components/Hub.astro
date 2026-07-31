@@ -1,0 +1,272 @@
+---
+import { getCollection } from "astro:content";
+
+type Props = { state: "hub" | "work" | "writing" | "about" };
+const { state } = Astro.props;
+
+const posts = (await getCollection("writing")).sort(
+	(a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+const latest = posts[0];
+
+const nav = [
+	{ href: "/work", label: "Work", key: "work" },
+	{ href: "/writing", label: "Writing", key: "writing" },
+	{ href: "/about", label: "About", key: "about" },
+] as const;
+
+/* Sample entries are placeholders, visibly marked as such until real
+   content replaces them. */
+const workSamples = [
+	{ name: "Lattice kinetics engine", note: "GPU non-equilibrium sandbox" },
+	{ name: "Order-book microscope", note: "market microstructure replay" },
+	{ name: "Spectral PDE solver", note: "HPC benchmark suite" },
+];
+---
+
+<div class="hub" data-state={state}>
+	<header class="crown">
+		<a class="mark-home mono" href="/">crs.so</a>
+		<span class="mono muted">00 / {state}</span>
+	</header>
+
+	<section class="axis">
+		{/* Eclipse mark: placeholder hairline geometry. */}
+		<button class="eclipse" type="button" aria-label="Invert the light">
+			<svg viewBox="0 0 120 72" width="120" height="72" fill="none" aria-hidden="true">
+				<circle cx="60" cy="36" r="22" stroke="currentColor" stroke-width="1.1"></circle>
+				<ellipse cx="60" cy="36" rx="44" ry="13" stroke="currentColor" stroke-width="0.7" opacity="0.55"></ellipse>
+				<circle class="disc" cx="38" cy="36" r="15" fill="currentColor"></circle>
+			</svg>
+		</button>
+
+		{state === "hub" ? (
+			<h1 class="name press">Conor Scheidt</h1>
+		) : (
+			<p class="name name-compact press"><a href="/">Conor Scheidt</a></p>
+		)}
+
+		<hr class="rule" />
+		<p class="role">software engineer — statistical mechanics, computation, markets</p>
+
+		<nav class="ways" aria-label="Sections">
+			{nav.map((n) => (
+				<a href={n.href} aria-current={state === n.key ? "page" : undefined}>{n.label}</a>
+			))}
+		</nav>
+
+		{state === "work" && (
+			<section class="leaf" aria-label="Selected work">
+				<ol class="works">
+					{workSamples.map((w, i) => (
+						<li>
+							<span class="mono ix">{String(i + 1).padStart(2, "0")}</span>
+							<span class="wname">{w.name}</span>
+							<span class="wnote">{w.note}</span>
+							<span class="mono sample">(sample)</span>
+						</li>
+					))}
+				</ol>
+			</section>
+		)}
+
+		{state === "writing" && (
+			<section class="leaf" aria-label="Writing">
+				<ol class="works">
+					{posts.map((p, i) => (
+						<li>
+							<span class="mono ix">{String(i + 1).padStart(2, "0")}</span>
+							<a class="wname" href={`/writing/${p.id}`}>{p.data.title}</a>
+							<span class="wnote">{p.data.minutes} min</span>
+							{p.data.sample && <span class="mono sample">(sample)</span>}
+						</li>
+					))}
+				</ol>
+			</section>
+		)}
+
+		{state === "about" && (
+			<section class="leaf about" aria-label="About">
+				<p>
+					I build fast systems where physics, computation, and markets meet —
+					non-equilibrium statistical mechanics by training, GPU and HPC engineering by
+					trade. <span class="mono sample">(sample copy — owner redline pending)</span>
+				</p>
+				<p class="mono links">
+					<a href="mailto:c@crs.so">c@crs.so</a>
+					<a href="https://git.crs.so">git.crs.so</a>
+					<a href="https://github.com/conorscheidt">github</a>
+				</p>
+			</section>
+		)}
+
+		{state === "hub" && (
+			<section class="quiet mono" aria-label="Now">
+				<span id="git-block" data-endpoint="https://git.crs.so/api/v1" hidden></span>
+				{latest && (
+					<a class="latest" href={`/writing/${latest.id}`}>
+						latest — “{latest.data.title}” · {latest.data.minutes} min
+						{latest.data.sample && <span class="sample"> (sample)</span>}
+					</a>
+				)}
+			</section>
+		)}
+	</section>
+
+	<footer class="foot mono muted">· {state === "hub" ? "1" : "2"} ·</footer>
+</div>
+
+<style>
+	.hub {
+		min-height: 100dvh;
+		display: grid;
+		grid-template-rows: auto 1fr auto;
+		justify-items: center;
+		padding: var(--s3) var(--s4);
+	}
+	.crown {
+		width: 100%;
+		max-width: 1080px;
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+	}
+	.mono {
+		font-family: var(--font-mark);
+		font-size: 10px;
+		letter-spacing: 0.08em;
+	}
+	.muted {
+		color: var(--ink-45);
+	}
+	.mark-home {
+		color: var(--ink-70);
+		text-decoration: none;
+		font-weight: 500;
+	}
+	.axis {
+		align-self: center;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		max-width: 720px;
+		gap: var(--s2);
+	}
+	.eclipse {
+		background: none;
+		border: 0;
+		color: var(--ink);
+		cursor: pointer;
+		margin-bottom: var(--s2);
+	}
+	.name {
+		font-family: var(--font-display);
+		font-weight: 100;
+		font-variation-settings: "opsz" 144;
+		font-size: clamp(44px, 5.2vw, 76px);
+		line-height: 1.04;
+		letter-spacing: 0.005em;
+	}
+	.name-compact {
+		font-size: clamp(28px, 2.6vw, 38px);
+	}
+	.name a {
+		color: inherit;
+		text-decoration: none;
+	}
+	.rule {
+		border: 0;
+		width: 88px;
+		height: 1px;
+		background: var(--rule);
+		margin-top: var(--s1);
+	}
+	.role {
+		font-style: italic;
+		font-weight: 300;
+		font-size: 16px;
+		color: var(--ink-70);
+		max-width: 46ch;
+	}
+	.ways {
+		display: flex;
+		gap: var(--s4);
+		margin-top: var(--s3);
+	}
+	.ways a {
+		color: var(--ink);
+		text-decoration: none;
+		font-size: 16px;
+		font-weight: 300;
+		opacity: 0.85;
+		transition: opacity 120ms var(--ease-settle, ease-out);
+	}
+	.ways a:hover,
+	.ways a[aria-current="page"] {
+		opacity: 1;
+	}
+	.leaf {
+		margin-top: var(--s4);
+	}
+	.works {
+		list-style: none;
+		display: grid;
+		gap: var(--s2);
+		text-align: left;
+	}
+	.works li {
+		display: flex;
+		align-items: baseline;
+		gap: var(--s2);
+	}
+	.works .ix {
+		color: var(--ink-45);
+	}
+	.wname {
+		font-size: 20px;
+		font-weight: 300;
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.wnote {
+		font-size: 13px;
+		font-style: italic;
+		color: var(--ink-45);
+	}
+	.sample {
+		font-size: 9px;
+		color: var(--ink-45);
+	}
+	.about {
+		max-width: 52ch;
+		font-size: 16.5px;
+		font-weight: 300;
+		display: grid;
+		gap: var(--s2);
+	}
+	.about .links {
+		display: flex;
+		gap: var(--s3);
+		justify-content: center;
+	}
+	.about .links a {
+		color: var(--ink-70);
+	}
+	.quiet {
+		margin-top: var(--s5);
+		display: flex;
+		gap: var(--s4);
+		color: var(--ink-45);
+	}
+	.quiet a {
+		color: inherit;
+		text-decoration: none;
+	}
+	.quiet a:hover {
+		color: var(--ink-70);
+	}
+	.foot {
+		padding-bottom: var(--s1);
+	}
+</style>

@@ -1,18 +1,16 @@
 {
 	// Cloudflare Workers Static Assets, pure static with no Worker script. Deploys via
-	// the Cloudflare↔GitHub integration (Workers Builds: root dir apps/website,
-	// build `bun run build`) or manually with `bun run deploy`. No runtime Worker →
-	// wrangler footprint stays minimal.
+	// Workers Builds (root dir apps/home, build `bun run build`) or `bun run deploy`.
 	"$schema": "../../node_modules/wrangler/config-schema.json",
-	"name": "crsche",
+	"name": "crs-so",
 	"compatibility_date": "2026-06-19",
 	"assets": {
 		"directory": "./dist",
-		"html_handling": "auto-trailing-slash",
+		"html_handling": "drop-trailing-slash",
 		"not_found_handling": "404-page"
 	},
 	"observability": {
 		"enabled": true,
-		"head_sampling_rate": 0.5 // 50%
+		"head_sampling_rate": 0.5
 	}
 }

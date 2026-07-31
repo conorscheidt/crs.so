@@ -1,0 +1,101 @@
+---
+import { getCollection, render } from "astro:content";
+import Shell from "../../layouts/Shell.astro";
+
+export async function getStaticPaths() {
+	const posts = await getCollection("writing");
+	return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const date = post.data.date.toLocaleDateString("en-US", {
+	year: "numeric",
+	month: "long",
+	day: "numeric",
+});
+---
+
+<Shell title={`${post.data.title} — Conor Scheidt`} description={post.data.description} scrollable>
+	<article class="page">
+		<header class="head">
+			<a class="home" href="/" aria-label="Back to the hub">
+				<svg viewBox="0 0 60 36" width="60" height="36" fill="none" aria-hidden="true">
+					<circle cx="30" cy="18" r="11" stroke="currentColor" stroke-width="1"></circle>
+					<circle cx="19" cy="18" r="7.5" fill="currentColor"></circle>
+				</svg>
+			</a>
+			<h1 class="press">{post.data.title}</h1>
+			<p class="meta mono">
+				{date} · {post.data.minutes} min read
+				{post.data.sample && <span> · (sample)</span>}
+			</p>
+		</header>
+		<div class="prose">
+			<Content />
+		</div>
+	</article>
+</Shell>
+
+<style>
+	.page {
+		max-width: 68ch;
+		margin: 0 auto;
+		padding: var(--s5) var(--s3) calc(var(--s5) * 2);
+	}
+	.head {
+		display: grid;
+		justify-items: center;
+		text-align: center;
+		gap: var(--s2);
+		margin-bottom: var(--s5);
+	}
+	.home {
+		color: var(--ink);
+	}
+	h1 {
+		font-family: var(--font-display);
+		font-weight: 130;
+		font-variation-settings: "opsz" 144;
+		font-size: clamp(30px, 3.4vw, 44px);
+		line-height: 1.12;
+	}
+	.meta {
+		font-family: var(--font-mark);
+		font-size: 10px;
+		letter-spacing: 0.08em;
+		color: var(--ink-45);
+	}
+	.prose {
+		font-weight: 300;
+		font-size: 17.5px;
+		line-height: 1.72;
+	}
+	.prose :global(p) {
+		margin-bottom: var(--s3);
+	}
+	.prose :global(h2) {
+		font-family: var(--font-display);
+		font-weight: 200;
+		font-size: 26px;
+		margin: var(--s4) 0 var(--s2);
+	}
+	.prose :global(code) {
+		font-family: var(--font-mark);
+		font-size: 0.86em;
+	}
+	.prose :global(pre) {
+		padding: var(--s2) var(--s3);
+		border: 1px solid var(--rule);
+		overflow-x: auto;
+		margin-bottom: var(--s3);
+		background: var(--paper-deep);
+	}
+	.prose :global(blockquote) {
+		font-style: italic;
+		color: var(--ink-70);
+		margin: var(--s3) 0;
+		padding-left: var(--s3);
+		border-left: 1px solid var(--rule);
+	}
+</style>

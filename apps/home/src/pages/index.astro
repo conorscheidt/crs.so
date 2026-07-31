@@ -1,27 +1,11 @@
 ---
-import Constructs from "../components/Constructs.astro";
-import Footer from "../components/Footer.astro";
-import Hero from "../components/Hero.astro";
-import Provenance from "../components/Provenance.astro";
-import ServiceRecord from "../components/ServiceRecord.astro";
-import Signal from "../components/Signal.astro";
-import StatusBar from "../components/StatusBar.astro";
-import Layout from "../layouts/Layout.astro";
-
-Astro.response.headers.set("Cache-Control", "public, max-age=0, s-maxage=3600, must-revalidate");
+import Hub from "../components/Hub.astro";
+import Shell from "../layouts/Shell.astro";
 ---
 
-<Layout>
-	<main class="mx-auto w-full max-w-[1100px] px-6 md:px-10">
-		<StatusBar />
-		<Hero />
-
-		<div class="over-art flex flex-col gap-24 pt-10 pb-28 md:gap-32">
-			<Signal />
-			<ServiceRecord />
-			<Constructs />
-			<Provenance />
-			<Footer />
-		</div>
-	</main>
-</Layout>
+<Shell
+	title="Conor Scheidt"
+	description="Software engineer — statistical mechanics, high-performance computing, and market microstructure. Personal site of Conor Scheidt."
+>
+	<Hub state="hub" />
+</Shell>

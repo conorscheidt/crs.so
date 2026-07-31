@@ -1,15 +1,16 @@
-import { defineCollection, z } from "astro:content";
 import { glob } from "astro/loaders";
+import { defineCollection, z } from "astro:content";
 
-const blog = defineCollection({
-	loader: glob({ pattern: "**/*.{md,mdx}", base: "../../shared/content/blog" }),
+const writing = defineCollection({
+	loader: glob({ pattern: "**/*.md", base: "./src/content/writing" }),
 	schema: z.object({
 		title: z.string(),
 		description: z.string(),
-		pubDate: z.coerce.date(),
-		updatedDate: z.coerce.date().optional(),
-		tags: z.array(z.string()).default([]),
+		date: z.coerce.date(),
+		minutes: z.number().int().positive(),
+		/** Sample content is visibly marked as such in the UI. */
+		sample: z.boolean().default(false),
 	}),
 });
 
-export const collections = { blog };
+export const collections = { writing };

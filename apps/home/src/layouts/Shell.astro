@@ -1,0 +1,84 @@
+---
+import "../styles/global.css";
+import frauncesUrl from "@fontsource-variable/fraunces/files/fraunces-latin-opsz-normal.woff2?url";
+import spectralItalicUrl from "@fontsource/spectral/files/spectral-latin-300-italic.woff2?url";
+import spectralUrl from "@fontsource/spectral/files/spectral-latin-300-normal.woff2?url";
+import { ClientRouter } from "astro:transitions";
+import { MOTION } from "../motion";
+
+type Props = { title: string; description: string; scrollable?: boolean };
+const { title, description, scrollable = false } = Astro.props;
+
+const jsonLd = JSON.stringify({
+	"@context": "https://schema.org",
+	"@type": "Person",
+	name: "Conor Scheidt",
+	url: "https://crs.so",
+	email: "mailto:c@crs.so",
+	sameAs: ["https://github.com/conorscheidt", "https://www.linkedin.com/in/conorscheidt"],
+	jobTitle: "Software Engineer",
+	knowsAbout: ["statistical mechanics", "high-performance computing", "market microstructure"],
+});
+---
+
+<html lang="en" data-theme="day" data-reveal="draw">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content="website" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<script type="application/ld+json" set:html={jsonLd} />
+		{/* Pre-paint: theme + reveal decided before first paint. Mirrors src/theme.ts
+		    (resolveTheme/resolveReveal); theme.test.ts covers both. */}
+		<script is:inline>
+			(() => {
+				let t = null;
+				try {
+					t = localStorage.getItem("crs-theme");
+				} catch {}
+				const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+				const theme = t === "day" || t === "night" ? t : dark ? "night" : "day";
+				let seen = false;
+				try {
+					seen = sessionStorage.getItem("crs-seen") === "1";
+					sessionStorage.setItem("crs-seen", "1");
+				} catch {}
+				const d = document.documentElement;
+				d.dataset.theme = theme;
+				d.dataset.reveal = seen ? "settle" : "draw";
+			})();
+		</script>
+		<link rel="preload" href={frauncesUrl} as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href={spectralUrl} as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href={spectralItalicUrl} as="font" type="font/woff2" crossorigin />
+		<ClientRouter />
+	</head>
+	<body class:list={[{ scrollable }]} style={`--ease-settle:${MOTION.easeSettle};--ease-transit:${MOTION.easeTransit};--stagger:${MOTION.stagger}ms;`}>
+		<div id="stage" transition:name="stage" transition:persist="stage">
+			<canvas id="paper" aria-hidden="true"></canvas>
+		</div>
+		<main>
+			<slot />
+		</main>
+		<script>
+			// Client-side navigations skip the inline pre-paint script:
+			// re-assert theme + reveal on every swap. Listener registers once per
+			// page lifetime and survives ClientRouter swaps.
+			import { resolveReveal, resolveTheme } from "../theme";
+			document.addEventListener("astro:after-swap", () => {
+				let stored: string | null = null;
+				try {
+					stored = localStorage.getItem("crs-theme");
+				} catch {}
+				const d = document.documentElement;
+				d.dataset.theme = resolveTheme(stored, matchMedia("(prefers-color-scheme: dark)").matches);
+				d.dataset.reveal = resolveReveal(true, true);
+			});
+		</script>
+	</body>
+</html>
