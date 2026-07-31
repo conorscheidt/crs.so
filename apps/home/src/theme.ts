@@ -1,13 +1,13 @@
 /**
- * Theme resolution, pure and unit-tested. Light is the default regardless of
- * prefers-color-scheme: only a stored override changes the first paint. The
- * inline pre-paint script in Shell.astro duplicates this logic verbatim (it
- * cannot import modules); theme.test.ts defines the expected behaviour.
+ * Theme resolution, pure and unit-tested. Night is the default and
+ * prefers-color-scheme is ignored: only a stored override changes the first
+ * paint. The inline pre-paint script in Shell.astro duplicates this logic
+ * verbatim.
  */
 export type Theme = "day" | "night";
 
 export function resolveTheme(stored: string | null): Theme {
-	return stored === "night" ? "night" : "day";
+	return stored === "day" ? "day" : "night";
 }
 
 export function readTheme(): Theme {

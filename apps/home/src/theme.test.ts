@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { resolveTheme } from "./theme";
 
-test("light is the default, even for dark-mode visitors", () => {
-	expect(resolveTheme(null)).toBe("day");
-	expect(resolveTheme("")).toBe("day");
-	expect(resolveTheme("garbage")).toBe("day");
+test("night is the default with nothing stored", () => {
+	expect(resolveTheme(null)).toBe("night");
+	expect(resolveTheme("")).toBe("night");
+	expect(resolveTheme("garbage")).toBe("night");
 });
 
 test("stored override wins", () => {

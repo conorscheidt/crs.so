@@ -7,8 +7,10 @@
  */
 import Lenis from "lenis";
 import { Clock } from "./clock";
+import { initGitBlock } from "./git";
 import { MOTION } from "./motion";
 import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
+import { bootSim, type Sim } from "./sim";
 import { readTheme, setThemeAttr, storeTheme } from "./theme";
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -50,6 +52,81 @@ function boot(): void {
 
 	const offsets = new Map<Section, number>();
 
+	// The sim boots async; its API is safe to call before it is ready.
+	let sim: Sim | null = null;
+	const canvas = hub.querySelector<HTMLCanvasElement>("#sim");
+	if (canvas) {
+		void bootSim(canvas, clock, section).then((s) => {
+			sim = s;
+		});
+		const colC = canvas.parentElement as HTMLElement;
+		colC.addEventListener("pointermove", (ev) => {
+			const r = canvas.getBoundingClientRect();
+			sim?.setPointer(ev.clientX - r.left, ev.clientY - r.top, true);
+		});
+		colC.addEventListener("pointerleave", () => sim?.setPointer(0, 0, false));
+	}
+
+	// Tag chips: clicking a tag filters its panel; backspace in an empty input
+	// removes the last chip.
+	const chipSets = new Map<HTMLElement, Set<string>>();
+	const applyChips = (panel: HTMLElement): void => {
+		const chips = chipSets.get(panel) ?? new Set();
+		const box = panel.querySelector<HTMLElement>("[data-chips]");
+		if (box) {
+			box.textContent = "";
+			for (const tag of chips) {
+				const b = document.createElement("button");
+				b.type = "button";
+				b.className = "chip";
+				b.dataset.chip = tag;
+				b.textContent = `${tag} ×`;
+				box.appendChild(b);
+			}
+		}
+		for (const entry of panel.querySelectorAll<HTMLElement>(".entry")) {
+			const tags = (entry.dataset.tags ?? "").split(" ");
+			entry.hidden = ![...chips].every((t) => tags.includes(t));
+		}
+	};
+	hub.addEventListener("click", (ev) => {
+		const el = ev.target as HTMLElement;
+		const panel = el.closest<HTMLElement>(".panel");
+		if (!panel) return;
+		const tag = el.closest<HTMLElement>(".tag")?.dataset.tag;
+		const chip = el.closest<HTMLElement>("[data-chip]")?.dataset.chip;
+		if (!(tag || chip)) return;
+		const chips = chipSets.get(panel) ?? new Set<string>();
+		chipSets.set(panel, chips);
+		if (tag) chips.add(tag);
+		if (chip) chips.delete(chip);
+		applyChips(panel);
+		panel.querySelector<HTMLInputElement>(".search input")?.focus();
+	});
+	hub.addEventListener("keydown", (ev) => {
+		const input = ev.target as HTMLInputElement;
+		if (ev.key !== "Backspace" || !input.matches?.(".search input") || input.value !== "") return;
+		const panel = input.closest<HTMLElement>(".panel");
+		if (!panel) return;
+		const chips = chipSets.get(panel);
+		if (!chips || chips.size === 0) return;
+		chips.delete([...chips].at(-1) as string);
+		applyChips(panel);
+	});
+
+	// Index git block: Forgejo API with visible-sample fallback.
+	const gitb = hub.querySelector<HTMLElement>("[data-git]");
+	if (gitb) void initGitBlock(gitb);
+
+	// Hovering an entry or the latest-post title quickens the sim.
+	hub.querySelector(".col-r")?.addEventListener(
+		"pointerover",
+		(ev) => {
+			if ((ev.target as HTMLElement).closest(".entry, .latest-title")) sim?.excite();
+		},
+		{ passive: true },
+	);
+
 	const apply = (to: Section, focus: boolean): void => {
 		const from = section;
 		if (from === to) return;
@@ -71,7 +148,7 @@ function boot(): void {
 		}
 		if (focus)
 			panel?.querySelector<HTMLElement>("[data-panel-head]")?.focus({ preventScroll: true });
-		hub.dispatchEvent(new CustomEvent("sectionchange", { detail: { from, to } }));
+		sim?.setSection(to);
 	};
 
 	document.addEventListener(
@@ -107,18 +184,28 @@ function boot(): void {
 		if (to) apply(to, false);
 	});
 
-	// Night toggle: instant, synchronous inversion with no transitions.
+	// Eclipse toggle: instant, synchronous inversion; the disc slide and
+	// a pulse through the cloud are the only things that animate.
 	const toggle = hub.querySelector<HTMLElement>("[data-theme-toggle]");
+	const themeLabel = hub.querySelector<HTMLElement>("[data-theme-label]");
+	const syncLabel = (): void => {
+		if (themeLabel)
+			themeLabel.textContent = document.documentElement.dataset.theme === "night" ? "day" : "night";
+	};
+	syncLabel();
 	toggle?.addEventListener("click", () => {
-		const next = document.documentElement.dataset.theme === "night" ? "day" : "night";
-		storeTheme(next);
-		if (toggle) toggle.textContent = next === "night" ? "◑ day" : "◐ night";
+		storeTheme(document.documentElement.dataset.theme === "night" ? "day" : "night");
+		sim?.setInk();
+		sim?.excite();
+		syncLabel();
 	});
 
 	// bfcache restore: the frozen document may carry a stale theme and clock.
 	addEventListener("pageshow", (ev: PageTransitionEvent) => {
 		if (!ev.persisted) return;
 		setThemeAttr(readTheme());
+		sim?.setInk();
+		syncLabel();
 		clock.epochReset();
 		for (const l of lenises.values()) l.resize();
 	});

@@ -19,7 +19,7 @@ const jsonLd = JSON.stringify({
 });
 ---
 
-<html lang="en" data-theme="day">
+<html lang="en" data-theme="night">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -31,7 +31,7 @@ const jsonLd = JSON.stringify({
 		<meta property="og:type" content="website" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<script type="application/ld+json" set:html={jsonLd} />
-		<!-- Pre-paint: decide the theme before first paint. Light is the default and
+		<!-- Pre-paint: decide the theme before first paint. Night is the default and
 		     prefers-color-scheme is ignored. Mirrors resolveTheme in src/theme.ts. -->
 		<script is:inline>
 			(() => {
@@ -41,7 +41,7 @@ const jsonLd = JSON.stringify({
 				} catch {}
 				const d = document.documentElement;
 				d.classList.add("js");
-				d.dataset.theme = t === "night" ? "night" : "day";
+				d.dataset.theme = t === "day" ? "day" : "night";
 			})();
 		</script>
 		<link rel="preload" href={frauncesUrl} as="font" type="font/woff2" crossorigin />

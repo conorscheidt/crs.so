@@ -59,6 +59,7 @@
 		"@types/d3-shape": "^3.1.8",
 		"@types/d3-transition": "^3.0.9",
 		"@vitejs/devtools": "^0.3.3",
+		"@webgpu/types": "^0.1.71",
 		"astro": "7.1.6",
 		"cf": "0.1.0",
 		"typescript": "^6.0.3",

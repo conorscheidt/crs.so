@@ -10,6 +10,9 @@
 		// template). Biome pinned exact — formatting may churn between minors.
 		"experimentalFullSupportEnabled": true
 	},
+	"javascript": {
+		"globals": ["Bun"]
+	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",
@@ -32,10 +35,13 @@
 				"useQwikValidLexicalScope": "off"
 			},
 			"complexity": {
-				"noExcessiveLinesPerFunction": "off"
+				"noExcessiveLinesPerFunction": "off",
+				"noVoid": "off",
+				"useMaxParams": "off"
 			},
 			"suspicious": {
 				"noUnnecessaryConditions": "off",
+				"noBitwiseOperators": "off",
 				"noEvolvingTypes": "off",
 				"noUnknownAttribute": "off",
 				"noEmptyBlockStatements": "off",
@@ -49,6 +55,7 @@
 				"noExcessiveLinesPerFile": "off",
 				"noDescendingSpecificity": "off",
 				"noContinue": "off",
+				"useForOf": "off",
 				"useFilenamingConvention": "off",
 				"useBlockStatements": "off",
 				"noTernary": "off",

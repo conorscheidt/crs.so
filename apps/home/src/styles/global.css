@@ -134,9 +134,9 @@ main {
 
 .name {
 	font-family: var(--font-display);
-	font-weight: 130;
+	font-weight: 260;
 	font-variation-settings: "opsz" 144;
-	font-size: 30px;
+	font-size: 31px;
 	line-height: 1.1;
 	color: var(--ink);
 	text-decoration: none;
@@ -194,6 +194,9 @@ main {
 
 .meta a,
 .meta button {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	font-family: var(--font-text);
 	font-weight: 300;
 	font-size: 13px;
@@ -230,13 +233,13 @@ main {
 .col-r {
 	position: relative;
 	z-index: 2;
-	padding: var(--s5) var(--s4) var(--s3) var(--s1);
+	padding: var(--s4) var(--s4) var(--s3) var(--s1);
 	min-height: 0;
 }
 
 .panel {
 	position: absolute;
-	inset: var(--s5) var(--s4) var(--s3) var(--s1);
+	inset: var(--s4) var(--s4) var(--s3) var(--s1);
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
@@ -269,7 +272,7 @@ main {
 	letter-spacing: 0.16em;
 	text-transform: uppercase;
 	color: var(--ink-45);
-	margin-bottom: var(--s2);
+	margin-bottom: var(--s1);
 }
 
 .ptitle.sub {
@@ -307,12 +310,16 @@ main {
 	min-height: 0;
 	flex: 1;
 	overscroll-behavior: contain;
-	scrollbar-width: thin;
+	scrollbar-width: none;
 	padding-right: var(--s1);
 }
 
+.list::-webkit-scrollbar {
+	display: none;
+}
+
 .entry {
-	padding: var(--s3) 2px var(--s2);
+	padding: 15px 2px var(--s2);
 	border-bottom: 1px solid var(--rule);
 }
 
@@ -322,9 +329,9 @@ main {
 
 .entry-title {
 	font-family: var(--font-display);
-	font-weight: 180;
-	font-variation-settings: "opsz" 144;
-	font-size: 20px;
+	font-weight: 260;
+	font-variation-settings: "opsz" 48;
+	font-size: 19.5px;
 	color: var(--ink);
 	text-decoration: none;
 	transition: opacity 120ms ease;
@@ -355,25 +362,63 @@ a.entry-title:hover {
 	flex-wrap: wrap;
 }
 
+.tags .tag,
 .tags i {
+	font-family: var(--font-text);
 	font-style: normal;
+	font-weight: 300;
 	font-size: 10.5px;
 	letter-spacing: 0.06em;
 	color: var(--ink-45);
+	background: none;
 	border: 1px solid var(--rule);
 	border-radius: 999px;
 	padding: 1px 8px;
+	cursor: pointer;
+	transition:
+		color 120ms ease,
+		border-color 120ms ease;
+}
+
+.tags .tag:hover {
+	color: var(--ink);
+	border-color: var(--ink-45);
 }
 
 .tags i.sample {
 	opacity: 0.6;
+	cursor: default;
+}
+
+/* Search chips (tag-click filtering). */
+.chips {
+	display: flex;
+	gap: 5px;
+}
+
+.chips .chip {
+	font-family: var(--font-text);
+	font-weight: 300;
+	font-size: 11px;
+	letter-spacing: 0.04em;
+	color: var(--ink);
+	border: 1px solid var(--ink-45);
+	border-radius: 999px;
+	padding: 1px 9px;
+	background: none;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.entry[hidden] {
+	display: none;
 }
 
 /* Index panel. */
 .latest-title {
 	font-family: var(--font-display);
-	font-weight: 180;
-	font-variation-settings: "opsz" 144;
+	font-weight: 260;
+	font-variation-settings: "opsz" 60;
 	font-size: 22px;
 	line-height: 1.25;
 	color: var(--ink);
@@ -386,7 +431,7 @@ a.entry-title:hover {
 }
 
 .gitb {
-	margin-top: var(--s4);
+	margin-top: var(--s3);
 }
 
 .hm {
@@ -414,15 +459,51 @@ a.entry-title:hover {
 	color: var(--ink);
 }
 
+.gitline i {
+	font-style: italic;
+	color: var(--ink-45);
+}
+
+.commit {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--ink-45);
+	line-height: 1.75;
+	text-decoration: none;
+}
+
+.commit em {
+	font-style: normal;
+	color: var(--ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.commit span {
+	white-space: nowrap;
+}
+
+.commit:hover em {
+	opacity: 0.62;
+}
+
+.hm b:hover {
+	outline: 1px solid var(--ink-45);
+	outline-offset: 1px;
+}
+
 /* About panel. */
 .blurb {
-	font-size: 14.5px;
+	font-size: 14px;
 	line-height: 1.6;
-	margin-bottom: var(--s3);
+	margin-bottom: var(--s2);
 }
 
 .cvrow {
-	padding: var(--s2) 2px;
+	padding: 9px 2px;
 	border-bottom: 1px solid var(--rule);
 }
 
@@ -432,9 +513,9 @@ a.entry-title:hover {
 
 .cvrow h3 {
 	font-family: var(--font-display);
-	font-weight: 200;
-	font-variation-settings: "opsz" 144;
-	font-size: 17px;
+	font-weight: 260;
+	font-variation-settings: "opsz" 40;
+	font-size: 16.5px;
 }
 
 .cvrow span {
@@ -450,13 +531,24 @@ a.entry-title:hover {
 	line-height: 1.45;
 }
 
-.resume {
-	display: inline-block;
-	margin-top: var(--s3);
-	font-size: 13px;
-	letter-spacing: 0.04em;
-	color: var(--ink);
-	text-decoration: none;
-	border-bottom: 1px solid var(--rule);
-	padding-bottom: 1px;
+/* Eclipse toggle: the disc slides across the ring, total eclipse in night and
+   partial in day. Transform only; the theme swap itself stays instant. */
+.ecl {
+	overflow: visible;
+}
+
+.ecl .ring {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1;
+}
+
+.ecl .disc {
+	fill: currentColor;
+	transform: translateX(-4.5px);
+	transition: transform 420ms cubic-bezier(0.6, 0, 0.2, 1);
+}
+
+:root[data-theme="night"] .ecl .disc {
+	transform: translateX(0);
 }
