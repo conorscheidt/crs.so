@@ -170,7 +170,8 @@
 	font-size: 0.86em;
 }
 
-.prose .mlit {
+.prose .mlit,
+.prose .manchor:hover {
 	background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
@@ -311,6 +312,26 @@
 .arail-r .mnote {
 	position: absolute;
 	width: 180px;
+}
+
+/* a hairline reaches from the note toward its phrase whenever either side
+   is hovered */
+.arail-r .mnote::before {
+	content: "";
+	position: absolute;
+	right: 100%;
+	top: 0.75em;
+	width: 0;
+	border-top: 1px solid transparent;
+	transition:
+		width 300ms cubic-bezier(0.22, 1, 0.36, 1),
+		border-color 300ms ease;
+}
+
+.arail-r .mnote.lit::before,
+.arail-r .mnote:hover::before {
+	width: 46px;
+	border-color: var(--ink-45);
 }
 
 .mnote.lit {

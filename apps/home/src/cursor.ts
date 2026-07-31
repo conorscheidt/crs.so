@@ -23,15 +23,16 @@ export function initCursor(clock: Clock): void {
 	const ring = document.createElement("div");
 	ring.id = "cursor";
 	ring.setAttribute("aria-hidden", "true");
-	ring.innerHTML = `<svg width="${2 * r + 2}" height="${2 * r + 2}" viewBox="0 0 ${2 * r + 2} ${2 * r + 2}"><circle cx="${r + 1}" cy="${r + 1}" r="${r}" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="${(c * (1 - GAP_FRACTION)).toFixed(2)} ${(c * GAP_FRACTION).toFixed(2)}" stroke-linecap="round"/></svg>`;
+	ring.innerHTML = `<svg width="${2 * r + 2}" height="${2 * r + 2}" viewBox="0 0 ${2 * r + 2} ${2 * r + 2}"><circle cx="${r + 1}" cy="${r + 1}" r="${r}" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><circle class="dot" cx="${r + 1}" cy="${r + 1}" r="1.8" fill="currentColor"/></svg>`;
 	document.body.appendChild(ring);
+	const arc = ring.querySelector("circle") as SVGCircleElement;
 
 	let tx = -100;
 	let ty = -100;
 	let x = -100;
 	let y = -100;
 	let angle = 0;
-	let idleSpin = 0;
+	let gap = 0;
 	let leanX = 0;
 	let leanY = 0;
 	let shown = false;
@@ -65,11 +66,19 @@ export function initCursor(clock: Clock): void {
 		shown = false;
 		ring.classList.remove("on");
 	});
-	document.addEventListener("pointerover", (ev) => {
-		const el = ev.target as HTMLElement;
-		ring.classList.toggle("big", Boolean(el.closest(INTERACTIVE)));
-		ring.classList.toggle("quiet", Boolean(el.closest("input, textarea, select, .cm-editor")));
-	});
+	document.addEventListener(
+		"pointermove",
+		(ev) => {
+			// mode follows what's under the pointer on every move, since figures flip
+			// [data-cursor-mode] while the pointer stays on one canvas
+			const el = ev.target as HTMLElement;
+			const mode = el.closest<HTMLElement>("[data-cursor-mode]")?.dataset.cursorMode;
+			ring.classList.toggle("grabm", mode === "grab");
+			ring.classList.toggle("big", !mode && Boolean(el.closest(INTERACTIVE)));
+			ring.classList.toggle("quiet", Boolean(el.closest("input, textarea, select, .cm-editor")));
+		},
+		{ passive: true },
+	);
 	addEventListener(
 		"scroll",
 		() => {
@@ -94,31 +103,36 @@ export function initCursor(clock: Clock): void {
 				best = p;
 			}
 		}
-		let targetAngle: number;
+		// full circle at rest; when something is in reach the gap opens toward
+		// it and the ring leans a few px
 		let lx = 0;
 		let ly = 0;
+		let gapTarget = 0;
 		if (best) {
-			targetAngle = Math.atan2(best.y - y, best.x - x);
+			const targetAngle = Math.atan2(best.y - y, best.x - x);
+			let delta = targetAngle - angle;
+			delta = ((delta + Math.PI) % (2 * Math.PI)) - Math.PI;
+			if (delta < -Math.PI) delta += 2 * Math.PI;
+			angle += delta * Math.min(1, dt * 9);
 			const pull = (1 - bestD / REACH) * LEAN_MAX;
 			lx = Math.cos(targetAngle) * pull || 0;
 			ly = Math.sin(targetAngle) * pull || 0;
-		} else {
-			// nothing in reach: the needle drifts slowly
-			idleSpin += dt * 0.35;
-			targetAngle = idleSpin;
+			gapTarget = GAP_FRACTION;
 		}
-		let delta = targetAngle - angle;
-		delta = ((delta + Math.PI) % (2 * Math.PI)) - Math.PI;
-		if (delta < -Math.PI) delta += 2 * Math.PI;
-		angle += delta * Math.min(1, dt * 9);
+		gap += (gapTarget - gap) * Math.min(1, dt * 8);
 		const lk = Math.min(1, dt * 10);
 		leanX += (lx - leanX) * lk;
 		leanY += (ly - leanY) * lk;
 
 		ring.style.translate = `${x - r - 1 + leanX}px ${y - r - 1 + leanY}px`;
-		// dasharray begins at 3 o'clock; the gap's centre sits (1 − gap/2) of
-		// the way round; rotate so that centre lands on the target bearing
-		const gapCentreDeg = (1 - GAP_FRACTION / 2) * 360;
-		ring.style.rotate = `${((angle * 180) / Math.PI - gapCentreDeg).toFixed(1)}deg`;
+		if (gap > 0.002) {
+			// dasharray begins at 3 o'clock; the gap's centre sits (1 − gap/2)
+			// of the way round; rotate so it lands on the target bearing
+			arc.setAttribute("stroke-dasharray", `${(c * (1 - gap)).toFixed(2)} ${(c * gap).toFixed(2)}`);
+			ring.style.rotate = `${((angle * 180) / Math.PI - (1 - gap / 2) * 360).toFixed(1)}deg`;
+		} else {
+			arc.removeAttribute("stroke-dasharray");
+			ring.style.rotate = "0deg";
+		}
 	});
 }

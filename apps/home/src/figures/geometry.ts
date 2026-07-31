@@ -129,7 +129,7 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 		const h2 = near(ev);
 		if (h2 !== hover) {
 			hover = h2;
-			canvas.style.cursor = h2 >= 0 ? "grab" : "";
+			canvas.dataset.cursorMode = h2 >= 0 ? "grab" : "";
 			schedule();
 		}
 	});

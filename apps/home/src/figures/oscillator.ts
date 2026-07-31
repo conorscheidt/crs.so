@@ -147,7 +147,7 @@ export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
 		const near = Math.hypot(ev.clientX - r.left - p.x, ev.clientY - r.top - p.y) < 18;
 		if (near !== hover) {
 			hover = near;
-			canvas.style.cursor = near ? "grab" : "";
+			canvas.dataset.cursorMode = near ? "grab" : "";
 			schedule();
 		}
 	});

@@ -73,6 +73,13 @@ function boot(): void {
 			sim?.setPointer(ev.clientX - r.left, ev.clientY - r.top, true);
 		});
 		colC.addEventListener("pointerleave", () => sim?.setPointer(0, 0, false));
+		// tilt listens on the whole viewport so it doesn't jump at the column boundary
+		addEventListener(
+			"pointermove",
+			(ev: PointerEvent) =>
+				sim?.setTilt(ev.clientX / innerWidth - 0.5, ev.clientY / innerHeight - 0.5),
+			{ passive: true },
+		);
 	}
 
 	// Search islands: shared index, per-panel kind; the sim pulses on

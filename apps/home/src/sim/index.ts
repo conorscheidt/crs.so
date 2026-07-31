@@ -14,6 +14,7 @@ export interface Sim {
 	setSection: (s: Section) => void;
 	setInk: () => void;
 	setPointer: (x: number, y: number, active: boolean) => void;
+	setTilt: (nx: number, ny: number) => void;
 	excite: (strength?: number) => void;
 	destroy: () => void;
 	readonly kind: "gpu" | "cpu" | "static";
@@ -67,6 +68,7 @@ export async function bootSim(
 	[u.inkR, u.inkG, u.inkB] = readInk();
 
 	const pointer = { x: 0, y: 0, active: false };
+	const tiltFrom = { nx: 0, ny: 0 };
 	let exciteLevel = 0;
 	let speed = 1;
 	let pitchFrom = u.tiltX;
@@ -113,6 +115,7 @@ export async function bootSim(
 				renderStatic();
 			},
 			setPointer() {},
+			setTilt() {},
 			excite() {},
 			destroy() {
 				renderer?.destroy();
@@ -142,14 +145,13 @@ export async function bootSim(
 		u.yaw = u.phase * 0.2;
 		u.fade = Math.min(1, (t - born) / MOTION.budget.simFade);
 
-		const r = canvas.getBoundingClientRect();
 		const baseTilt = pitchFrom + (pitchTo - pitchFrom) * u.morphT;
-		const tiltTargetX = pointer.active
-			? baseTilt + ((pointer.y - r.height / 2) / r.height) * 0.5
-			: baseTilt;
-		const tiltTargetZ = pointer.active ? ((pointer.x - r.width / 2) / r.width) * 0.45 : 0;
-		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * 2.5);
-		u.tiltZ += (tiltTargetZ - u.tiltZ) * Math.min(1, dt * 2.5);
+		// tilt follows the pointer anywhere in the viewport, gently and slowly,
+		// so the object drifts with the cursor instead of twitching
+		const tiltTargetX = baseTilt + tiltFrom.ny * 0.26;
+		const tiltTargetZ = tiltFrom.nx * 0.2;
+		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * 1.6);
+		u.tiltZ += (tiltTargetZ - u.tiltZ) * Math.min(1, dt * 1.6);
 		u.cursorX = pointer.x * dpr;
 		u.cursorY = pointer.y * dpr;
 		u.cursorActive = pointer.active ? 1 : 0;
@@ -189,6 +191,10 @@ export async function bootSim(
 			pointer.x = x;
 			pointer.y = y;
 			pointer.active = active;
+		},
+		setTilt(nx: number, ny: number): void {
+			tiltFrom.nx = nx;
+			tiltFrom.ny = ny;
 		},
 		excite(strength = 1): void {
 			exciteLevel = Math.max(exciteLevel, Math.min(1, strength));
