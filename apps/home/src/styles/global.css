@@ -101,6 +101,59 @@ main {
 	height: 100%;
 }
 
+::selection {
+	background: var(--ink);
+	color: var(--paper);
+}
+
+:focus-visible {
+	outline: 1px solid var(--ink-45);
+	outline-offset: 3px;
+}
+
+html.no-native-cursor,
+html.no-native-cursor a,
+html.no-native-cursor button {
+	cursor: none;
+}
+
+html.no-native-cursor input,
+html.no-native-cursor textarea {
+	cursor: text;
+}
+
+#cursor {
+	position: fixed;
+	left: 0;
+	top: 0;
+	border: 1px solid var(--ink);
+	border-radius: 50%;
+	opacity: 0;
+	z-index: 99;
+	pointer-events: none;
+	transition:
+		scale 180ms ease,
+		opacity 180ms ease;
+	scale: 1;
+}
+
+#cursor.on {
+	opacity: 0.55;
+}
+
+#cursor.big {
+	scale: 1.45;
+}
+
+#cursor.press {
+	scale: 0.8;
+}
+
+#cursor.quiet {
+	scale: 0.4;
+	opacity: 0.3;
+}
+
 .press {
 	text-shadow:
 		0 -1px 1px var(--press-shade),
@@ -390,7 +443,7 @@ a.entry-title:hover {
 	cursor: default;
 }
 
-/* Search chips (tag-click filtering). */
+/* Search chips + tag autocomplete. */
 .chips {
 	display: flex;
 	gap: 5px;
@@ -412,6 +465,49 @@ a.entry-title:hover {
 
 .entry[hidden] {
 	display: none;
+}
+
+.search {
+	position: relative;
+}
+
+.autoc {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 100%;
+	background: var(--paper);
+	border: 1px solid var(--rule);
+	border-top: 0;
+	z-index: 5;
+	display: flex;
+	flex-direction: column;
+}
+
+.autoc button {
+	font-family: var(--font-text);
+	font-weight: 300;
+	font-size: 12.5px;
+	letter-spacing: 0.04em;
+	color: var(--ink-70);
+	text-align: left;
+	background: none;
+	border: 0;
+	padding: 6px 10px;
+	cursor: pointer;
+}
+
+.autoc button.on,
+.autoc button:hover {
+	background: var(--paper-deep);
+	color: var(--ink);
+}
+
+.noresults {
+	font-style: italic;
+	font-size: 12.5px;
+	color: var(--ink-45);
+	padding: var(--s2) 2px;
 }
 
 /* Index panel. */

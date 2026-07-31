@@ -82,7 +82,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 				<div>
 					{
 						projects.map((p) => (
-							<article class="entry" data-tags={p.tags.join(" ")}>
+							<article class="entry" data-id={`project:${p.name}`} data-ts={String(Date.UTC(p.year, 6, 1))} data-tags={p.tags.join(" ")}>
 								{p.href ? (
 									<a class="entry-title" href={p.href}>
 										{p.name}
@@ -120,7 +120,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 				<div>
 					{
 						posts.map((post) => (
-							<article class="entry" data-tags={post.data.tags?.join(" ")}>
+							<article class="entry" data-id={`post:${post.id}`} data-ts={String(post.data.date.valueOf())} data-tags={post.data.tags?.join(" ")}>
 								<a class="entry-title" href={`/writing/${post.id}`}>
 									<span style={`view-transition-name: post-${post.id}`}>{post.data.title}</span>
 								</a>

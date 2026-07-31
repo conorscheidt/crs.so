@@ -36,6 +36,7 @@
 			},
 			"complexity": {
 				"noExcessiveLinesPerFunction": "off",
+				"noExcessiveCognitiveComplexity": "off",
 				"noVoid": "off",
 				"useMaxParams": "off"
 			},
@@ -49,7 +50,8 @@
 				"noReactSpecificProps": "off"
 			},
 			"performance": {
-				"useSolidForComponent": "off"
+				"useSolidForComponent": "off",
+				"useTopLevelRegex": "off"
 			},
 			"style": {
 				"noExcessiveLinesPerFile": "off",

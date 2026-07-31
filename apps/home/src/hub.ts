@@ -7,9 +7,11 @@
  */
 import Lenis from "lenis";
 import { Clock } from "./clock";
+import { initCursor } from "./cursor";
 import { initGitBlock } from "./git";
 import { MOTION } from "./motion";
 import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
+import { initSearch } from "./search/client";
 import { bootSim, type Sim } from "./sim";
 import { readTheme, setThemeAttr, storeTheme } from "./theme";
 
@@ -20,6 +22,7 @@ export const clock = new Clock();
 function boot(): void {
 	const hub = document.querySelector<HTMLElement>(".hub");
 	if (!hub) return;
+	initCursor(clock);
 
 	let section: Section = ROUTES[location.pathname] ?? "index";
 	const panels = new Map<Section, HTMLElement>();
@@ -46,7 +49,12 @@ function boot(): void {
 			);
 		}
 		clock.subscribe((t) => {
-			for (const l of lenises.values()) l.raf(t);
+			let v = 0;
+			for (const l of lenises.values()) {
+				l.raf(t);
+				v = Math.max(v, Math.abs(l.velocity));
+			}
+			if (v > 2) sim?.excite(Math.min(0.35, v * 0.004));
 		});
 	}
 
@@ -67,52 +75,13 @@ function boot(): void {
 		colC.addEventListener("pointerleave", () => sim?.setPointer(0, 0, false));
 	}
 
-	// Tag chips: clicking a tag filters its panel; backspace in an empty input
-	// removes the last chip.
-	const chipSets = new Map<HTMLElement, Set<string>>();
-	const applyChips = (panel: HTMLElement): void => {
-		const chips = chipSets.get(panel) ?? new Set();
-		const box = panel.querySelector<HTMLElement>("[data-chips]");
-		if (box) {
-			box.textContent = "";
-			for (const tag of chips) {
-				const b = document.createElement("button");
-				b.type = "button";
-				b.className = "chip";
-				b.dataset.chip = tag;
-				b.textContent = `${tag} ×`;
-				box.appendChild(b);
-			}
-		}
-		for (const entry of panel.querySelectorAll<HTMLElement>(".entry")) {
-			const tags = (entry.dataset.tags ?? "").split(" ");
-			entry.hidden = ![...chips].every((t) => tags.includes(t));
-		}
-	};
-	hub.addEventListener("click", (ev) => {
-		const el = ev.target as HTMLElement;
-		const panel = el.closest<HTMLElement>(".panel");
-		if (!panel) return;
-		const tag = el.closest<HTMLElement>(".tag")?.dataset.tag;
-		const chip = el.closest<HTMLElement>("[data-chip]")?.dataset.chip;
-		if (!(tag || chip)) return;
-		const chips = chipSets.get(panel) ?? new Set<string>();
-		chipSets.set(panel, chips);
-		if (tag) chips.add(tag);
-		if (chip) chips.delete(chip);
-		applyChips(panel);
-		panel.querySelector<HTMLInputElement>(".search input")?.focus();
-	});
-	hub.addEventListener("keydown", (ev) => {
-		const input = ev.target as HTMLInputElement;
-		if (ev.key !== "Backspace" || !input.matches?.(".search input") || input.value !== "") return;
-		const panel = input.closest<HTMLElement>(".panel");
-		if (!panel) return;
-		const chips = chipSets.get(panel);
-		if (!chips || chips.size === 0) return;
-		chips.delete([...chips].at(-1) as string);
-		applyChips(panel);
-	});
+	// Search islands: shared index, per-panel kind; the sim pulses on
+	// keystrokes and chip changes.
+	const pulse = (strength: number): void => sim?.excite(strength);
+	const projPanel = panels.get("projects");
+	if (projPanel) initSearch(projPanel, "project", { pulse });
+	const writPanel = panels.get("writing");
+	if (writPanel) initSearch(writPanel, "post", { pulse });
 
 	// Index git block: Forgejo API with visible-sample fallback.
 	const gitb = hub.querySelector<HTMLElement>("[data-git]");

@@ -14,7 +14,7 @@ export interface Sim {
 	setSection: (s: Section) => void;
 	setInk: () => void;
 	setPointer: (x: number, y: number, active: boolean) => void;
-	excite: () => void;
+	excite: (strength?: number) => void;
 	destroy: () => void;
 	readonly kind: "gpu" | "cpu" | "static";
 }
@@ -190,8 +190,8 @@ export async function bootSim(
 			pointer.y = y;
 			pointer.active = active;
 		},
-		excite(): void {
-			exciteLevel = 1;
+		excite(strength = 1): void {
+			exciteLevel = Math.max(exciteLevel, Math.min(1, strength));
 		},
 		destroy(): void {
 			destroyed = true;

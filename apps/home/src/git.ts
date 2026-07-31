@@ -34,7 +34,14 @@ function sampleData(): GitData {
 	const today = Math.floor(Date.now() / MS_DAY);
 	for (let d = 0; d < DAYS; d++) {
 		const v = (Math.imul(d + 7, 2_654_435_761) >>> 8) % 100;
-		heat.set(today - d, v < 38 ? 0 : v < 62 ? 1 : v < 82 ? 2 : v < 94 ? 4 : 7);
+		const buckets: [number, number][] = [
+			[38, 0],
+			[62, 1],
+			[82, 2],
+			[94, 4],
+			[101, 7],
+		];
+		heat.set(today - d, buckets.find(([cap]) => v < cap)?.[1] ?? 0);
 	}
 	return {
 		heat,
