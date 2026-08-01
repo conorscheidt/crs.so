@@ -36,29 +36,29 @@ export interface ExperienceEntry {
 	detail: string;
 }
 
-// Written as positions (what the role is responsible for), not as a project
-// list. One line each; the résumé carries the bullets.
+// Each entry says what the work was and what came out of it: the research or
+// the responsibility first, the thing built second. Not a second project list.
 export const experience: ExperienceEntry[] = [
 	{
 		role: "Quantitative Developer",
 		org: "Northwestern Financial Technologies",
 		span: "Sept 2025 —",
 		detail:
-			"Own the live trading stack: an event-futures bot and the order-book simulator it trades against.",
+			"Study event-futures microstructure and exchange design with the trading group, and take that work into production: the live Kalshi bot, and the limit-order-book simulator it is tested against.",
 	},
 	{
 		role: "Undergraduate Researcher",
 		org: "Gingrich Group",
 		span: "2024 — 2025",
 		detail:
-			"Built the group's simulation tooling — browser simulators for coursework, and HPC sweeps cut to a fifth of their runtime.",
+			"Research in non-equilibrium statistical mechanics — reaction–diffusion and tensor-network stochastic chemistry — and the tooling it needed: browser simulators now used in coursework, and sweep pipelines rebuilt to run five times faster on the university clusters.",
 	},
 	{
 		role: "Undergraduate Researcher",
 		org: "AquaLab",
 		span: "2023 — 2024",
 		detail:
-			"Ran the lab's internet-scale measurement pipeline, from crawler to the datasets other studies were built on.",
+			"Internet measurement research on privacy and data-protection practice across the web. Designed the study's telemetry model and built Plankton, the distributed crawler behind the datasets later measurement work drew on.",
 	},
 ];
 
@@ -67,8 +67,8 @@ export const resumeHref = "/Conor_Scheidt_Resume.pdf";
 /** Bottom-left contact rail. */
 export const contact = {
 	email: "c@crs.so",
-	github: "https://github.com/crsche",
-	linkedin: "https://linkedin.com/in/crsche",
+	github: "https://github.com/conorscheidt",
+	linkedin: "https://linkedin.com/in/conorscheidt",
 };
 
 /** Bottom-right corner meta (city + live local time). */

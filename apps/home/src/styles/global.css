@@ -168,11 +168,10 @@ main {
 	outline-offset: 3px;
 }
 
-/* Hide every native cursor; each is replaced by a variant of the ring
-   (swell / ring+dot / quiet). Low-specificity so nothing needs !important.
-   html itself has to carry cursor:none: the ::view-transition overlay
-   inherits from the root, so without it every cross-document transition
-   flashes the native arrow. */
+/* Hide the native cursor everywhere; the ring replaces it. Low-specificity
+   so nothing needs !important. html itself has to carry cursor:none: the
+   ::view-transition overlay inherits from the root, so without it every
+   navigation flashes the native arrow. */
 html.no-native-cursor,
 html.no-native-cursor :where(*, *::before, *::after) {
 	cursor: none;
@@ -198,33 +197,12 @@ html.no-native-cursor :where(*, *::before, *::after) {
 }
 
 #cursor.on {
-	opacity: 0.55;
+	opacity: 0.6;
 }
 
-#cursor.big {
-	scale: 1.45;
-}
-
+/* the only state left: a press. Everything else is physics + magnetism. */
 #cursor.press {
-	scale: 0.8;
-}
-
-#cursor.quiet {
-	scale: 0.4;
-	opacity: 0.3;
-}
-
-#cursor .dot {
-	opacity: 0;
-	transition: opacity 160ms ease;
-}
-
-#cursor.grabm {
-	scale: 0.85;
-}
-
-#cursor.grabm .dot {
-	opacity: 0.9;
+	scale: 0.78;
 }
 
 .press {
@@ -598,6 +576,30 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	color: var(--ink-70);
 	margin-top: 5px;
 	line-height: 1.5;
+}
+
+/* cross-references: repository ←→ project ←→ posts, all styled alike */
+.xrefs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 3px var(--s2);
+	margin-top: 6px;
+}
+
+.xref {
+	font-size: 11.5px;
+	letter-spacing: 0.02em;
+	color: var(--ink-45);
+	text-decoration: none;
+	border-bottom: 1px dotted var(--ink-45);
+	transition:
+		color 200ms ease,
+		border-color 200ms ease;
+}
+
+.xref:hover {
+	color: var(--ink);
+	border-bottom-color: var(--ink);
 }
 
 .tags {

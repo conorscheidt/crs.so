@@ -4,6 +4,7 @@
  * so everything here is reversible.
  */
 import Lenis from "lenis";
+import { track, trackReadDepth } from "./analytics";
 import { initArticleFeatures } from "./article-features";
 import type { Clock } from "./clock";
 import { MOTION } from "./motion";
@@ -36,6 +37,8 @@ export function bootArticle(clock: Clock): () => void {
 		}
 	}
 
+	track("post-open");
+	cleanups.push(trackReadDepth("post-read"));
 	cleanups.push(initArticleFeatures());
 	return () => {
 		for (const c of cleanups) c();

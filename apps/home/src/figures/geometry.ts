@@ -6,7 +6,7 @@
  * construction. onParams reports r (fraction of the plate's short side).
  */
 import { drag } from "d3-drag";
-import { type G, grabOn, handle, plate } from "./ink";
+import { type G, handle, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 // coordinates live in a square centred in the plate (an anisotropic space
@@ -118,7 +118,6 @@ export const geometry: FigureFactory = (mount, hooks): FigureImpl => {
 		};
 
 		handles.forEach((hd, i) => {
-			grabOn(mount, hd);
 			hd.call(
 				drag<SVGGElement, unknown>().on("drag", (ev) => {
 					const r = svgNode.getBoundingClientRect();

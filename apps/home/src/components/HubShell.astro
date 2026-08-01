@@ -1,16 +1,21 @@
 ---
 import { blurb, contact, education, experience, place, resumeHref } from "../data/about";
-import { projects } from "../data/projects";
+import { repoUrl } from "../data/projects";
 import { publishedPosts } from "../lib/posts";
+import { projectsWithPosts } from "../lib/relations";
 import type { Section } from "../router";
 
 type Props = { section: Section };
 const { section } = Astro.props;
 
 const posts = await publishedPosts();
+const projects = await projectsWithPosts();
 const latest = posts[0];
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
 const year = new Date().getUTCFullYear();
+/** The colophon is dev-only until its copy is written, both here and at
+ *  the route itself (pages/colophon/[...slug].astro). */
+const showColophon = import.meta.env.DEV;
 ---
 
 <div class="hub" data-section={section}>
@@ -113,18 +118,29 @@ const year = new Date().getUTCFullYear();
 						projects.map((p) => (
 							<article
 								class="entry"
-								data-id={`project:${p.name}`}
+								data-id={`project:${p.slug}`}
 								data-ts={String(Date.UTC(p.year, 6, 1))}
 								data-tags={p.tags.join(" ")}
 							>
-								{p.href ? (
-									<a class="entry-title inkable" href={p.href}>
-										{p.name}
-									</a>
-								) : (
-									<span class="entry-title inkable">{p.name}</span>
-								)}
+								<span class="entry-title inkable">{p.name}</span>
 								<p class="entry-desc">{p.description}</p>
+								<div class="xrefs">
+									{p.repo && (
+										<a class="xref" href={repoUrl(p.repo)} rel="noopener">
+											repository ↗
+										</a>
+									)}
+									{p.href && (
+										<a class="xref" href={p.href} rel="noopener">
+											live ↗
+										</a>
+									)}
+									{p.posts.map((post) => (
+										<a class="xref" href={`/writing/${post.id}`}>
+											{post.data.title}
+										</a>
+									))}
+								</div>
 								<div class="tags">
 									{p.tags.map((t) => (
 										<button type="button" class="tag" data-tag={t}>
@@ -233,7 +249,10 @@ const year = new Date().getUTCFullYear();
 	<footer class="corner">
 		<span>{place.city}</span>
 		<span class="clock" data-clock data-tz={place.tz}></span>
-		<span>© {year} · <a href="/colophon">colophon</a></span>
+		<span>
+			© {year}
+			{showColophon && <>&#32;· <a href="/colophon">colophon</a></>}
+		</span>
 	</footer>
 </div>
 

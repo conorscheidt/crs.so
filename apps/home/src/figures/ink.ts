@@ -53,14 +53,3 @@ export function hash(i: number, salt: number): number {
 	const x = Math.sin(i * 127.1 + salt * 311.7) * 43_758.5453;
 	return x - Math.floor(x);
 }
-
-/** Grab cursor: puts the cursor ring in grab mode over handles. */
-export function grabOn(mount: HTMLElement, sel: G): void {
-	sel
-		.on("pointerenter.cursor", () => {
-			mount.dataset.cursorMode = "grab";
-		})
-		.on("pointerleave.cursor", () => {
-			mount.dataset.cursorMode = "";
-		});
-}

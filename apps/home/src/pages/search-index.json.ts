@@ -32,13 +32,13 @@ export async function GET(): Promise<Response> {
 			url: `/writing/${p.id}`,
 		})),
 		...projects.map((p) => ({
-			id: `project:${p.name}`,
+			id: `project:${p.slug}`,
 			title: p.name,
 			content: p.description,
 			tags: p.tags,
 			kind: "project" as const,
 			ts: Date.UTC(p.year, 6, 1),
-			url: p.href ?? "/projects",
+			url: p.href ?? (p.repo ? `https://git.crs.so/${p.repo}` : "/projects"),
 		})),
 	];
 	const ms = new MiniSearch(SEARCH_FIELDS);

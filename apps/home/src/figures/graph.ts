@@ -14,7 +14,7 @@ import {
 	type SimulationLinkDatum,
 	type SimulationNodeDatum,
 } from "d3-force";
-import { type G, grabOn, hash, plate } from "./ink";
+import { type G, hash, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 interface N extends SimulationNodeDatum {
@@ -106,7 +106,6 @@ export const graph: FigureFactory = (mount, hooks): FigureImpl => {
 				nodeSel.classed("dim", false).classed("hot", false);
 				edgeSel.classed("dim", false);
 			});
-		grabOn(mount, nodeSel as unknown as G);
 
 		nodeSel.call(
 			drag<SVGCircleElement, N>()

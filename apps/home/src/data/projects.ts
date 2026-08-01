@@ -1,44 +1,63 @@
 /**
- * Projects panel data.
+ * Projects panel data, and the link between repositories and posts:
  *
- * Empty in production until a project has shipped something public: a running
- * system, a repository someone can read, numbers that hold up.
+ *     git.crs.so repo  ←→  project  ←→  0..n posts
  *
- * The mock set below is used only in `bun dev`, so the populated layout can be
- * worked on, as with draft posts and the sample git payload.
- * `import.meta.env.DEV` is a compile-time constant, so the mocks are not in
- * the production bundle.
+ * A project names its repository by slug (`repo`), and a post names its
+ * project by slug in frontmatter (`project`). Both resolve at build time;
+ * `lib/relations.ts` derives the reverse direction.
+ *
+ * Empty in production until something ships. `bun dev` gets a mock set so
+ * the populated layout can be worked on; `import.meta.env.DEV` is
+ * compile-time, so the mocks are not in the bundle.
  */
 export interface Project {
+	/** stable id; posts reference this in frontmatter */
+	slug: string;
 	name: string;
 	description: string;
 	tags: string[];
-	href?: string;
 	year: number;
+	/** repository slug on git.crs.so; the URL is derived from it */
+	repo?: string;
+	/** anything other than a repo: a live deployment, a paper */
+	href?: string;
 }
+
+export const GIT_HOST = "https://git.crs.so";
+export const repoUrl = (repo: string): string => `${GIT_HOST}/${repo}`;
 
 const MOCK: Project[] = [
 	{
+		slug: "basalt",
 		name: "basalt",
 		description:
 			"A git server and web frontend written from scratch in Rust — the transfer protocol, a content-addressed object store, atomic ref updates.",
 		tags: ["rust", "systems"],
-		href: "https://git.crs.so",
 		year: 2026,
+		repo: "basalt",
 	},
 	{
+		slug: "crs-so",
 		name: "crs.so",
 		description: "This site — the object at its centre, the article system, the in-page toolchain.",
 		tags: ["web", "gpu"],
 		year: 2026,
+		repo: "crs.so",
+		href: "https://crs.so",
 	},
 	{
+		slug: "plankton",
 		name: "plankton",
 		description:
 			"A distributed measurement framework mapping site- and DNS-level telemetry at internet scale.",
 		tags: ["distributed", "python"],
 		year: 2024,
+		repo: "plankton",
 	},
 ];
 
 export const projects: Project[] = import.meta.env.DEV ? MOCK : [];
+
+export const projectBySlug = (slug: string): Project | undefined =>
+	projects.find((p) => p.slug === slug);

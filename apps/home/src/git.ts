@@ -6,7 +6,9 @@
  * exist yet) so the populated layout can be worked on. `import.meta.env.DEV`
  * is compile-time, so the mock is not in the shipped bundle.
  */
-const API = "https://git.crs.so/api/v1";
+import { GIT_HOST } from "./data/projects";
+
+const API = `${GIT_HOST}/api/v1`;
 const USER = "crsche";
 const DAYS = 364; // 52 whole weeks
 const WEEKS = 52;
@@ -92,19 +94,19 @@ function sampleData(): GitData {
 				repo: "basalt",
 				message: "pack: stream thin packs without buffering",
 				when: Date.now() - 2 * 3.6e6,
-				url: "#",
+				url: `${GIT_HOST}/basalt/commits`,
 			},
 			{
 				repo: "crs.so",
 				message: "sim: drag-to-spin with capped inertia",
 				when: Date.now() - 8.64e7,
-				url: "#",
+				url: `${GIT_HOST}/crs.so/commits`,
 			},
 			{
 				repo: "basalt",
 				message: "refs: atomic transactional updates",
 				when: Date.now() - 2 * 8.64e7,
-				url: "#",
+				url: `${GIT_HOST}/basalt/commits`,
 			},
 		],
 		popular: [
@@ -113,7 +115,7 @@ function sampleData(): GitData {
 				description: "Git server and frontend, written from scratch in Rust.",
 				commits: 412,
 				updated: Date.now() - 2 * 3.6e6,
-				url: "#",
+				url: `${GIT_HOST}/basalt`,
 				langs: [
 					["Rust", 0.82],
 					["HTML", 0.12],
@@ -125,7 +127,7 @@ function sampleData(): GitData {
 				description: "This site — the object, the article system, the toolchain.",
 				commits: 296,
 				updated: Date.now() - 8.64e7,
-				url: "#",
+				url: `${GIT_HOST}/crs.so`,
 				langs: [
 					["TypeScript", 0.71],
 					["CSS", 0.2],
@@ -137,7 +139,7 @@ function sampleData(): GitData {
 				description: "Distributed internet-scale measurement framework.",
 				commits: 188,
 				updated: Date.now() - 21 * 8.64e7,
-				url: "#",
+				url: `${GIT_HOST}/plankton`,
 				langs: [
 					["Python", 0.54],
 					["Rust", 0.46],
@@ -205,7 +207,7 @@ async function fetchData(): Promise<GitData> {
 				description: r?.description ?? "",
 				commits: count,
 				updated: r?.updated_at ? new Date(r.updated_at).getTime() : Date.now(),
-				url: r?.html_url ?? `https://git.crs.so/${USER}/${name}`,
+				url: r?.html_url ?? `${GIT_HOST}/${name}`,
 				langs: [],
 			};
 		});

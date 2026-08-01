@@ -140,6 +140,27 @@
 	border-color: var(--ink-45);
 }
 
+/* the post's link back to its project and repository */
+.apro {
+	margin-top: var(--s2);
+	font-size: 12.5px;
+	color: var(--ink-45);
+}
+
+.apro a {
+	color: var(--ink-70);
+	text-decoration: none;
+	border-bottom: 1px dotted var(--ink-45);
+	transition:
+		color 200ms ease,
+		border-color 200ms ease;
+}
+
+.apro a:hover {
+	color: var(--ink);
+	border-bottom-color: var(--ink);
+}
+
 .prose {
 	margin-top: var(--s4);
 	font-size: 16.5px;

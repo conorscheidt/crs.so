@@ -9,8 +9,20 @@
  * "Spectralat 300" bug). The entities below are required.
  */
 
-import { place } from "../data/about";
-import Shell from "../layouts/Shell.astro";
+import { place } from "../../data/about";
+import Shell from "../../layouts/Shell.astro";
+
+/**
+ * Dev-only until the copy is written. A rest param with an empty
+ * getStaticPaths in production makes a static build omit the route entirely;
+ * `prerender = false` would only switch it to SSR, and the page would still
+ * ship. In production there is no route, link, card or sitemap entry. To
+ * publish: return the single path unconditionally, and drop the DEV guard on
+ * the corner link in HubShell.
+ */
+export function getStaticPaths() {
+	return import.meta.env.DEV ? [{ params: { slug: undefined } }] : [];
+}
 ---
 
 <Shell
@@ -21,7 +33,6 @@ import Shell from "../layouts/Shell.astro";
 	<div class="colo">
 		<header class="colo-head">
 			<a class="colo-back" href="/">← crs.so</a>
-			<canvas class="colo-mark" data-colophon-mark aria-hidden="true"></canvas>
 			<h1>Colophon</h1>
 		</header>
 
@@ -61,7 +72,3 @@ import Shell from "../layouts/Shell.astro";
 		</div>
 	</div>
 </Shell>
-
-<script>
-	import "../colophon";
-</script>

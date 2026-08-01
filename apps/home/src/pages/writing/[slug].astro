@@ -1,7 +1,9 @@
 ---
 import { render } from "astro:content";
+import { repoUrl } from "../../data/projects";
 import Shell from "../../layouts/Shell.astro";
 import { publishedPosts } from "../../lib/posts";
+import { projectOf } from "../../lib/relations";
 
 export async function getStaticPaths() {
 	const all = await publishedPosts();
@@ -9,6 +11,7 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
+const project = projectOf(post);
 const { Content, headings } = await render(post);
 const toc = headings.filter((h) => h.depth === 2 && h.slug !== "footnote-label");
 const date = post.data.date.toLocaleDateString("en-US", {
@@ -64,6 +67,21 @@ const date = post.data.date.toLocaleDateString("en-US", {
 								<a href={`/writing?tag=${t}`}>{t}</a>
 							))}
 						</div>
+					)
+				}
+				{
+					project && (
+						<p class="apro">
+							Part of <a href="/projects">{project.name}</a>
+							{project.repo && (
+								<>
+									{" · "}
+									<a href={repoUrl(project.repo)} rel="noopener">
+										repository ↗
+									</a>
+								</>
+							)}
+						</p>
 					)
 				}
 			</header>

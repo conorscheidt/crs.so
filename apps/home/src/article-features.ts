@@ -4,6 +4,7 @@
  * bindings, and the editable/runnable code blocks (CodeMirror + vim, clang
  * worker, real stdio). Loaded only on article pages.
  */
+import { track } from "./analytics";
 import { distribution } from "./figures/distribution";
 import { geometry } from "./figures/geometry";
 import { graph } from "./figures/graph";
@@ -159,6 +160,7 @@ export function initFigures(): () => void {
 			for (const b of binds) b.classList.remove("lit");
 		});
 		root.querySelector("[data-fig-reset]")?.addEventListener("click", () => impl.reset());
+		mount.addEventListener("pointerdown", () => track("figure-touch", { kind }), { once: true });
 		impls.push(impl);
 	}
 	return () => {

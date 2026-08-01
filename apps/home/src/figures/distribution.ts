@@ -7,7 +7,7 @@
 import { drag } from "d3-drag";
 import { scaleLinear } from "d3-scale";
 import { area, line } from "d3-shape";
-import { axis, bottomAxis, type G, grabOn, handle, hash, plate } from "./ink";
+import { axis, bottomAxis, type G, handle, hash, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 const SAMPLES = 260;
@@ -123,8 +123,6 @@ export const distribution: FigureFactory = (mount, hooks): FigureImpl => {
 				update();
 			}),
 		);
-		grabOn(mount, muH);
-		grabOn(mount, sigH);
 
 		update();
 	}

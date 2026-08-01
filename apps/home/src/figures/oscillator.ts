@@ -10,7 +10,7 @@ import { drag } from "d3-drag";
 import { format } from "d3-format";
 import { scaleLinear } from "d3-scale";
 import { line } from "d3-shape";
-import { axis, bottomAxis, type G, grabOn, handle, leftAxis, plate, varLabel } from "./ink";
+import { axis, bottomAxis, type G, handle, leftAxis, plate, varLabel } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 const f2 = format(".2f");
@@ -209,8 +209,6 @@ export const oscillator: FigureFactory = (mount, hooks): FigureImpl => {
 					update();
 				}),
 		);
-		grabOn(mount, poleH);
-		grabOn(mount, peakH);
 
 		update();
 	}

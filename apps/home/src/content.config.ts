@@ -21,6 +21,12 @@ const writing = defineCollection({
 			 * article-system demo available in development.
 			 */
 			draft: z.boolean().default(false),
+			/**
+			 * The project this post belongs to (a slug from data/projects.ts).
+			 * The post links to the project and its repository, and the project
+			 * lists the post.
+			 */
+			project: z.string().optional(),
 			/** Social card + article lede image. Relative to the post file;
 			 *  `image()` validates it exists and hands the build real dimensions. */
 			cover: image().optional(),

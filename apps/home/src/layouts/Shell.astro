@@ -24,13 +24,15 @@ const canonical = new URL(Astro.url.pathname, site);
 const ogPath = ogSlug ?? (Astro.url.pathname === "/" ? "index" : Astro.url.pathname.slice(1));
 const ogImage = new URL(`/og/${ogPath}.png`, site);
 
+const cfBeacon = import.meta.env.PUBLIC_CF_BEACON as string | undefined;
+
 const PERSON = {
 	"@type": "Person",
 	"@id": "https://crs.so/#person",
 	name: "Conor Scheidt",
 	url: "https://crs.so",
 	email: "mailto:c@crs.so",
-	sameAs: ["https://github.com/crsche", "https://linkedin.com/in/crsche"],
+	sameAs: ["https://github.com/conorscheidt", "https://linkedin.com/in/conorscheidt"],
 	jobTitle: "Software Engineer",
 	knowsAbout: ["compilers", "GPU simulation", "mathematics"],
 };
@@ -94,6 +96,21 @@ const jsonLd = JSON.stringify({
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="alternate" type="application/rss+xml" title="Conor Scheidt — Writing" href="/rss.xml" />
 		<script type="application/ld+json" set:html={jsonLd} />
+		{
+			/**
+			 * Cloudflare Web Analytics — cookieless pageviews, no consent banner
+			 * required, ~2 KB, loaded after everything else. Inert until
+			 * PUBLIC_CF_BEACON is set, so dev and forks send nothing.
+			 */
+			cfBeacon && (
+				<script
+					is:inline
+					defer
+					src="https://static.cloudflareinsights.com/beacon.min.js"
+					data-cf-beacon={`{"token":"${cfBeacon}"}`}
+				/>
+			)
+		}
 		<!-- Pre-paint: decide the theme before first paint. Night is the default and
 		     prefers-color-scheme is ignored. Mirrors resolveTheme in src/theme.ts. -->
 		<script is:inline>

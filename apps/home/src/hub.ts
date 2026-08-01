@@ -7,6 +7,7 @@
  * AbortController, sim and lenis owned here).
  */
 import Lenis from "lenis";
+import { track } from "./analytics";
 import type { Clock } from "./clock";
 import { initGitBlock } from "./git";
 import { MOTION } from "./motion";
@@ -71,7 +72,6 @@ export function bootHub(clock: Clock): () => void {
 		});
 		const colC = canvas.parentElement as HTMLElement;
 		// the object is grabbable: drag spins it, release coasts
-		colC.dataset.cursorMode = "grab";
 		let last: { x: number; y: number } | null = null;
 		colC.addEventListener("pointerdown", (ev) => {
 			sim?.beginDrag();
@@ -139,11 +139,19 @@ export function bootHub(clock: Clock): () => void {
 		{ passive: true },
 	);
 
+	// Track project opens from repository and live links.
+	panels.get("projects")?.addEventListener("click", (ev) => {
+		const entry = (ev.target as HTMLElement).closest<HTMLElement>(".entry");
+		const xref = (ev.target as HTMLElement).closest(".xref");
+		if (entry && xref) track("project-open", { slug: entry.dataset.id ?? "" });
+	});
+
 	// A tag on the Index panel's latest post opens
 	// Writing with the chip already applied, like tags inside a post.
 	panels.get("index")?.addEventListener("click", (ev) => {
 		const tag = (ev.target as HTMLElement).closest<HTMLElement>(".tag")?.dataset.tag;
 		if (!tag) return;
+		track("tag-filter", { tag });
 		history.pushState({ section: "writing" }, "", PATHS.writing);
 		apply("writing", true);
 		writSearch?.addTag(tag);
@@ -220,7 +228,9 @@ export function bootHub(clock: Clock): () => void {
 	};
 	syncLabel();
 	toggle?.addEventListener("click", () => {
-		storeTheme(document.documentElement.dataset.theme === "night" ? "day" : "night");
+		const to = document.documentElement.dataset.theme === "night" ? "day" : "night";
+		track("theme-flip", { to });
+		storeTheme(to);
 		sim?.setInk();
 		sim?.excite();
 		syncLabel();
