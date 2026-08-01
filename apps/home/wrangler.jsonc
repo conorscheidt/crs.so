@@ -4,8 +4,16 @@
 	// without invoking it, so page loads are unaffected.
 	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "crs-so",
-	"compatibility_date": "2026-06-19",
+	"compatibility_date": "2026-08-01",
 	"main": "./worker.ts",
+	// Stack traces in the observability logs point at worker.ts, not the bundle.
+	"upload_source_maps": true,
+
+	// No Smart Placement. Placement moves the Worker closer to a
+	// backend (a database, an origin API) at the cost of moving it away from
+	// the visitor. This Worker has no backend: assets are served by the edge
+	// without invoking it at all, and an Analytics Engine write is local
+	// wherever it runs. Turning it on could only make /api/e slower.
 
 	// The apex is the only address this site answers on. Without this, the deploy
 	// is also reachable at crs-so.<subdomain>.workers.dev, a second crawlable
@@ -33,8 +41,12 @@
 	// SQL API.
 	"analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "crs_so_events" }],
 
+	// Sample everything. The script runs only for /api/e and for paths that
+	// matched no asset, so invocations are already rare and sampling would
+	// only make a small number smaller.
 	"observability": {
 		"enabled": true,
-		"head_sampling_rate": 0.5
+		"head_sampling_rate": 1,
+		"logs": { "enabled": true, "invocation_logs": true }
 	}
 }
