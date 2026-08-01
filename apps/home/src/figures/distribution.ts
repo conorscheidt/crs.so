@@ -49,14 +49,14 @@ export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
 
 		// histogram
 		const bw = w / BINS;
-		ctx.fillStyle = ink(0.18);
+		ctx.fillStyle = ink(0.24);
 		bins.forEach((b, i) => {
 			const bh = (b / binMax) * h * 0.7;
 			ctx.fillRect(i * bw + 1, h - bh, bw - 2, bh);
 		});
 
 		// baseline
-		ctx.strokeStyle = ink(0.25);
+		ctx.strokeStyle = ink(0.3);
 		ctx.lineWidth = 1;
 		ctx.beginPath();
 		ctx.moveTo(0, h - 0.5);
@@ -64,8 +64,8 @@ export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
 		ctx.stroke();
 
 		// the curve
-		ctx.strokeStyle = ink(mix(0.65, 0.95, em));
-		ctx.lineWidth = mix(1.1, 1.5, em);
+		ctx.strokeStyle = ink(mix(0.75, 1, em));
+		ctx.lineWidth = mix(1.2, 1.6, em);
 		ctx.beginPath();
 		for (let px = 0; px <= w; px++) {
 			const y = h - pdf(px / w) * h * 0.82;

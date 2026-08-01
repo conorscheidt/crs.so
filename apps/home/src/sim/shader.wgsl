@@ -172,7 +172,11 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 	let lit = max(0.0, dot(vec3f(x3, y3, z2) / pl, LIGHT));
 	let dc = clamp((z2 + 1.1) / 2.2, 0.0, 1.0);
 	let dt = dc * dc * (3.0 - 2.0 * dc);
-	let alpha = min(0.9, p.w * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt));
+	// Dark ink over light paper reads washed-out at the same alpha as light ink
+	// over dark paper, so boost density as ink luminance falls (day ≈ ×1.35).
+	let lum = dot(u.ink, vec3f(0.2126, 0.7152, 0.0722));
+	let gain = 1.0 + 0.4 * (1.0 - lum);
+	let alpha = min(0.92, p.w * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain);
 	let size = u.dot_r * size_mul * (0.62 + 0.38 * dt);
 
 	let corner = vec2f(f32(vi & 1u), f32(vi >> 1u)) * 2.0 - 1.0;

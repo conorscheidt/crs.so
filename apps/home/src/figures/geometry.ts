@@ -50,7 +50,7 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 		const cc = circum(pixelPts);
 		if (cc) {
 			// perpendicular bisectors
-			ctx.strokeStyle = ink(0.14);
+			ctx.strokeStyle = ink(0.2);
 			ctx.lineWidth = 1;
 			for (let i = 0; i < 3; i++) {
 				const p = pixelPts[i] as { x: number; y: number };
@@ -67,18 +67,18 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 				ctx.lineTo(mx + dx * 1000, my + dy * 1000);
 				ctx.stroke();
 			}
-			ctx.strokeStyle = ink(mix(0.55, 0.85, em));
-			ctx.lineWidth = mix(1, 1.4, em);
+			ctx.strokeStyle = ink(mix(0.65, 0.95, em));
+			ctx.lineWidth = mix(1.1, 1.5, em);
 			ctx.beginPath();
 			ctx.arc(cc.x, cc.y, cc.r, 0, TAU);
 			ctx.stroke();
-			ctx.fillStyle = ink(0.5);
+			ctx.fillStyle = ink(0.6);
 			ctx.fillRect(cc.x - 1.5, cc.y - 1.5, 3, 3);
 			hooks.onParams({ r: cc.r / Math.min(w, h) });
 		}
 
-		ctx.strokeStyle = ink(mix(0.65, 0.9, em));
-		ctx.lineWidth = 1.1;
+		ctx.strokeStyle = ink(mix(0.75, 0.95, em));
+		ctx.lineWidth = 1.2;
 		ctx.beginPath();
 		ctx.moveTo(X(pts[0] as { x: number }), Y(pts[0] as { y: number }));
 		for (const p of [...pts.slice(1), pts[0]] as { x: number; y: number }[]) {

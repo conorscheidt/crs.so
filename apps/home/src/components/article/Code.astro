@@ -28,8 +28,8 @@ const { lang, code, runnable = false, stdin = false } = Astro.props;
 			<div class="codehead">
 				<span class="langtag">{lang}</span>
 				<span class="vim-badge">vim</span>
-				<button type="button" class="run" data-run aria-label="Compile and run">
-					▶
+				<button type="button" class="disc run" data-run aria-label="Compile and run">
+					<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3" /></svg>
 				</button>
 			</div>
 		) : (

@@ -42,6 +42,14 @@ const jsonLd = JSON.stringify({
 				const d = document.documentElement;
 				d.classList.add("js");
 				d.dataset.theme = t === "day" ? "day" : "night";
+				// pre-paint cursor class too: cross-document clicks otherwise flash
+				// the native cursor while the new page boots
+				if (
+					matchMedia("(pointer: fine)").matches &&
+					!matchMedia("(prefers-reduced-motion: reduce)").matches
+				) {
+					d.classList.add("no-native-cursor");
+				}
 			})();
 		</script>
 		<link rel="preload" href={frauncesUrl} as="font" type="font/woff2" crossorigin />

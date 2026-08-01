@@ -4,7 +4,7 @@
  *
  *   js / ts  → run in-worker (ts stripped by sucrase)         [instant, offline]
  *   wat      → wabt assembles → WebAssembly.instantiate        [instant, offline]
- *   (c / cpp run on the main thread via emception; see runner.ts)
+ *   (c / cpp run in the dedicated clang.worker; see runner.ts)
  */
 
 interface Req {
@@ -81,8 +81,8 @@ async function runWat(src: string): Promise<{ stdout: string; stderr: string; ok
 	}
 }
 
-// C/C++ are handled on the main thread by emception (it spawns its own workers);
-// this worker covers the light, instant, offline langs only.
+// C/C++ are handled by the dedicated clang.worker; this worker covers the
+// light, instant, offline langs only.
 self.onmessage = async (e: MessageEvent<Req>) => {
 	const { id, lang, code, warm } = e.data;
 	// idle pre-warm: pull + init wabt so the first real wat run has no import delay

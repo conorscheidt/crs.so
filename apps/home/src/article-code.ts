@@ -4,7 +4,7 @@
  * text never waits on it.
  */
 import { mountEditor } from "@shared/scripts/playground/editor";
-import { RUNNABLE, run, warmCpp } from "@shared/scripts/playground/runner";
+import { RUNNABLE, run, warmCpp, warmLight } from "@shared/scripts/playground/runner";
 
 export function initCodeBlocks(blocks: HTMLElement[]): void {
 	for (const blk of blocks) {
@@ -25,6 +25,7 @@ export function initCodeBlocks(blocks: HTMLElement[]): void {
 			if (warmed) return;
 			warmed = true;
 			if (lang === "c" || lang === "cpp") warmCpp();
+			else warmLight();
 		});
 		runBtn?.addEventListener("click", async () => {
 			if (!(out && outText && runBtn)) return;

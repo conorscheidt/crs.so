@@ -5,24 +5,17 @@
  * the live values and highlight the curve on hover; hovering the figure
  * highlights the bound terms.
  */
-import { litSpring, mix } from "./ink";
+import { fitCanvas, ink, litSpring, mix } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 const TAU = Math.PI * 2;
 
 export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
-	const ctx = canvas.getContext("2d");
 	let zeta = 0.12;
 	let omega = 2.4;
 	let hover = false;
 	let dragging = false;
 	let raf = 0;
-
-	const ink = (a: number): string => {
-		const s = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
-		const n = Number.parseInt(s.slice(1), 16);
-		return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-	};
 
 	/** first-peak position in (t, x): t = π/ωd, x = exp(-ζπ/√(1-ζ²)) */
 	const peak = (): { t: number; x: number } => {
@@ -33,21 +26,18 @@ export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
 
 	const T_MAX = 9;
 	const geom = () => {
-		const dpr = Math.min(2, devicePixelRatio || 1);
 		const w = canvas.clientWidth;
 		const h = canvas.clientHeight || 170;
-		return { dpr, w, h, x0: 0, y0: h / 2, sx: w / T_MAX, sy: h * 0.38 };
+		return { w, h, x0: 0, y0: h / 2, sx: w / T_MAX, sy: h * 0.38 };
 	};
 
 	function draw(): void {
+		const ctx = fitCanvas(canvas);
 		if (!ctx) return;
-		const { dpr, w, h, y0, sx, sy } = geom();
-		canvas.width = w * dpr;
-		canvas.height = h * dpr;
-		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		const { w, h, y0, sx, sy } = geom();
 		ctx.clearRect(0, 0, w, h);
 
-		ctx.strokeStyle = ink(0.16);
+		ctx.strokeStyle = ink(0.22);
 		ctx.lineWidth = 1;
 		ctx.beginPath();
 		ctx.moveTo(0, y0);
@@ -55,7 +45,7 @@ export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
 		ctx.stroke();
 
 		// envelope ±e^{-ζωt}
-		ctx.strokeStyle = ink(0.14);
+		ctx.strokeStyle = ink(0.18);
 		for (const sgn of [1, -1]) {
 			ctx.beginPath();
 			for (let px = 0; px < w; px++) {
@@ -69,8 +59,8 @@ export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
 
 		// response x(t), closed form for underdamped, critical and overdamped
 		const em = Math.max(litS.value(), hover || dragging ? 1 : 0);
-		ctx.strokeStyle = ink(mix(0.6, 0.95, em));
-		ctx.lineWidth = mix(1.1, 1.6, em);
+		ctx.strokeStyle = ink(mix(0.72, 1, em));
+		ctx.lineWidth = mix(1.2, 1.7, em);
 		ctx.beginPath();
 		for (let px = 0; px < w; px++) {
 			const t = px / sx;

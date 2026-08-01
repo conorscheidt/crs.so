@@ -3,7 +3,7 @@
  * reduced pool. Used when WebGPU is unavailable and, as a single frame, under
  * prefers-reduced-motion.
  */
-import { type Frame, type Projected, project, shade } from "./camera";
+import { type Frame, inkGain, type Projected, project, shade } from "./camera";
 import type { Renderer, Uniforms } from "./gpu";
 import { evalPoint, ICO_VERTS, N, type Pt, staggeredT } from "./shapes";
 
@@ -41,13 +41,14 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 			f.dimpleR = u.dimpleR;
 			ctx.clearRect(0, 0, u.resW, u.resH);
 			const ink = `${Math.round(u.inkR * 255)},${Math.round(u.inkG * 255)},${Math.round(u.inkB * 255)}`;
+			const gain = inkGain(u.inkR, u.inkG, u.inkB);
 			// Sample the pool evenly so CPU_N points cover all structures.
 			const stride = N / CPU_N;
 			for (let s = 0; s < CPU_N; s++) {
 				const i = Math.floor(s * stride);
 				evalPoint(i, u.fromObj, u.toObj, u.morphT, u.phase, p, tmp);
 				project(p, f, pr);
-				const sh = shade(p.a, pr.depth, pr.lit);
+				const sh = shade(p.a, pr.depth, pr.lit, gain);
 				const size = u.dotR * sh.s;
 				ctx.fillStyle = `rgba(${ink},${(sh.a * u.fade).toFixed(3)})`;
 				ctx.fillRect(pr.sx - size / 2, pr.sy - size / 2, size, size);
@@ -59,7 +60,7 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 					p.z = v[2];
 					p.a = 0.85 * u.accentW;
 					project(p, f, pr);
-					const sh = shade(p.a, pr.depth, pr.lit);
+					const sh = shade(p.a, pr.depth, pr.lit, gain);
 					const size = u.dotR * 1.9 * sh.s;
 					ctx.fillStyle = `rgba(${ink},${(sh.a * u.fade).toFixed(3)})`;
 					ctx.fillRect(pr.sx - size / 2, pr.sy - size / 2, size, size);

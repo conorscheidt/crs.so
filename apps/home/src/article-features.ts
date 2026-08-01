@@ -72,14 +72,21 @@ export function initFootnotes(): void {
 	}
 }
 
+/** Classical note symbols — mirrors the `notemarks` @counter-style exactly
+ *  (symbolic system: the sequence doubles after six — **, ††, …). */
+const NOTE_SYMS = ["*", "†", "‡", "§", "‖", "¶"];
+const noteSym = (i: number): string => (NOTE_SYMS[i % 6] ?? "*").repeat(Math.floor(i / 6) + 1);
+
 export function initMarginals(): void {
 	const rail = document.querySelector<HTMLElement>("[data-mrail]");
 	const prose = document.querySelector<HTMLElement>("[data-prose]");
 	if (!(rail && prose)) return;
 	const wide = matchMedia("(min-width: 1080px)").matches;
-	for (const anchor of document.querySelectorAll<HTMLElement>("[data-manchor]")) {
+	const anchors = document.querySelectorAll<HTMLElement>("[data-manchor]");
+	for (const [i, anchor] of anchors.entries()) {
 		const note = anchor.querySelector<HTMLElement>("[data-mnote]");
 		if (!note) continue;
+		note.dataset.sym = noteSym(i);
 		note.hidden = false;
 		if (!wide) {
 			// narrow: quiet inline aside directly after the anchored phrase

@@ -73,13 +73,25 @@ export function project(p: Pt, f: Frame, out: Projected): void {
 
 /**
  * Continuous depth shading (parity with WGSL): alpha and size fall off
- * smoothly with depth, so there is no front/back pop.
+ * smoothly with depth, so there is no front/back pop. `gain` is the
+ * ink-luminance density boost (dark ink over light paper needs more alpha
+ * to read).
  */
-export function shade(baseAlpha: number, depth: number, lit: number): { a: number; s: number } {
+export function shade(
+	baseAlpha: number,
+	depth: number,
+	lit: number,
+	gain = 1,
+): { a: number; s: number } {
 	const c = Math.min(1, Math.max(0, (depth + 1.1) / 2.2));
 	const dt = c * c * (3 - 2 * c);
 	return {
-		a: Math.min(0.9, baseAlpha * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt)),
+		a: Math.min(0.92, baseAlpha * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain),
 		s: 0.62 + 0.38 * dt,
 	};
+}
+
+/** Ink-luminance alpha gain (parity with WGSL): day ≈ ×1.35, night ≈ ×1.05. */
+export function inkGain(r: number, g: number, b: number): number {
+	return 1 + 0.4 * (1 - (0.2126 * r + 0.7152 * g + 0.0722 * b));
 }

@@ -80,7 +80,7 @@ export function initCursor(clock: Clock): void {
 		x += (tx - x) * k;
 		y += (ty - y) * k;
 
-		// nearest interactable within reach; the compass gap points at it
+		// nearest interactable within reach: the ring leans toward it
 		let best: { x: number; y: number } | null = null;
 		let bestD = REACH;
 		for (const p of targets) {

@@ -1,8 +1,8 @@
 ---
 title: "What this site will do"
-description: "A placeholder essay that doubles as a demonstration: every article system on this page — live figures, real compilation, two kinds of annotation — is the reading experience itself."
+description: "A placeholder essay that doubles as a demonstration: every article system on this page — live figures, real compilation in five languages, two kinds of annotation — is the reading experience itself."
 date: 2026-07-31
-minutes: 6
+minutes: 8
 tags: [blog, meta]
 sample: true
 ---
@@ -12,9 +12,10 @@ import Fig from "../../components/article/Fig.astro";
 import Marginal from "../../components/article/Marginal.astro";
 
 This is a placeholder essay, but nothing on this page is a mock-up. The table of
-contents follows you. The figure below integrates its differential equation as you
-drag it. The code compiles — actual C, an actual vendored clang running off the main
-thread[^1]. The essay is the demonstration.
+contents follows you. The figures below integrate their equations as you drag them.
+The code compiles — actual C and C++ through a vendored clang running off the main
+thread[^1], JavaScript and TypeScript in a sandboxed worker, WebAssembly text
+assembled on the spot. The essay is the demonstration.
 
 ## One law, one number
 
@@ -41,10 +42,10 @@ Drag the handle to the floor and watch the ringing die.
 
 ## Computing it
 
-The snippet is an editor, not a picture. Click into it — vim bindings are on — change
-the step count or the damping, and run it. Compilation happens in a worker with a
-vendored clang and lld; the first run pays the toolchain cost once, then it is cached
-hard. The program reads stdin for real.
+The snippet is an editor, not a picture. Click into it — vim bindings are on —
+change the step count or the damping, and run it. Compilation happens in a worker
+with a vendored clang and lld; the first run pays the toolchain cost once, then it
+is cached hard. The program reads stdin for real.
 
 <Code lang="c" runnable stdin code={`#include <stdio.h>
 
@@ -60,32 +61,124 @@ int main(void) {
     return 0;
 }`} />
 
-## What arrives next
+## One law, five runtimes
 
-Everything above is <Marginal note="Sample content — real posts lean on this machinery for arguments that deserve it, not as ornament.">the article system, standing</Marginal>. The figure library
-already holds more plates — curves, draggable constructions, networks,
-distributions — each a hundred-line factory away:
+The same integrator, spoken natively everywhere the page can execute it. C++ goes
+through the same clang worker with the C++ front end and libc++:
 
-<Fig kind="geometry" id="geo" n={2} caption="a library plate: drag any vertex; the perpendicular bisectors and the circumcircle follow." />
+<Code lang="cpp" runnable code={`#include <array>
+#include <cstdio>
 
-Static snippets share the same editor and theme — chrome-free, watermarked,
-read-only, every language the runner knows plus a few it doesn't:
+template <int Steps>
+auto simulate(double zeta, double omega) {
+    std::array<double, Steps> xs{};
+    double x = 1.0, v = 0.0;
+    for (auto& out : xs) {
+        v -= (2 * zeta * omega * v + omega * omega * x) * 0.01;
+        out = x += v * 0.01;
+    }
+    return xs;
+}
 
-<Code lang="ts" code={`type Section = "index" | "projects" | "writing" | "about";
+int main() {
+    double peak = 0;
+    for (double x : simulate<600>(0.12, 2.4))
+        peak = x < peak ? x : peak;
+    std::printf("first overshoot: %.4f\\n", peak);
+}`} />
 
-const OBJECT_INDEX: Record<Section, number> = {
-    index: 0,     // trefoil knot
-    projects: 1,  // icosahedron edge-streams
-    writing: 2,   // loxodrome sphere
-    about: 3,     // borromean rings
-};
+JavaScript runs in a sandboxed worker, instantly and offline — here checking the
+integrator against the closed-form solution:
 
-export const objectFor = (s: Section): number => OBJECT_INDEX[s];`} />
+<Code lang="js" runnable code={`const zeta = 0.12, omega = 2.4, dt = 1e-4, T = 3;
+let x = 1, v = 0;
+for (let t = 0; t < T; t += dt) {
+  v -= (2 * zeta * omega * v + omega * omega * x) * dt;
+  x += v * dt;
+}
+const wd = omega * Math.sqrt(1 - zeta * zeta);
+const exact = Math.exp(-zeta * omega * T) *
+  (Math.cos(wd * T) + (zeta * omega / wd) * Math.sin(wd * T));
+console.log("simulated", x.toFixed(6));
+console.log("exact    ", exact.toFixed(6));`} />
 
-What rides on it from here: scroll-linked figure sequences, richer plates, and posts
-whose interactive parts earn their place the way this page's do — the figure is the
-argument, the code is the proof, and the annotations are the conversation in the
-margins.
+TypeScript is type-stripped in the worker before it runs — the discriminated union
+below is checked by the editor and erased by the runtime:
+
+<Code lang="ts" runnable code={`type Regime =
+  | { kind: "underdamped"; ringsAt: number }
+  | { kind: "critical" }
+  | { kind: "overdamped"; slowPole: number };
+
+function classify(zeta: number, omega: number): Regime {
+  if (zeta < 1)
+    return { kind: "underdamped", ringsAt: omega * Math.sqrt(1 - zeta * zeta) };
+  if (zeta === 1) return { kind: "critical" };
+  return { kind: "overdamped", slowPole: -omega * (zeta - Math.sqrt(zeta * zeta - 1)) };
+}
+
+console.log(classify(0.12, 2.4));
+console.log(classify(2.0, 2.4));`} />
+
+And WebAssembly text is assembled by wabt and instantiated directly — the raw
+stack machine, <Marginal note="2ζω = 0.576 and ω² = 5.76 — the constants folded by hand, the way the compilers above fold them for you.">constants folded by hand</Marginal>:
+
+<Code lang="wat" runnable code={`(module
+  (import "env" "print_f64" (func $print (param f64)))
+  (func (export "main")
+    (local $x f64) (local $v f64) (local $i i32)
+    (local.set $x (f64.const 1))
+    (loop $steps
+      (local.set $v (f64.sub (local.get $v)
+        (f64.mul (f64.add (f64.mul (f64.const 0.576) (local.get $v))
+                          (f64.mul (f64.const 5.76) (local.get $x)))
+                 (f64.const 0.05))))
+      (local.set $x (f64.add (local.get $x)
+        (f64.mul (local.get $v) (f64.const 0.05))))
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (br_if $steps (i32.lt_s (local.get $i) (i32.const 100))))
+    (call $print (local.get $x))))`} />
+
+## A library of plates
+
+Figures come from a small registry — each is a factory a hundred lines long, and
+every one obeys the same contract: direct manipulation in the plate, live values in
+the prose, emphasis that eases both ways. Drag any vertex; the perpendicular
+bisectors and the circumcircle follow:
+
+<Fig kind="geometry" id="geo" n={2} caption="a draggable construction: three vertices, their bisector hairlines, and the circumcircle they prove." />
+
+The network below relaxes continuously while you watch — grab a node and throw it;
+the spring energy the prose is reading right now is
+<b data-bind="energy" data-fig="net">0.00</b>:
+
+<Fig kind="graph" id="net" n={3} caption="a force-directed embedding, relaxing live. Drag nodes; the energy readout in the prose answers." />
+
+And the distribution plate puts its parameters where they belong — on the curve
+itself. The peak drags $\mu =$ <b data-bind="mu" data-fig="dist">0.50</b>, the
+inflection point drags $\sigma =$ <b data-bind="sigma" data-fig="dist">0.11</b>,
+and a fixed deterministic sample stays put underneath so the fit is
+honest[^3]:
+
+<Fig kind="distribution" id="dist" n={4} caption="a normal fit over a fixed sample. Drag the peak to move μ, the inflection point to widen σ." />
+
+## Quiet blocks
+
+Languages the runners don't reach render as the same editor, read-only and
+chrome-free — a corner watermark instead of a header:
+
+<Code lang="rust" code={`#[derive(Clone, Copy)]
+struct State { x: f64, v: f64 }
+
+fn step(s: State, zeta: f64, omega: f64, dt: f64) -> State {
+    let a = -(2.0 * zeta * omega * s.v + omega * omega * s.x);
+    State { x: s.x + s.v * dt, v: s.v + a * dt }
+}`} />
+
+What rides on all of it from here: scroll-linked figure sequences, richer plates,
+and posts whose interactive parts earn their place the way this page's do — the
+figure is the argument, the code is the proof, and the annotations are the
+conversation in the margins.
 
 [^1]: The toolchain is [binji's wasm-clang](https://github.com/binji/wasm-clang)
     approach, rebuilt lean: gzipped binaries, decompressed by the browser, compiled
@@ -94,3 +187,7 @@ margins.
 [^2]: Figures are live canvases wired to the prose — hover a bound term and its
     curve answers; hover the figure and the terms light. Distill-style, in this
     site's ink.
+
+[^3]: The sample is a sum of three hash lattices — deterministic forever, so the
+    histogram never flickers between visits and the fit is always against the same
+    evidence.

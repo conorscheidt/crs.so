@@ -117,8 +117,16 @@ interface Req {
 	stdin?: string;
 }
 
-self.onmessage = async (e: MessageEvent<Req>): Promise<void> => {
-	const { id, src, cpp, warm, stdin } = e.data;
+// One driver, one MemFS, one hostWrite hook: concurrent requests would
+// interleave at the awaits and corrupt each other's state (observed: a C run
+// exiting 1 while a C++ compile was in flight). Serialize strictly.
+let queue: Promise<void> = Promise.resolve();
+
+self.onmessage = (e: MessageEvent<Req>): void => {
+	queue = queue.then(() => handle(e.data));
+};
+
+async function handle({ id, src, cpp, warm, stdin }: Req): Promise<void> {
 	const t0 = performance.now();
 
 	if (warm) {
@@ -154,4 +162,4 @@ self.onmessage = async (e: MessageEvent<Req>): Promise<void> => {
 	} else {
 		self.postMessage({ id, stdout: "", stderr: `${text}\n${errMsg}`.trim(), ok: false, ms });
 	}
-};
+}

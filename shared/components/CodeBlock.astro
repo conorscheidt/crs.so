@@ -9,7 +9,8 @@ interface Props {
 }
 const { language, label, code, runnable = false, grammar, n = 1 } = Astro.props;
 const lang = grammar ?? language;
-const _trimmed = code.replace(/\n+$/, "");
+// biome-ignore lint/correctness/noUnusedVariables: rendered in the template pre (template-usage false positive)
+const trimmed = code.replace(/\n+$/, "");
 ---
 
 <figure

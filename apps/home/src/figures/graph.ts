@@ -48,36 +48,40 @@ export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
 	let hover = -1;
 	let raf = 0;
 	let running = true;
+	// canvas aspect (w/h), refreshed each draw; forces act in isotropic space
+	// (units of height) so a wide canvas doesn't stretch the embedding flat
+	let aspect = 2.8;
 
 	function step(): void {
-		const K = 0.018;
-		const REST = 0.22;
-		const REPEL = 0.004;
+		const K = 0.02;
+		const REST = 0.3;
+		const REPEL = 0.006;
+		const A = aspect;
 		for (let i = 0; i < N_NODES; i++) {
 			const a = nodes[i] as Node;
 			for (let j = i + 1; j < N_NODES; j++) {
 				const b = nodes[j] as Node;
-				const dx = b.x - a.x;
+				const dx = (b.x - a.x) * A;
 				const dy = b.y - a.y;
 				const d2 = dx * dx + dy * dy + 0.002;
 				const f = REPEL / d2;
 				const d = Math.sqrt(d2);
-				a.vx -= (dx / d) * f;
+				a.vx -= ((dx / d) * f) / A;
 				a.vy -= (dy / d) * f;
-				b.vx += (dx / d) * f;
+				b.vx += ((dx / d) * f) / A;
 				b.vy += (dy / d) * f;
 			}
 		}
 		for (const [i, j] of EDGES) {
 			const a = nodes[i] as Node;
 			const b = nodes[j] as Node;
-			const dx = b.x - a.x;
+			const dx = (b.x - a.x) * A;
 			const dy = b.y - a.y;
 			const d = Math.hypot(dx, dy) || 1e-4;
 			const f = K * (d - REST);
-			a.vx += (dx / d) * f;
+			a.vx += ((dx / d) * f) / A;
 			a.vy += (dy / d) * f;
-			b.vx -= (dx / d) * f;
+			b.vx -= ((dx / d) * f) / A;
 			b.vy -= (dy / d) * f;
 		}
 		let energy = 0;
@@ -91,7 +95,9 @@ export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
 			n.y = Math.min(0.94, Math.max(0.06, n.y + n.vy));
 			energy += n.vx * n.vx + n.vy * n.vy;
 		});
-		hooks.onParams({ energy: energy * 1e4 });
+		// clamp the seeding transient so the prose readout shows settling,
+		// not the startup spike
+		hooks.onParams({ energy: Math.min(99.99, energy * 1e4) });
 	}
 
 	function draw(): void {
@@ -99,11 +105,12 @@ export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
 		if (!ctx) return;
 		const w = canvas.clientWidth;
 		const h = canvas.clientHeight || 170;
+		aspect = w / h || 2.8;
 		ctx.clearRect(0, 0, w, h);
 		lit += (litTarget - lit) * 0.12;
 		const em = Math.max(lit, grab >= 0 ? 1 : 0);
-		ctx.strokeStyle = ink(0.32 + 0.23 * em);
-		ctx.lineWidth = 1;
+		ctx.strokeStyle = ink(0.4 + 0.3 * em);
+		ctx.lineWidth = 1.1;
 		for (const [i, j] of EDGES) {
 			const a = nodes[i] as Node;
 			const b = nodes[j] as Node;
@@ -112,7 +119,7 @@ export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
 			ctx.lineTo(b.x * w, b.y * h);
 			ctx.stroke();
 		}
-		const base = 0.75 + 0.15 * em;
+		const base = 0.82 + 0.15 * em;
 		nodes.forEach((n, i) => {
 			ctx.fillStyle = ink(i === grab || i === hover ? 1 : base);
 			ctx.beginPath();

@@ -1,16 +1,19 @@
 ---
 /**
- * Marginal note: wraps the exact phrase it remarks on. The phrase carries a
- * small ring marker, distinct from footnote numerals, and the note sits in the
- * right rail on that phrase's line, hover-synced both ways. Narrow viewports
- * render it as an inline aside instead.
+ * Marginal note: wraps the exact phrase it remarks on. As in print, footnotes
+ * carry numerals and marginal notes carry the symbol sequence (* † ‡ § ‖ ¶),
+ * assigned in document order by a CSS @counter-style so no per-use props are
+ * needed. No underline: the dotted tie is reserved for prose bindings to
+ * figures and equations. Hovering either side shows the ink halo. The note
+ * sits in the right rail on the phrase's line; narrow viewports render it as
+ * an inline aside instead.
  */
 type Props = { note: string };
 const { note } = Astro.props;
 ---
 
 <span class="manchor" data-manchor
-	><slot /><sup class="mmark" aria-hidden="true">∘</sup><span class="mnote" data-mnote hidden
+	><slot /><sup class="mmark" aria-hidden="true"></sup><span class="mnote" data-mnote hidden
 		>{note}</span
 	></span
 >
