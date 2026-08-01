@@ -39,44 +39,73 @@ async function fetchPage(url: string): Promise<string | null> {
 	}
 }
 
+interface ViewTransitionLike {
+	finished: Promise<void>;
+	ready: Promise<void>;
+	updateCallbackDone: Promise<void>;
+}
+type WithVT = Document & { startViewTransition?: (cb: () => void) => ViewTransitionLike };
+
+/**
+ * Run the swap, animated when the browser can and unanimated when it can't.
+ * The transition is cosmetic and must not own correctness. A transition can
+ * abort before it ever calls back ("Transition was aborted because of invalid
+ * state": a hidden document, a transition already running, a resize
+ * mid-flight), which would leave the swap unrun and the click dead. So every
+ * promise is caught, and if the callback did not fire we apply the swap
+ * ourselves.
+ */
+async function swap(apply: () => void): Promise<void> {
+	const doc = document as WithVT;
+	if (
+		!doc.startViewTransition ||
+		document.visibilityState === "hidden" ||
+		matchMedia("(prefers-reduced-motion: reduce)").matches
+	) {
+		apply();
+		return;
+	}
+	let ran = false;
+	try {
+		const vt = doc.startViewTransition(() => {
+			ran = true;
+			apply();
+		});
+		vt.ready.catch(() => {});
+		vt.updateCallbackDone.catch(() => {});
+		await vt.finished.catch(() => {});
+	} catch {
+		/* the API refused outright — fall through to the plain swap */
+	}
+	if (!ran) apply();
+}
+
 async function goto(url: string, push: boolean): Promise<void> {
 	if (navigating) return;
 	navigating = true;
-	const html = await fetchPage(url);
-	const main = document.querySelector("main");
-	if (!(html && main)) {
+	try {
+		const html = await fetchPage(url);
+		const main = document.querySelector("main");
+		const doc = html ? new DOMParser().parseFromString(html, "text/html") : null;
+		const newMain = doc?.querySelector("main");
+		if (!(main && doc && newMain)) {
+			location.href = url; // graceful: let the browser do it
+			return;
+		}
+		await swap(() => {
+			teardown();
+			document.title = doc.title;
+			document.body.className = doc.body.className;
+			main.replaceChildren(...newMain.childNodes);
+			scrollTo(0, 0);
+			if (push) history.pushState({ app: true }, "", url);
+			lastPath = location.pathname;
+			currentKind = pageKind(lastPath) ?? "article";
+			teardown = boot();
+		});
+	} finally {
 		navigating = false;
-		location.href = url; // graceful: let the browser do it
-		return;
 	}
-	const doc = new DOMParser().parseFromString(html, "text/html");
-	const newMain = doc.querySelector("main");
-	if (!newMain) {
-		navigating = false;
-		location.href = url;
-		return;
-	}
-	const apply = (): void => {
-		teardown();
-		document.title = doc.title;
-		document.body.className = doc.body.className;
-		main.replaceChildren(...newMain.childNodes);
-		scrollTo(0, 0);
-		if (push) history.pushState({ app: true }, "", url);
-		lastPath = location.pathname;
-		currentKind = pageKind(lastPath) ?? "article";
-		teardown = boot();
-	};
-	// ink lifts, ink settles (vt-lift / vt-settle in css)
-	const vt = (
-		document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }
-	).startViewTransition;
-	if (vt && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-		await vt.call(document, apply).finished.catch(() => {});
-	} else {
-		apply();
-	}
-	navigating = false;
 }
 
 // Registered before bootHub's own click handler (module evaluation order), so

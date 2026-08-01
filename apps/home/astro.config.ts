@@ -46,10 +46,18 @@ export default {
 	},
 	prefetch: {
 		prefetchAll: true,
-		// hover instead of viewport, and no clientPrerender. Speculation-rules *prerender*
-		// fully executes linked pages in the background; a page that boots a GPU
-		// surface must never be pre-executed. Hover-prefetch fetches HTML only.
-		defaultStrategy: "hover",
+		/**
+		 * `viewport` issues <link rel="prefetch"> for links as they scroll into
+		 * view: the HTML lands in the HTTP cache and nothing is executed. Our
+		 * same-document navigator fetches the same URL, so it hits that warm
+		 * cache and the swap is instant.
+		 *
+		 * `clientPrerender` stays off. Speculation-rules *prerender* fully runs
+		 * the target page in a hidden tab (a second WebGPU context, a second
+		 * clock, a second clang worker), which runs the animations offscreen and
+		 * lags the browser. Prefetch is bytes; prerender is a whole extra runtime.
+		 */
+		defaultStrategy: "viewport",
 	},
 	prerenderConflictBehavior: "error",
 	experimental: {
