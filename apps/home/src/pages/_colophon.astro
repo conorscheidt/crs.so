@@ -4,25 +4,20 @@
  * A standalone page rather than a hub section: one narrow measure, one small
  * device, no rails.
  *
+ * Not a route. The leading underscore excludes the file from Astro's page
+ * table, and that is the only gate: no page, link, card or sitemap entry in
+ * any build. (`prerender = false` would not do this; it only switches a route
+ * to SSR, and the page still ships.) The copy below is an unpublished draft.
+ * To publish: rename to colophon.astro and uncomment the corner link in
+ * HubShell.
+ *
  * Formatting: Astro drops the newline that follows a closing inline tag, so a
  * line must not begin right after one without an explicit `&#32;` (the
  * "Spectralat 300" bug). The entities below are required.
  */
 
-import { place } from "../../data/about";
-import Shell from "../../layouts/Shell.astro";
-
-/**
- * Dev-only until the copy is written. A rest param with an empty
- * getStaticPaths in production makes a static build omit the route entirely;
- * `prerender = false` would only switch it to SSR, and the page would still
- * ship. In production there is no route, link, card or sitemap entry. To
- * publish: return the single path unconditionally, and drop the DEV guard on
- * the corner link in HubShell.
- */
-export function getStaticPaths() {
-	return import.meta.env.DEV ? [{ params: { slug: undefined } }] : [];
-}
+import { place } from "../data/about";
+import Shell from "../layouts/Shell.astro";
 ---
 
 <Shell

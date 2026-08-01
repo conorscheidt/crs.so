@@ -122,7 +122,12 @@ document.addEventListener(
 		if (!kind) return;
 		if (kind === "hub" && currentKind === "hub") return; // hub router's job
 		if (a.pathname === location.pathname) {
-			ev.preventDefault();
+			// Leave in-page anchors to the page:
+			// the ToC, every footnote reference and every footnote backref all
+			// point at the path they are already on. Swallowing them here would
+			// break all three. Only a link to the page you are already
+			// standing on is inert.
+			if (!a.hash) ev.preventDefault();
 			return;
 		}
 		ev.preventDefault();

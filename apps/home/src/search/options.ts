@@ -5,8 +5,8 @@
  */
 export const SEARCH_FIELDS = {
 	idField: "id",
-	fields: ["title", "content", "tags"],
-	storeFields: ["title", "kind", "tags", "ts", "url"],
+	fields: ["title", "content", "tags", "project"],
+	storeFields: ["title", "kind", "tags", "project", "ts", "url"],
 };
 
 export interface SearchDoc {
@@ -14,6 +14,8 @@ export interface SearchDoc {
 	title: string;
 	content: string;
 	tags: string[];
+	/** the project this belongs to: a post's project slug, or a project's own */
+	project: string;
 	kind: "post" | "project";
 	/** epoch ms of the post date / project year */
 	ts: number;
@@ -22,5 +24,8 @@ export interface SearchDoc {
 
 export interface IndexPayload {
 	index: unknown;
+	/** tag → number of documents carrying it, for the `#` autocomplete */
 	tags: Record<string, number>;
+	/** project slug → number of posts in it, for the `@` autocomplete */
+	projects: Record<string, number>;
 }

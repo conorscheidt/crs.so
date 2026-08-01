@@ -146,15 +146,33 @@ export function bootHub(clock: Clock): () => void {
 		if (entry && xref) track("project-open", { slug: entry.dataset.id ?? "" });
 	});
 
-	// A tag on the Index panel's latest post opens
-	// Writing with the chip already applied, like tags inside a post.
-	panels.get("index")?.addEventListener("click", (ev) => {
-		const tag = (ev.target as HTMLElement).closest<HTMLElement>(".tag")?.dataset.tag;
-		if (!tag) return;
-		track("tag-filter", { tag });
-		history.pushState({ section: "writing" }, "", PATHS.writing);
-		apply("writing", true);
-		writSearch?.addTag(tag);
+	// Travel: a tag on the Index panel's latest post, or a project mark
+	// anywhere, opens Writing with that chip applied, as tags inside an
+	// article do. One listener on the hub so a mark behaves the same in
+	// every panel it can appear in.
+	const travel = (fn: () => void): void => {
+		if (section !== "writing") {
+			history.pushState({ section: "writing" }, "", PATHS.writing);
+			apply("writing", true);
+		}
+		fn();
+	};
+	hub.addEventListener("click", (ev) => {
+		const el = ev.target as HTMLElement;
+		const slug = el.closest<HTMLElement>("[data-project-posts]")?.dataset.projectPosts;
+		if (slug) {
+			track("project-filter", { slug });
+			travel(() => writSearch?.addProject(slug));
+			return;
+		}
+		// tags inside a panel with search are handled by that island;
+		// only the Index panel's tags are handled here
+		if (!el.closest("[data-panel='index']")) return;
+		const tag = el.closest<HTMLElement>(".tag")?.dataset.tag;
+		if (tag) {
+			track("tag-filter", { tag });
+			travel(() => writSearch?.addTag(tag));
+		}
 	});
 
 	const apply = (to: Section, focus: boolean): void => {

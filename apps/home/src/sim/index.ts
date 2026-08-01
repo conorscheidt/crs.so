@@ -145,9 +145,6 @@ export async function bootSim(
 		pendingResize = true;
 	}).observe(canvas);
 
-	if (import.meta.env.DEV) {
-		(globalThis as { __simU?: unknown }).__simU = u;
-	}
 	const born = performance.now();
 	const unsubscribe = clock.subscribe((t, dt) => {
 		if (destroyed || !renderer) return;

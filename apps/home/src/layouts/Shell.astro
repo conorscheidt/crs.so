@@ -26,6 +26,15 @@ const ogImage = new URL(`/og/${ogPath}.png`, site);
 
 const cfBeacon = import.meta.env.PUBLIC_CF_BEACON as string | undefined;
 
+/*
+ * Icons. The full set ships because an SVG favicon alone is not enough:
+ * PDF tabs, older browsers, bookmark bars and most feed readers want
+ * `favicon.ico`, and they request it from the site root without reading this
+ * document's <link> tags. So it is declared first here and also lives at the
+ * root. scripts/gen-favicon.ts emits all of them from one source so they
+ * can't drift apart.
+ */
+
 const PERSON = {
 	"@type": "Person",
 	"@id": "https://crs.so/#person",
@@ -93,7 +102,11 @@ const jsonLd = JSON.stringify({
 		<meta name="twitter:image" content={ogImage} />
 		{article && <meta property="article:published_time" content={article.published.toISOString()} />}
 		{article?.tags.map((t) => <meta property="article:tag" content={t} />)}
+		<link rel="icon" href="/favicon.ico" sizes="32x32" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<meta name="theme-color" content="#171310" />
 		<link rel="alternate" type="application/rss+xml" title="Conor Scheidt — Writing" href="/rss.xml" />
 		<script type="application/ld+json" set:html={jsonLd} />
 		{

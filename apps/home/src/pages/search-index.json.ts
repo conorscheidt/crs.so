@@ -4,7 +4,7 @@
  * inline them here.
  */
 import MiniSearch from "minisearch";
-import { projects } from "../data/projects";
+import { projects, repoUrl } from "../data/projects";
 import { publishedPosts } from "../lib/posts";
 import { SEARCH_FIELDS, type SearchDoc } from "../search/options";
 
@@ -27,6 +27,7 @@ export async function GET(): Promise<Response> {
 			title: p.data.title,
 			content: strip(p.body ?? ""),
 			tags: p.data.tags,
+			project: p.data.project ?? "",
 			kind: "post" as const,
 			ts: p.data.date.valueOf(),
 			url: `/writing/${p.id}`,
@@ -36,16 +37,22 @@ export async function GET(): Promise<Response> {
 			title: p.name,
 			content: p.description,
 			tags: p.tags,
+			project: p.slug,
 			kind: "project" as const,
 			ts: Date.UTC(p.year, 6, 1),
-			url: p.href ?? (p.repo ? `https://git.crs.so/${p.repo}` : "/projects"),
+			url: repoUrl(p.repo),
 		})),
 	];
 	const ms = new MiniSearch(SEARCH_FIELDS);
 	ms.addAll(docs);
 	const tags: Record<string, number> = {};
+	const projectCounts: Record<string, number> = {};
 	for (const d of docs) {
 		for (const t of d.tags) tags[t] = (tags[t] ?? 0) + 1;
+		// only posts count: `@basalt` asks "what have you written about basalt"
+		if (d.kind === "post" && d.project) {
+			projectCounts[d.project] = (projectCounts[d.project] ?? 0) + 1;
+		}
 	}
-	return Response.json({ index: ms.toJSON(), tags });
+	return Response.json({ index: ms.toJSON(), tags, projects: projectCounts });
 }

@@ -8,6 +8,9 @@
  *     wide row attracts along its whole edge rather than from its centre.
  *     Only the ring leans; the pointer never moves. Every interactive element
  *     is in one selector, so the pull is uniform.
+ *   · on a target the ring tightens and brightens slightly, so a pulled ring
+ *     visibly arrives instead of reading as drift. Contracting rather than
+ *     swelling also keeps the ring close to where the pointer really is.
  *
  * Under prefers-reduced-motion the ring stays (native cursors are hidden
  * site-wide) but follows rigidly: no lag, no stretch, no magnetism.
@@ -20,6 +23,10 @@ const REACH = 120;
 /** Maximum lean toward a target. Kept subtle. */
 const PULL_MAX = 6;
 const STRETCH_MAX = 0.4;
+/** Lock-on: how far the ring tightens when the pointer is ON a target, in px. */
+const GRIP = 1.1;
+/** …and how much heavier its stroke goes. Both kept small. */
+const GRIP_WEIGHT = 0.25;
 
 /**
  * Every interactive surface, in one place. Anything clickable, draggable, or
@@ -98,6 +105,7 @@ export function initCursor(clock: Clock): void {
 	ring.innerHTML = `<svg width="${2 * r + 2}" height="${2 * r + 2}" viewBox="0 0 ${2 * r + 2} ${2 * r + 2}"><circle cx="${r + 1}" cy="${r + 1}" r="${r}" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`;
 	document.body.appendChild(ring);
 	const svg = ring.querySelector("svg") as SVGSVGElement;
+	const circle = ring.querySelector("circle") as SVGCircleElement;
 
 	let tx = -100;
 	let ty = -100;
@@ -105,6 +113,7 @@ export function initCursor(clock: Clock): void {
 	let y = -100;
 	let pullX = 0;
 	let pullY = 0;
+	let grip = 0;
 	let shown = false;
 
 	document.addEventListener("pointermove", (ev) => {
@@ -174,5 +183,13 @@ export function initCursor(clock: Clock): void {
 		pullX += (pull.x - pullX) * pk;
 		pullY += (pull.y - pullY) * pk;
 		ring.style.translate = `${x - r - 1 + pullX}px ${y - r - 1 + pullY}px`;
+
+		// lock-on. d === 0 means the pointer is inside a target's box, which is
+		// exactly the region where the click will land, so the ring responds on
+		// the same boundary the browser uses.
+		grip += ((pull.d === 0 ? 1 : 0) - grip) * Math.min(1, dt * 14);
+		circle.setAttribute("r", (r - GRIP * grip).toFixed(2));
+		circle.setAttribute("stroke-width", (1 + GRIP_WEIGHT * grip).toFixed(2));
+		ring.classList.toggle("over", grip > 0.5);
 	});
 }

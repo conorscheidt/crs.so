@@ -26,6 +26,7 @@ export type Event =
 	| "figure-touch" // a plate was dragged or reset (field: kind)
 	| "search" // a query ran (field: kind, len, hits)
 	| "tag-filter" // a tag chip was applied (field: tag)
+	| "project-filter" // writing was filtered to one project (field: slug)
 	| "project-open" // a repository or live link was followed (field: slug)
 	| "theme-flip"; // day/night toggled (field: to)
 

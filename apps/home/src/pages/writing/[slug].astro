@@ -56,13 +56,18 @@ const date = post.data.date.toLocaleDateString("en-US", {
 		<article class="aprose" data-prose>
 			<header class="ahead">
 				<h1 class="press">{post.data.title}</h1>
-				<p class="ameta">
-					{date} · {post.data.minutes} min read
-					{post.data.draft && <span> · draft</span>}
-				</p>
+				<p class="ameta">{date} · {post.data.minutes} min read</p>
 				{
-					post.data.tags.length > 0 && (
+					(project || post.data.tags.length > 0) && (
 						<div class="atags">
+							{/* the project comes first and is styled apart from tags: a post has
+							    many tags but one project. Same `@` mark as the search bar and
+							    the hub lists. */}
+							{project && (
+								<a class="proj" href={`/writing?project=${project.slug}`}>
+									@{project.slug}
+								</a>
+							)}
 							{post.data.tags.map((t) => (
 								<a href={`/writing?tag=${t}`}>{t}</a>
 							))}
@@ -72,15 +77,10 @@ const date = post.data.date.toLocaleDateString("en-US", {
 				{
 					project && (
 						<p class="apro">
-							Part of <a href="/projects">{project.name}</a>
-							{project.repo && (
-								<>
-									{" · "}
-									<a href={repoUrl(project.repo)} rel="noopener">
-										repository ↗
-									</a>
-								</>
-							)}
+							Part of&#32;
+							<a href={repoUrl(project.repo)} rel="noopener">
+								{project.name} ↗
+							</a>
 						</p>
 					)
 				}

@@ -35,6 +35,14 @@
   Cache-Control: public, max-age=604800, must-revalidate
 /favicon.ico
   Cache-Control: public, max-age=604800, must-revalidate
+/apple-touch-icon.png
+  Cache-Control: public, max-age=604800, must-revalidate
+/icon-192.png
+  Cache-Control: public, max-age=604800, must-revalidate
+/icon-512.png
+  Cache-Control: public, max-age=604800, must-revalidate
+/site.webmanifest
+  Cache-Control: public, max-age=86400, must-revalidate
 /Conor_Scheidt_Resume.pdf
   Cache-Control: public, max-age=86400, must-revalidate
   Content-Disposition: inline; filename="Conor_Scheidt_Resume.pdf"

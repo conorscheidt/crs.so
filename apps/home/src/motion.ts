@@ -18,6 +18,8 @@ export const MOTION = {
 	/** Lenis wheel smoothing: lower = longer, smoother glide (0.18 felt
 	 *  stiff). */
 	scrollLerp: 0.13,
+	/** Breathing room above an anchor target after an in-page jump, in px. */
+	anchorInset: 28,
 	/** Micro-interaction tokens (ms). */
 	hover: { ms: 120 },
 	press: { ms: 90 },

@@ -1,10 +1,8 @@
 /**
  * git.crs.so block: client-side fetch against the self-hosted git server.
  *
- * In production there is no fallback: if the server does not answer, the
- * panel says so. In `bun dev` a sample payload stands in (the server does not
- * exist yet) so the populated layout can be worked on. `import.meta.env.DEV`
- * is compile-time, so the mock is not in the shipped bundle.
+ * No fallback: if the server does not answer, the panel says so. A sample
+ * year for working on the populated layout is in data/mocks.ts.
  */
 import { GIT_HOST } from "./data/projects";
 
@@ -66,87 +64,6 @@ function weekly(heat: Map<number, number>): number[] {
 		for (let i = 0; i < 7; i++) sum += heat.get(today - (WEEKS - 1 - w) * 7 - (6 - i)) ?? 0;
 		return sum;
 	});
-}
-
-/** Dev only: a plausible year for working on the populated layout. */
-function sampleData(): GitData {
-	const heat = new Map<number, number>();
-	const today = Math.floor(Date.now() / MS_DAY);
-	for (let d = 0; d < DAYS; d++) {
-		const v = (Math.imul(d + 7, 2_654_435_761) >>> 8) % 100;
-		const swell = 0.45 + 0.55 * Math.sin(d / 34) ** 2;
-		const buckets: [number, number][] = [
-			[38, 0],
-			[62, 1],
-			[82, 2],
-			[94, 4],
-			[101, 7],
-		];
-		const base = buckets.find(([cap]) => v < cap)?.[1] ?? 0;
-		heat.set(today - d, Math.round(base * swell));
-	}
-	return {
-		heat,
-		commits: 1204,
-		repos: 11,
-		recent: [
-			{
-				repo: "basalt",
-				message: "pack: stream thin packs without buffering",
-				when: Date.now() - 2 * 3.6e6,
-				url: `${GIT_HOST}/basalt/commits`,
-			},
-			{
-				repo: "crs.so",
-				message: "sim: drag-to-spin with capped inertia",
-				when: Date.now() - 8.64e7,
-				url: `${GIT_HOST}/crs.so/commits`,
-			},
-			{
-				repo: "basalt",
-				message: "refs: atomic transactional updates",
-				when: Date.now() - 2 * 8.64e7,
-				url: `${GIT_HOST}/basalt/commits`,
-			},
-		],
-		popular: [
-			{
-				name: "basalt",
-				description: "Git server and frontend, written from scratch in Rust.",
-				commits: 412,
-				updated: Date.now() - 2 * 3.6e6,
-				url: `${GIT_HOST}/basalt`,
-				langs: [
-					["Rust", 0.82],
-					["HTML", 0.12],
-					["Shell", 0.06],
-				],
-			},
-			{
-				name: "crs.so",
-				description: "This site — the object, the article system, the toolchain.",
-				commits: 296,
-				updated: Date.now() - 8.64e7,
-				url: `${GIT_HOST}/crs.so`,
-				langs: [
-					["TypeScript", 0.71],
-					["CSS", 0.2],
-					["WGSL", 0.09],
-				],
-			},
-			{
-				name: "plankton",
-				description: "Distributed internet-scale measurement framework.",
-				commits: 188,
-				updated: Date.now() - 21 * 8.64e7,
-				url: `${GIT_HOST}/plankton`,
-				langs: [
-					["Python", 0.54],
-					["Rust", 0.46],
-				],
-			},
-		],
-	};
 }
 
 async function fetchData(): Promise<GitData> {
@@ -242,11 +159,8 @@ export async function initGitBlock(root: HTMLElement): Promise<void> {
 	try {
 		data = await fetchData();
 	} catch {
-		if (!import.meta.env.DEV) {
-			renderUnreachable(root);
-			return;
-		}
-		data = sampleData();
+		renderUnreachable(root);
+		return;
 	}
 
 	const weeks = weekly(data.heat);
