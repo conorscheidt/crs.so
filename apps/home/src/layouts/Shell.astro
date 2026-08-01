@@ -29,10 +29,12 @@ const ogImage = new URL(`/og/${ogPath}.png`, site);
  * page source of every site that uses one, so it is committed rather than
  * passed through an environment variable that would make dev and production
  * different builds. Empty means the script is not emitted at all. To turn
- * pageviews on: Analytics & Logs → Web Analytics → add crs.so → paste the
- * token out of the snippet here.
+ * pageviews on: Analytics & Logs → Web Analytics → add crs.so, choose the
+ * manual snippet (auto-install rewrites HTML at the edge, like Rocket
+ * Loader), and paste the token out of it here.
  */
-const CF_BEACON = "";
+// biome-ignore lint/security/noSecrets: a public site tag, printed in the page
+const CF_BEACON = "7d7cc357d0bb404a8db2d53475635150";
 
 /*
  * Icons. The full set ships because an SVG favicon alone is not enough:
@@ -118,11 +120,15 @@ const jsonLd = JSON.stringify({
 		<link rel="alternate" type="application/rss+xml" title="Conor Scheidt — Writing" href="/rss.xml" />
 		<script type="application/ld+json" set:html={jsonLd} />
 		{
-			/* cookieless pageviews, no consent banner required, ~2 KB, last in line */
+			/* Cookieless pageviews, no consent banner required, ~2 KB. `type=module`
+			   matches the snippet Cloudflare hands out and defers by definition, so
+			   there is no `defer` to add. It is a cross-origin script under COEP
+			   `credentialless`, which loads it without credentials rather than
+			   blocking it — verified against the live site, not assumed. */
 			CF_BEACON && (
 				<script
 					is:inline
-					defer
+					type="module"
 					src="https://static.cloudflareinsights.com/beacon.min.js"
 					data-cf-beacon={`{"token":"${CF_BEACON}"}`}
 				/>
