@@ -22,20 +22,34 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
  * pages/_colophon.astro and put this back in the corner:
  *     <span>© {year} · <a href="/colophon">colophon</a></span>
  */
+
+/*
+ * `data-astro-prefetch="false"` below opts links out of `prefetchAll`, which
+ * fetches every same-origin link that scrolls into view. On this page that
+ * meant:
+ *
+ *   · the résumé: 201 KB of PDF, 45% of the page weight, fetched on every
+ *     visit for a file that only opens in a new tab on click;
+ *   · the four section links: hub-to-hub travel goes through the section
+ *     router, which fetches nothing since all four panels are in this document.
+ *
+ * Article links keep prefetch: the navigator fetches those, and the bytes land
+ * in the HTTP cache that app.ts's warm() reads.
+ */
 ---
 
 <div class="hub" data-section={section}>
 	<header class="col-l">
-		<a class="name press inkable" href="/">Conor<br />Scheidt</a>
+		<a class="name press inkable" href="/" data-astro-prefetch="false">Conor<br />Scheidt</a>
 		<p class="role">software · mathematics</p>
 		<nav aria-label="Sections">
-			<a href="/" aria-current={section === "index" ? "page" : undefined}>Index</a>
-			<a href="/projects" aria-current={section === "projects" ? "page" : undefined}>Projects</a>
-			<a href="/writing" aria-current={section === "writing" ? "page" : undefined}>Writing</a>
-			<a href="/about" aria-current={section === "about" ? "page" : undefined}>About</a>
+			<a href="/" aria-current={section === "index" ? "page" : undefined} data-astro-prefetch="false">Index</a>
+			<a href="/projects" aria-current={section === "projects" ? "page" : undefined} data-astro-prefetch="false">Projects</a>
+			<a href="/writing" aria-current={section === "writing" ? "page" : undefined} data-astro-prefetch="false">Writing</a>
+			<a href="/about" aria-current={section === "about" ? "page" : undefined} data-astro-prefetch="false">About</a>
 		</nav>
 		<div class="meta">
-			<a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a>
+			<a href={resumeHref} target="_blank" rel="noopener" data-astro-prefetch="false">résumé ↗</a>
 			<a href="https://git.crs.so" rel="me">git.crs.so ↗</a>
 			<button type="button" data-theme-toggle aria-label="Toggle day and night">
 				<svg class="ecl" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -233,7 +247,7 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 						<a href={`mailto:${contact.email}`}>{contact.email}</a>
 						<a href={contact.github} rel="me">github ↗</a>
 						<a href={contact.linkedin} rel="me">linkedin ↗</a>
-						<a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a>
+						<a href={resumeHref} target="_blank" rel="noopener" data-astro-prefetch="false">résumé ↗</a>
 					</div>
 					<p class="ptitle">Education</p>
 					{
