@@ -8,18 +8,64 @@ import spectralItalicUrl from "@fontsource/spectral/files/spectral-latin-300-ita
 import spectralUrl from "@fontsource/spectral/files/spectral-latin-300-normal.woff2?url";
 import frauncesUrl from "@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2?url";
 
-type Props = { title: string; description: string; scrollable?: boolean };
-const { title, description, scrollable = false } = Astro.props;
+type Props = {
+	title: string;
+	description: string;
+	scrollable?: boolean;
+	/** social card slug under /og/ (defaults to the hub card for this route) */
+	ogSlug?: string;
+	/** present on article routes; drives BlogPosting structured data */
+	article?: { published: Date; tags: string[]; minutes: number };
+};
+const { title, description, scrollable = false, ogSlug, article } = Astro.props;
 
-const jsonLd = JSON.stringify({
-	"@context": "https://schema.org",
+const site = Astro.site ?? new URL("https://crs.so");
+const canonical = new URL(Astro.url.pathname, site);
+const ogPath = ogSlug ?? (Astro.url.pathname === "/" ? "index" : Astro.url.pathname.slice(1));
+const ogImage = new URL(`/og/${ogPath}.png`, site);
+
+const PERSON = {
 	"@type": "Person",
+	"@id": "https://crs.so/#person",
 	name: "Conor Scheidt",
 	url: "https://crs.so",
 	email: "mailto:c@crs.so",
 	sameAs: ["https://github.com/crsche", "https://linkedin.com/in/crsche"],
 	jobTitle: "Software Engineer",
 	knowsAbout: ["compilers", "GPU simulation", "mathematics"],
+};
+
+const jsonLd = JSON.stringify({
+	"@context": "https://schema.org",
+	"@graph": [
+		PERSON,
+		{
+			"@type": "WebSite",
+			"@id": "https://crs.so/#site",
+			url: "https://crs.so",
+			name: "Conor Scheidt",
+			publisher: { "@id": "https://crs.so/#person" },
+			inLanguage: "en",
+		},
+		...(article
+			? [
+					{
+						"@type": "BlogPosting",
+						headline: title.replace(" — Conor Scheidt", ""),
+						description,
+						datePublished: article.published.toISOString(),
+						dateModified: article.published.toISOString(),
+						author: { "@id": "https://crs.so/#person" },
+						publisher: { "@id": "https://crs.so/#person" },
+						mainEntityOfPage: canonical.href,
+						image: ogImage.href,
+						keywords: article.tags.join(", "),
+						timeRequired: `PT${article.minutes}M`,
+						isPartOf: { "@id": "https://crs.so/#site" },
+					},
+				]
+			: []),
+	],
 });
 ---
 
@@ -29,11 +75,24 @@ const jsonLd = JSON.stringify({
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
-		<link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+		<link rel="canonical" href={canonical} />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
-		<meta property="og:type" content="website" />
+		<meta property="og:type" content={article ? "article" : "website"} />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:site_name" content="Conor Scheidt" />
+		<meta property="og:image" content={ogImage} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content={title} />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage} />
+		{article && <meta property="article:published_time" content={article.published.toISOString()} />}
+		{article?.tags.map((t) => <meta property="article:tag" content={t} />)}
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="alternate" type="application/rss+xml" title="Conor Scheidt — Writing" href="/rss.xml" />
 		<script type="application/ld+json" set:html={jsonLd} />
 		<!-- Pre-paint: decide the theme before first paint. Night is the default and
 		     prefers-color-scheme is ignored. Mirrors resolveTheme in src/theme.ts. -->

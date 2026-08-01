@@ -663,18 +663,31 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	margin-top: var(--s3);
 }
 
+/* the year as a row of dots, matching the object's particles; it spans the
+   column exactly (uniform viewBox, width 100%) */
 .hm {
-	display: grid;
-	grid-template-columns: repeat(16, 7px);
-	gap: 3px;
-	margin: var(--s1) 0;
+	margin: var(--s1) 0 var(--s2);
 }
 
-.hm b {
-	width: 7px;
-	height: 7px;
-	border-radius: 1.5px;
-	background: var(--ink);
+.hm svg {
+	display: block;
+	width: 100%;
+	overflow: visible;
+}
+
+.gitrule {
+	stroke: var(--rule);
+	stroke-width: 1;
+}
+
+.gitdot {
+	fill: var(--ink);
+	opacity: var(--o, 0.5);
+	transition: opacity 160ms ease;
+}
+
+.gitdot:hover {
+	opacity: 1;
 }
 
 .gitline {

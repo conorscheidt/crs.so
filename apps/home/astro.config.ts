@@ -1,4 +1,3 @@
-import { fileURLToPath } from "node:url";
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import type { AstroUserConfig } from "astro";
@@ -33,9 +32,6 @@ export default {
 		],
 	},
 	vite: {
-		resolve: {
-			alias: { "@shared": fileURLToPath(new URL("../../shared", import.meta.url)) },
-		},
 		css: {
 			transformer: "lightningcss",
 			lightningcss: {},

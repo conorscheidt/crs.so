@@ -1,3 +1,4 @@
 User-agent: *
 Allow: /
-Sitemap: https://crsche.com/sitemap-index.xml
+
+Sitemap: https://crs.so/sitemap-index.xml

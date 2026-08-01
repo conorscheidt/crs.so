@@ -84,7 +84,6 @@
 	"files": {
 		"includes": [
 			"**",
-			"!apps/blog/public",
 			"!apps/home/public",
 			"!.github",
 			"**/*.ts",
@@ -99,19 +98,25 @@
 	},
 	"overrides": [
 		{
-			// Blog predates the strict pins.
-			// Its idioms are intentional; revisit when the blog is reworked.
-			"includes": ["apps/blog/**", "shared/**", "workers/**"],
+			// The analytics Worker is a separate runtime (Cloudflare, not the
+			// browser) and is deployed on its own cadence.
+			"includes": ["workers/**"],
+			"linter": {
+				"rules": {
+					"preset": "recommended"
+				}
+			}
+		},
+		{
+			// driver.ts is a faithful port of binji/wasm-clang's WASI core. Its
+			// pointer-walking idioms (parameter reassignment, parameter
+			// properties, class-per-concern) mirror the upstream so the two stay
+			// diffable; restyling them risks breaking a working toolchain.
+			"includes": ["apps/home/src/playground/clang/driver.ts"],
 			"linter": {
 				"rules": {
 					"preset": "recommended",
-					"style": {
-						"noNonNullAssertion": "off"
-					},
-					"a11y": {
-						"useSemanticElements": "off",
-						"useAriaPropsSupportedByRole": "off"
-					}
+					"suspicious": { "noConsole": "off" }
 				}
 			}
 		}

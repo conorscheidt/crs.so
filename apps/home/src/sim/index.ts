@@ -14,11 +14,19 @@ export interface Sim {
 	setSection: (s: Section) => void;
 	setInk: () => void;
 	setPointer: (x: number, y: number, active: boolean) => void;
-	setTilt: (nx: number, ny: number) => void;
+	/** grab the object: drag deltas (css px) spin it; release keeps inertia */
+	beginDrag: () => void;
+	dragBy: (dx: number, dy: number) => void;
+	endDrag: () => void;
 	excite: (strength?: number) => void;
 	destroy: () => void;
 	readonly kind: "gpu" | "cpu" | "static";
 }
+
+/** Drag feel: radians of spin per css pixel, and the release cap. */
+const DRAG_YAW = 0.0062;
+const DRAG_PITCH = 0.005;
+const SPIN_MAX = 2.2;
 
 function readInk(): [number, number, number] {
 	const raw = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
@@ -68,7 +76,14 @@ export async function bootSim(
 	[u.inkR, u.inkG, u.inkB] = readInk();
 
 	const pointer = { x: 0, y: 0, active: false };
-	const tiltFrom = { nx: 0, ny: 0 };
+	// drag to spin: the visitor grabs the object.
+	// Yaw offset accumulates freely; pitch offset is clamped and eases home.
+	let dragging = false;
+	let yawOff = 0;
+	let pitchOff = 0;
+	let vYaw = 0;
+	let vPitch = 0;
+	let lastDragAt = 0;
 	let exciteLevel = 0;
 	let speed = 1;
 	let pitchFrom = u.tiltX;
@@ -115,7 +130,9 @@ export async function bootSim(
 				renderStatic();
 			},
 			setPointer() {},
-			setTilt() {},
+			beginDrag() {},
+			dragBy() {},
+			endDrag() {},
 			excite() {},
 			destroy() {
 				renderer?.destroy();
@@ -142,16 +159,24 @@ export async function bootSim(
 		const speedTarget = 1 + 0.9 * exciteLevel;
 		speed += (speedTarget - speed) * Math.min(1, dt * 8);
 		u.phase += speed * dt;
-		u.yaw = u.phase * 0.2;
+
+		// inertia: released spins coast, then hand the object back to its own
+		// slow rotation; pitch drifts home so the composition always recovers
+		if (!dragging) {
+			vYaw *= Math.exp(-dt / 1.1);
+			vPitch *= Math.exp(-dt / 1.1);
+			yawOff += vYaw * dt;
+			pitchOff += vPitch * dt;
+			pitchOff *= Math.exp(-dt / 6);
+		}
+		pitchOff = Math.max(-0.7, Math.min(0.7, pitchOff));
+		u.yaw = u.phase * 0.2 + yawOff;
 		u.fade = Math.min(1, (t - born) / MOTION.budget.simFade);
 
 		const baseTilt = pitchFrom + (pitchTo - pitchFrom) * u.morphT;
-		// tilt follows the pointer anywhere in the viewport, gently and slowly,
-		// so the object drifts with the cursor instead of twitching
-		const tiltTargetX = baseTilt + tiltFrom.ny * 0.26;
-		const tiltTargetZ = tiltFrom.nx * 0.2;
-		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * 1.6);
-		u.tiltZ += (tiltTargetZ - u.tiltZ) * Math.min(1, dt * 1.6);
+		const tiltTargetX = baseTilt + pitchOff;
+		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * 6);
+		u.tiltZ -= u.tiltZ * Math.min(1, dt * 1.6);
 		u.cursorX = pointer.x * dpr;
 		u.cursorY = pointer.y * dpr;
 		u.cursorActive = pointer.active ? 1 : 0;
@@ -192,9 +217,27 @@ export async function bootSim(
 			pointer.y = y;
 			pointer.active = active;
 		},
-		setTilt(nx: number, ny: number): void {
-			tiltFrom.nx = nx;
-			tiltFrom.ny = ny;
+		beginDrag(): void {
+			dragging = true;
+			vYaw = 0;
+			vPitch = 0;
+			lastDragAt = performance.now();
+		},
+		dragBy(dx: number, dy: number): void {
+			if (!dragging) return;
+			const now = performance.now();
+			const step = Math.max(8, Math.min(64, now - lastDragAt)) / 1000;
+			lastDragAt = now;
+			yawOff += dx * DRAG_YAW;
+			pitchOff = Math.max(-0.7, Math.min(0.7, pitchOff + dy * DRAG_PITCH));
+			// rad/s from the real pointer rate, smoothed, then capped so a hard
+			// flick spins the object without launching it
+			const clamp = (v: number): number => Math.max(-SPIN_MAX, Math.min(SPIN_MAX, v));
+			vYaw = clamp(vYaw * 0.55 + ((dx * DRAG_YAW) / step) * 0.45);
+			vPitch = clamp(vPitch * 0.55 + ((dy * DRAG_PITCH) / step) * 0.45);
+		},
+		endDrag(): void {
+			dragging = false;
 		},
 		excite(strength = 1): void {
 			exciteLevel = Math.max(exciteLevel, Math.min(1, strength));

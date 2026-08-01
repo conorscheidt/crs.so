@@ -5,7 +5,8 @@
  */
 const API = "https://git.crs.so/api/v1";
 const USER = "crsche";
-const DAYS = 112;
+const DAYS = 364; // 52 whole weeks
+const WEEKS = 52;
 const MS_DAY = 86_400_000;
 
 interface HeatPoint {
@@ -29,11 +30,36 @@ interface GitData {
 	sample: boolean;
 }
 
+/** Consecutive days ending today (or yesterday) with at least one commit. */
+function streak(heat: Map<number, number>): number {
+	const today = Math.floor(Date.now() / MS_DAY);
+	let n = 0;
+	// today may still be empty early in the day, so start at yesterday
+	const from = (heat.get(today) ?? 0) > 0 ? today : today - 1;
+	for (let d = from; d > from - DAYS; d--) {
+		if ((heat.get(d) ?? 0) === 0) break;
+		n++;
+	}
+	return n;
+}
+
+/** Weekly buckets, oldest → newest, aligned so the last bucket ends today. */
+function weekly(heat: Map<number, number>): number[] {
+	const today = Math.floor(Date.now() / MS_DAY);
+	return Array.from({ length: WEEKS }, (_, w) => {
+		let sum = 0;
+		for (let i = 0; i < 7; i++) sum += heat.get(today - (WEEKS - 1 - w) * 7 - (6 - i)) ?? 0;
+		return sum;
+	});
+}
+
 function sampleData(): GitData {
 	const heat = new Map<number, number>();
 	const today = Math.floor(Date.now() / MS_DAY);
 	for (let d = 0; d < DAYS; d++) {
 		const v = (Math.imul(d + 7, 2_654_435_761) >>> 8) % 100;
+		// a slow seasonal swell, so the sample reads as a year
+		const swell = 0.45 + 0.55 * Math.sin(d / 34) ** 2;
 		const buckets: [number, number][] = [
 			[38, 0],
 			[62, 1],
@@ -41,7 +67,8 @@ function sampleData(): GitData {
 			[94, 4],
 			[101, 7],
 		];
-		heat.set(today - d, buckets.find(([cap]) => v < cap)?.[1] ?? 0);
+		const base = buckets.find(([cap]) => v < cap)?.[1] ?? 0;
+		heat.set(today - d, Math.round(base * swell));
 	}
 	return {
 		heat,
@@ -139,27 +166,59 @@ export async function initGitBlock(root: HTMLElement): Promise<void> {
 		data = sampleData();
 	}
 
+	// The year as dots, one per week, riding higher and darker with volume.
+	// It scales to the column exactly (uniform viewBox, width 100%).
 	const heatEl = root.querySelector<HTMLElement>("[data-git-heat]");
+	const weeks = weekly(data.heat);
 	if (heatEl) {
+		const W = 320;
+		const H = 30;
+		const BASE = H - 4;
+		const peak = Math.max(1, ...weeks);
 		const today = Math.floor(Date.now() / MS_DAY);
-		const max = Math.max(1, ...data.heat.values());
-		for (let d = DAYS - 1; d >= 0; d--) {
-			const day = today - d;
-			const v = data.heat.get(day) ?? 0;
-			const b = document.createElement("b");
-			b.style.opacity = v === 0 ? "0.07" : String(0.2 + 0.8 * Math.min(1, v / max));
-			const date = new Date(day * MS_DAY).toLocaleDateString("en-US", {
-				month: "short",
-				day: "numeric",
-			});
-			b.title = `${v} contribution${v === 1 ? "" : "s"} · ${date}`;
-			heatEl.appendChild(b);
-		}
+		const NS = "http://www.w3.org/2000/svg";
+		const svg = document.createElementNS(NS, "svg");
+		svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+		svg.setAttribute("aria-label", "commits per week over the last year");
+		const rule = document.createElementNS(NS, "line");
+		rule.setAttribute("x1", "0");
+		rule.setAttribute("x2", String(W));
+		rule.setAttribute("y1", String(BASE + 0.5));
+		rule.setAttribute("y2", String(BASE + 0.5));
+		rule.setAttribute("class", "gitrule");
+		svg.appendChild(rule);
+		weeks.forEach((v, i) => {
+			const t = Math.min(1, v / peak);
+			const x = 2 + (i * (W - 4)) / (WEEKS - 1);
+			const dot = document.createElementNS(NS, "circle");
+			dot.setAttribute("cx", x.toFixed(2));
+			dot.setAttribute("cy", (BASE - t * (BASE - 6)).toFixed(2));
+			dot.setAttribute("r", v === 0 ? "0.9" : (1.1 + t * 1.9).toFixed(2));
+			dot.setAttribute("class", "gitdot");
+			// base weight rides a custom property so the CSS hover can win
+			// without !important
+			dot.style.setProperty("--o", v === 0 ? "0.18" : (0.4 + 0.6 * t).toFixed(2));
+			const end = new Date((today - (WEEKS - 1 - i) * 7) * MS_DAY);
+			const title = document.createElementNS(NS, "title");
+			title.textContent = `${v} commit${v === 1 ? "" : "s"} · week of ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+			dot.appendChild(title);
+			svg.appendChild(dot);
+		});
+		heatEl.replaceChildren(svg);
 	}
 
 	const totals = root.querySelector<HTMLElement>("[data-git-totals]");
-	if (totals)
-		totals.innerHTML = `<em>${data.commits} commits</em> this year · <em>${data.repos}</em> repositories${data.sample ? " · <i>sample</i>" : ""}`;
+	if (totals) {
+		const days = streak(data.heat);
+		const busiest = Math.max(0, ...weeks);
+		const bits = [
+			`<em>${data.commits}</em> commits · <em>${data.repos}</em> repos`,
+			days > 1 ? `<em>${days}</em>-day streak` : "",
+			busiest > 0 ? `busiest week <em>${busiest}</em>` : "",
+			data.sample ? "<i>sample</i>" : "",
+		].filter(Boolean);
+		totals.innerHTML = bits.join(" · ");
+	}
 
 	const recentEl = root.querySelector<HTMLElement>("[data-git-recent]");
 	if (recentEl) {

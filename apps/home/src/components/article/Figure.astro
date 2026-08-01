@@ -1,0 +1,53 @@
+---
+/**
+ * Raster figure. Wraps Astro's <Image> so every post image is transformed at
+ * build time (AVIF with a WebP fallback, responsive widths, hashed filenames
+ * under /_astro → immutable cache headers) and framed like a live plate: no
+ * border by default, same caption style, numbered in the same sequence.
+ *
+ * Usage in MDX:
+ *   import cover from "./my-shot.png";
+ *   <Figure src={cover} alt="…" n={5} caption="…" />
+ */
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+type Props = {
+	/** imported image (ImageMetadata), not a bare string path */
+	src: ImageMetadata;
+	/** required: this is content, not decoration */
+	alt: string;
+	caption?: string;
+	/** figure number in the post's sequence (shared with <Fig>) */
+	n?: number;
+	/** opt into a hairline frame; plates are naked by default */
+	border?: boolean;
+	/** first image on the page? then it is eager + high priority (LCP) */
+	priority?: boolean;
+};
+const { src, alt, caption, n, border = false, priority = false } = Astro.props;
+const roman = n ? (["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"][n - 1] ?? String(n)) : null;
+---
+
+<figure class:list={["afig", "araster", { bordered: border }]}>
+	<Image
+		src={src}
+		alt={alt}
+		widths={[440, 640, 880, 1280]}
+		sizes="(min-width: 1080px) 640px, 92vw"
+		format="avif"
+		quality={72}
+		loading={priority ? "eager" : "lazy"}
+		fetchpriority={priority ? "high" : "auto"}
+		decoding={priority ? "sync" : "async"}
+	/>
+	{
+		caption && (
+			<figcaption>
+				{roman && <b>fig. {roman}</b>}
+				{roman && " — "}
+				{caption}
+			</figcaption>
+		)
+	}
+</figure>

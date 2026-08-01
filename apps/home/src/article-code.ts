@@ -5,8 +5,8 @@
  * and a blocked stdin read parks the program on an inline prompt right where
  * the output cursor sits (SharedArrayBuffer + Atomics under the hood).
  */
-import { mountEditor } from "@shared/scripts/playground/editor";
-import { RUNNABLE, run, warmCpp, warmLight } from "@shared/scripts/playground/runner";
+import { mountEditor } from "./playground/editor";
+import { RUNNABLE, run, warmCpp, warmLight } from "./playground/runner";
 
 const live: { destroy: () => void }[] = [];
 

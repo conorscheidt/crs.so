@@ -1,9 +1,0 @@
----
-/** One scrollytelling step. `i` is the figure step index it activates. */
-interface Props {
-	i: number;
-}
-const { i } = Astro.props;
----
-
-<div class="scrolly-step" data-step={i}><slot /></div>

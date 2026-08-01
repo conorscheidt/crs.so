@@ -392,11 +392,16 @@
 
 /* ---- figures (plates) ---- */
 
+/* plates are borderless by default; the caption and reset disc are the only
+   frame. The `border` prop opts back in for figures that need an edge. */
 .afig {
 	margin: var(--s3) 0;
+	position: relative;
+}
+
+.afig.bordered {
 	border: 1px solid var(--rule);
 	padding: var(--s2) var(--s2) var(--s1);
-	position: relative;
 }
 
 .figmount {
@@ -420,14 +425,6 @@
 
 .afig[data-kind="distribution"] .figmount {
 	height: 190px;
-}
-
-/* wide plates extend past the prose column into the margins, distill-style */
-@media (min-width: 1080px) {
-	.afig.wide {
-		width: 840px;
-		margin-left: -100px;
-	}
 }
 
 /* plates clip: constructions may run off to infinity (bisectors, circles),
@@ -590,6 +587,12 @@
 	stroke: color-mix(in srgb, var(--ink) 62%, transparent);
 }
 
+.araster img {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
 .afig figcaption {
 	font-size: 12.5px;
 	color: var(--ink-45);
@@ -644,9 +647,10 @@
 
 /* ---- code blocks ---- */
 
+/* code blocks: a slab of deeper paper with no border; the background alone
+   marks them as a separate, editable surface */
 .codeblk {
 	margin: var(--s3) 0;
-	border: 1px solid var(--rule);
 	background: var(--paper-deep);
 	position: relative;
 }
@@ -669,8 +673,7 @@
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	padding: 6px 12px;
-	border-bottom: 1px solid var(--rule);
+	padding: 8px 12px 0;
 	font-family: var(--font-mark);
 	font-size: 10.5px;
 	letter-spacing: 0.08em;
@@ -707,7 +710,7 @@
 }
 
 .codeout {
-	border-top: 1px solid var(--rule);
+	border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
 	padding: var(--s1) 12px;
 	font-family: var(--font-mark);
 	font-size: 12.5px;

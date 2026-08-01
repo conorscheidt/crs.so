@@ -38,8 +38,11 @@ jobs:
       - name: Lint + format (Biome)
         run: bun --bun biome ci .
 
-      - name: Typecheck (astro check)
+      - name: Typecheck
         run: bun run check
 
-      - name: Build (website + blog)
+      - name: Test
+        run: bun test
+
+      - name: Build
         run: bun run build

@@ -9,7 +9,9 @@ sample: true
 
 import Code from "../../components/article/Code.astro";
 import Fig from "../../components/article/Fig.astro";
+import Figure from "../../components/article/Figure.astro";
 import Marginal from "../../components/article/Marginal.astro";
+import trefoilPlate from "../../assets/trefoil-plate.png";
 
 This is a placeholder essay, but nothing on this page is a mock-up. The table of
 contents follows you. The figures below integrate their equations as you drag them.
@@ -32,7 +34,7 @@ The numbers above are not decoration: they are bound to the figure. Grab the dot
 riding the first overshoot and drag it — down to damp the ring, sideways to slow the
 clock. The values in the prose answer[^2].
 
-<Fig kind="oscillator" id="osc" n={1} wide caption="two views of one law. Left: the s-plane — drag the pole; the dashed arc is |s| = ω, and cos θ = ζ. Right: the response x(t) with its envelope — drag the dot on the first peak instead (the overshoot inverts to ζ exactly). Either handle moves both panels and the bound values above." />
+<Fig kind="oscillator" id="osc" n={1} caption="two views of one law. Left: the s-plane — drag the pole; the dashed arc is |s| = ω, and cos θ = ζ. Right: the response x(t) with its envelope — drag the dot on the first peak instead (the overshoot inverts to ζ exactly). Either handle moves both panels and the bound values above." />
 
 ## Reading the response
 
@@ -160,7 +162,7 @@ The network below anneals while you watch — grab a node and throw it (the
 simulation reheats), or hover one to light its neighbourhood. Its temperature
 $\alpha$, cooling live, is <b data-bind="alpha" data-fig="net">1.00</b>:
 
-<Fig kind="graph" id="net" n={3} wide caption="a d3-force embedding: nodes sized by degree, dragging reheats the annealing, hovering a node raises its neighbourhood and quiets the rest." />
+<Fig kind="graph" id="net" n={3} caption="a d3-force embedding: nodes sized by degree, dragging reheats the annealing, hovering a node raises its neighbourhood and quiets the rest." />
 
 And the distribution plate puts its parameters where they belong — on the curve
 itself. The peak drags $\mu =$ <b data-bind="mu" data-fig="dist">0.50</b>, the
@@ -182,6 +184,15 @@ fn step(s: State, zeta: f64, omega: f64, dt: f64) -> State {
     let a = -(2.0 * zeta * omega * s.v + omega * omega * s.x);
     State { x: s.x + s.v * dt, v: s.v + a * dt }
 }`} />
+
+## Stills, too
+
+Not everything wants to be live. Raster figures go through Astro's image
+pipeline: imported as modules, transformed at build time into AVIF at four
+widths, emitted under hashed filenames that are cached forever. Below is the
+hub's object, frozen — <Marginal note="Generated, not photographed: scripts/gen-demo-image.ts draws the same parametrisation the shader does, one still frame, and hands it to sharp.">5,200 dots on a single frame</Marginal>:
+
+<Figure src={trefoilPlate} n={5} alt="A still render of the trefoil knot drawn as thousands of pale ink dots on near-black paper, the strands crossing over one another in depth." caption="the trefoil, held still. Same parametrisation as the shader — the page just doesn't have to run it." />
 
 What rides on all of it from here: scroll-linked figure sequences, richer plates,
 and posts whose interactive parts earn their place the way this page's do — the

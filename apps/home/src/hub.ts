@@ -70,18 +70,33 @@ export function bootHub(clock: Clock): () => void {
 			else sim = s;
 		});
 		const colC = canvas.parentElement as HTMLElement;
+		// the object is grabbable: drag spins it, release coasts
+		colC.dataset.cursorMode = "grab";
+		let last: { x: number; y: number } | null = null;
+		colC.addEventListener("pointerdown", (ev) => {
+			sim?.beginDrag();
+			last = { x: ev.clientX, y: ev.clientY };
+			try {
+				colC.setPointerCapture(ev.pointerId);
+			} catch {}
+		});
 		colC.addEventListener("pointermove", (ev) => {
 			const r = canvas.getBoundingClientRect();
 			sim?.setPointer(ev.clientX - r.left, ev.clientY - r.top, true);
+			if (last) {
+				sim?.dragBy(ev.clientX - last.x, ev.clientY - last.y);
+				last = { x: ev.clientX, y: ev.clientY };
+			}
 		});
-		colC.addEventListener("pointerleave", () => sim?.setPointer(0, 0, false));
-		// tilt listens on the whole viewport so it doesn't jump at the column boundary
-		addEventListener(
-			"pointermove",
-			(ev: PointerEvent) =>
-				sim?.setTilt(ev.clientX / innerWidth - 0.5, ev.clientY / innerHeight - 0.5),
-			{ passive: true, signal },
-		);
+		const drop = (): void => {
+			last = null;
+			sim?.endDrag();
+		};
+		colC.addEventListener("pointerup", drop);
+		colC.addEventListener("pointercancel", drop);
+		colC.addEventListener("pointerleave", () => {
+			sim?.setPointer(0, 0, false);
+		});
 	}
 
 	// Search islands: shared index, per-panel kind; the sim pulses on

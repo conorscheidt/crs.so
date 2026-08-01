@@ -17,7 +17,16 @@ const date = post.data.date.toLocaleDateString("en-US", {
 });
 ---
 
-<Shell title={`${post.data.title} — Conor Scheidt`} description={post.data.description} scrollable>
+<Shell
+	title={`${post.data.title} — Conor Scheidt`}
+	description={post.data.description}
+	scrollable
+	article={{
+		published: post.data.date,
+		tags: post.data.tags,
+		minutes: post.data.minutes,
+	}}
+>
 	<div class="apage">
 		<header class="arail-l">
 			<a class="aname" href="/">Conor<br />Scheidt</a>
