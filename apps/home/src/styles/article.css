@@ -2,9 +2,11 @@
    progress, footnotes and margin notes, plates, code. Shares the hub's
    styling: night by default, instant theme switch, one Fraunces weight. */
 
+/* Rails are equal width so the prose column is centred on the viewport
+   (210/230 rails pushed it 10px left). */
 .apage {
 	display: grid;
-	grid-template-columns: 210px minmax(0, 640px) 230px;
+	grid-template-columns: 220px minmax(0, 640px) 220px;
 	justify-content: center;
 	column-gap: var(--s3);
 	position: relative;

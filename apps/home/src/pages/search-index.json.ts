@@ -3,9 +3,9 @@
  * client on first search intent. Options come from the shared module; don't
  * inline them here.
  */
-import { getCollection } from "astro:content";
 import MiniSearch from "minisearch";
 import { projects } from "../data/projects";
+import { publishedPosts } from "../lib/posts";
 import { SEARCH_FIELDS, type SearchDoc } from "../search/options";
 
 function strip(md: string): string {
@@ -20,7 +20,7 @@ function strip(md: string): string {
 }
 
 export async function GET(): Promise<Response> {
-	const posts = await getCollection("writing");
+	const posts = await publishedPosts();
 	const docs: SearchDoc[] = [
 		...posts.map((p) => ({
 			id: `post:${p.id}`,

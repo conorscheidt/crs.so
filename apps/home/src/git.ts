@@ -1,7 +1,7 @@
 /**
- * git.crs.so block: client-side fetch against the self-hosted Forgejo API.
- * On any failure (offline, CORS, dev) the block renders sample data, visibly
- * marked, so the layout never has a gap.
+ * git.crs.so block: client-side fetch against the self-hosted git server.
+ * There is no sample fallback; if the server does not answer, the panel says
+ * so.
  */
 const API = "https://git.crs.so/api/v1";
 const USER = "crsche";
@@ -27,7 +27,6 @@ interface GitData {
 	repos: number;
 	recent: FeedItem[];
 	active: { name: string; count: number }[];
-	sample: boolean;
 }
 
 /** Consecutive days ending today (or yesterday) with at least one commit. */
@@ -51,51 +50,6 @@ function weekly(heat: Map<number, number>): number[] {
 		for (let i = 0; i < 7; i++) sum += heat.get(today - (WEEKS - 1 - w) * 7 - (6 - i)) ?? 0;
 		return sum;
 	});
-}
-
-function sampleData(): GitData {
-	const heat = new Map<number, number>();
-	const today = Math.floor(Date.now() / MS_DAY);
-	for (let d = 0; d < DAYS; d++) {
-		const v = (Math.imul(d + 7, 2_654_435_761) >>> 8) % 100;
-		// a slow seasonal swell, so the sample reads as a year
-		const swell = 0.45 + 0.55 * Math.sin(d / 34) ** 2;
-		const buckets: [number, number][] = [
-			[38, 0],
-			[62, 1],
-			[82, 2],
-			[94, 4],
-			[101, 7],
-		];
-		const base = buckets.find(([cap]) => v < cap)?.[1] ?? 0;
-		heat.set(today - d, Math.round(base * swell));
-	}
-	return {
-		heat,
-		commits: 214,
-		repos: 9,
-		recent: [
-			{
-				repo: "crs.so",
-				message: "sim: weave + borromean objects",
-				when: Date.now() - 2 * 3.6e6,
-				url: "#",
-			},
-			{ repo: "rtk", message: "filter: gh pr view", when: Date.now() - 3 * 8.64e7, url: "#" },
-			{
-				repo: "figures",
-				message: "lens pass for figure 4",
-				when: Date.now() - 6 * 8.64e7,
-				url: "#",
-			},
-		],
-		active: [
-			{ name: "crs.so", count: 96 },
-			{ name: "rtk", count: 61 },
-			{ name: "clang.wasm", count: 33 },
-		],
-		sample: true,
-	};
 }
 
 async function fetchData(): Promise<GitData> {
@@ -148,7 +102,7 @@ async function fetchData(): Promise<GitData> {
 		.slice(0, 3)
 		.map(([name, count]) => ({ name, count }));
 
-	return { heat, commits, repos: repoRaw.data.length, recent, active, sample: false };
+	return { heat, commits, repos: repoRaw.data.length, recent, active };
 }
 
 function age(ts: number): string {
@@ -158,12 +112,29 @@ function age(ts: number): string {
 	return `${Math.round(s / 86_400)}d`;
 }
 
+/**
+ * The server is not up yet (Basalt is still being written), and once it is up
+ * it can still be unreachable. Either way the panel says so.
+ */
+function renderUnreachable(root: HTMLElement): void {
+	root.querySelector("[data-git-detail]")?.remove();
+	root.querySelector("[data-git-heat]")?.replaceChildren();
+	const line = root.querySelector<HTMLElement>("[data-git-totals]");
+	if (line) {
+		line.className = "hollow-note";
+		line.innerHTML =
+			"Not reporting yet — <em>Basalt</em>, the git server this reads from, is still being written. This fills in when the server answers.";
+	}
+	root.hidden = false;
+}
+
 export async function initGitBlock(root: HTMLElement): Promise<void> {
 	let data: GitData;
 	try {
 		data = await fetchData();
 	} catch {
-		data = sampleData();
+		renderUnreachable(root);
+		return;
 	}
 
 	// The year as dots, one per week, riding higher and darker with volume.
@@ -215,7 +186,6 @@ export async function initGitBlock(root: HTMLElement): Promise<void> {
 			`<em>${data.commits}</em> commits · <em>${data.repos}</em> repos`,
 			days > 1 ? `<em>${days}</em>-day streak` : "",
 			busiest > 0 ? `busiest week <em>${busiest}</em>` : "",
-			data.sample ? "<i>sample</i>" : "",
 		].filter(Boolean);
 		totals.innerHTML = bits.join(" · ");
 	}

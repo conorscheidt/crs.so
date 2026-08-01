@@ -3,14 +3,12 @@
  * readers and crawlers.
  */
 
-import { getCollection } from "astro:content";
 import rss from "@astrojs/rss";
 import type { APIRoute } from "astro";
+import { publishedPosts } from "../lib/posts";
 
 export const GET: APIRoute = async (context) => {
-	const posts = (await getCollection("writing")).sort(
-		(a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
-	);
+	const posts = await publishedPosts();
 	return rss({
 		title: "Conor Scheidt — Writing",
 		description:

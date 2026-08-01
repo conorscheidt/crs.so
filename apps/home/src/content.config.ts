@@ -15,6 +15,12 @@ const writing = defineCollection({
 			tags: z.array(z.string()).default([]),
 			/** Sample content is visibly marked as such in the UI. */
 			sample: z.boolean().default(false),
+			/**
+			 * Drafts render in `bun dev` and are dropped from the production build:
+			 * no page, listing, feed, search index entry, or card. Keeps the
+			 * article-system demo available in development.
+			 */
+			draft: z.boolean().default(false),
 			/** Social card + article lede image. Relative to the post file;
 			 *  `image()` validates it exists and hands the build real dimensions. */
 			cover: image().optional(),

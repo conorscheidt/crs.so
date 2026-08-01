@@ -105,11 +105,30 @@ export function bootHub(clock: Clock): () => void {
 	const projPanel = panels.get("projects");
 	if (projPanel) initSearch(projPanel, "project", { pulse });
 	const writPanel = panels.get("writing");
-	if (writPanel) initSearch(writPanel, "post", { pulse });
+	const writSearch = writPanel ? initSearch(writPanel, "post", { pulse }) : null;
 
-	// Index git block: Forgejo API with visible-sample fallback.
+	// Index git block: real data, or a "not reporting yet" note.
 	const gitb = hub.querySelector<HTMLElement>("[data-git]");
 	if (gitb) void initGitBlock(gitb);
+
+	// Corner meta: the local time where the work happens, ticking.
+	const clockEl = hub.querySelector<HTMLElement>("[data-clock]");
+	if (clockEl) {
+		const tz = clockEl.dataset.tz ?? "America/Chicago";
+		const fmt = new Intl.DateTimeFormat("en-US", {
+			timeZone: tz,
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: false,
+			timeZoneName: "short",
+		});
+		const tick = (): void => {
+			clockEl.textContent = fmt.format(new Date());
+		};
+		tick();
+		const id = setInterval(tick, 30_000);
+		unsubs.push(() => clearInterval(id));
+	}
 
 	// Hovering an entry or the latest-post title quickens the sim.
 	hub.querySelector(".col-r")?.addEventListener(
@@ -119,6 +138,16 @@ export function bootHub(clock: Clock): () => void {
 		},
 		{ passive: true },
 	);
+
+	// A tag on the Index panel's latest post opens
+	// Writing with the chip already applied, like tags inside a post.
+	panels.get("index")?.addEventListener("click", (ev) => {
+		const tag = (ev.target as HTMLElement).closest<HTMLElement>(".tag")?.dataset.tag;
+		if (!tag) return;
+		history.pushState({ section: "writing" }, "", PATHS.writing);
+		apply("writing", true);
+		writSearch?.addTag(tag);
+	});
 
 	const apply = (to: Section, focus: boolean): void => {
 		const from = section;

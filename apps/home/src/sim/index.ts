@@ -228,13 +228,15 @@ export async function bootSim(
 			const now = performance.now();
 			const step = Math.max(8, Math.min(64, now - lastDragAt)) / 1000;
 			lastDragAt = now;
+			// dragging down tips the object's top toward the viewer, so the
+			// vertical delta subtracts from pitch and the grab follows the hand
 			yawOff += dx * DRAG_YAW;
-			pitchOff = Math.max(-0.7, Math.min(0.7, pitchOff + dy * DRAG_PITCH));
+			pitchOff = Math.max(-0.7, Math.min(0.7, pitchOff - dy * DRAG_PITCH));
 			// rad/s from the real pointer rate, smoothed, then capped so a hard
 			// flick spins the object without launching it
 			const clamp = (v: number): number => Math.max(-SPIN_MAX, Math.min(SPIN_MAX, v));
 			vYaw = clamp(vYaw * 0.55 + ((dx * DRAG_YAW) / step) * 0.45);
-			vPitch = clamp(vPitch * 0.55 + ((dy * DRAG_PITCH) / step) * 0.45);
+			vPitch = clamp(vPitch * 0.55 - ((dy * DRAG_PITCH) / step) * 0.45);
 		},
 		endDrag(): void {
 			dragging = false;

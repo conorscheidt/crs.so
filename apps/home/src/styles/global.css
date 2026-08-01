@@ -307,6 +307,79 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	color: var(--ink-45);
 }
 
+/* one-line credential summary; the About panel has the detail */
+.standing {
+	margin-top: 3px;
+	font-size: 12px;
+	letter-spacing: 0.03em;
+	color: var(--ink-45);
+}
+
+/* bottom-right corner meta: place · local time · copyright */
+.corner {
+	position: absolute;
+	right: var(--s4);
+	bottom: var(--s3);
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+	font-size: 10.5px;
+	letter-spacing: 0.04em;
+	line-height: 1.5;
+	color: var(--ink-45);
+	pointer-events: none;
+	z-index: 2;
+}
+
+.corner .clock {
+	font-family: var(--font-mark);
+	font-size: 9.5px;
+	letter-spacing: 0.06em;
+	font-variant-numeric: tabular-nums;
+}
+
+/* empty and failure states */
+.hollow {
+	padding: var(--s2) 2px 0;
+}
+
+.hollow-lead {
+	font-style: italic;
+	font-size: 14px;
+	line-height: 1.55;
+	color: var(--ink-70);
+	margin-bottom: var(--s2);
+}
+
+.hollow-note {
+	font-size: 12.5px;
+	line-height: 1.65;
+	color: var(--ink-45);
+	margin-bottom: var(--s2);
+}
+
+.hollow-note a,
+.hollow-lead a {
+	color: var(--ink-70);
+	text-decoration: none;
+	border-bottom: 1px dotted var(--ink-45);
+	transition:
+		color 200ms ease,
+		border-color 200ms ease;
+}
+
+.hollow-note a:hover,
+.hollow-lead a:hover {
+	color: var(--ink);
+	border-bottom-color: var(--ink);
+}
+
+.latest .hollow-lead,
+.latest .hollow-note {
+	padding: 0;
+}
+
 .col-l nav {
 	margin-top: var(--s5);
 	display: flex;
@@ -772,6 +845,27 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	color: var(--ink-70);
 	margin-top: 3px;
 	line-height: 1.45;
+}
+
+.cvrow.links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px var(--s2);
+	border-bottom: 0;
+}
+
+.cvrow.links a {
+	font-size: 12.5px;
+	color: var(--ink-45);
+	text-decoration: none;
+	transition:
+		color 200ms ease,
+		text-shadow 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cvrow.links a:hover {
+	color: var(--ink);
+	text-shadow: 0 0 4px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 /* Eclipse toggle: the disc slides across the ring, total eclipse in night and

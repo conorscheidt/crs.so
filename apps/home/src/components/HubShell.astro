@@ -1,23 +1,23 @@
 ---
-import { getCollection } from "astro:content";
-import { blurb, education, experience, resumeHref } from "../data/about";
+import { blurb, contact, education, experience, place, resumeHref } from "../data/about";
 import { projects } from "../data/projects";
+import { publishedPosts } from "../lib/posts";
 import type { Section } from "../router";
 
 type Props = { section: Section };
 const { section } = Astro.props;
 
-const posts = (await getCollection("writing")).sort(
-	(a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
-);
+const posts = await publishedPosts();
 const latest = posts[0];
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+const year = new Date().getUTCFullYear();
 ---
 
 <div class="hub" data-section={section}>
 	<header class="col-l">
 		<a class="name press inkable" href="/">Conor<br />Scheidt</a>
 		<p class="role">software · mathematics</p>
+		<p class="standing">Applied math &amp; CS, Northwestern ’29</p>
 		<nav aria-label="Sections">
 			<a href="/" aria-current={section === "index" ? "page" : undefined}>Index</a>
 			<a href="/projects" aria-current={section === "projects" ? "page" : undefined}>Projects</a>
@@ -48,14 +48,36 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 				latest && (
 					<div class="latest">
 						<p class="ptitle">Latest</p>
-						<a class="latest-title inkable" href={`/writing/${latest.id}`}>{latest.data.title}</a>
+						<a class="latest-title inkable" href={`/writing/${latest.id}`}>
+							{latest.data.title}
+						</a>
 						<p class="entry-meta">
 							{fmt(latest.data.date)} · {latest.data.minutes} min
 						</p>
 						<p class="entry-desc">{latest.data.description}</p>
 						<div class="tags">
-							{latest.data.tags?.map((t: string) => <i>{t}</i>)}
+							{latest.data.tags?.map((t: string) => (
+								<button type="button" class="tag" data-tag={t}>
+									{t}
+								</button>
+							))}
 						</div>
+					</div>
+				)
+			}
+			{
+				!latest && (
+					<div class="latest">
+						<p class="ptitle">Now</p>
+						<p class="hollow-lead">
+							Building a git server in Rust, and the trading infrastructure behind a student
+							fund’s live experiments.
+						</p>
+						<p class="hollow-note">
+							The writing and the project shelf open when there is something finished to put
+							on them. The <a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a> is
+							complete now.
+						</p>
 					</div>
 				)
 			}
@@ -63,24 +85,54 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 				<p class="ptitle">git.crs.so</p>
 				<div class="hm" data-git-heat></div>
 				<p class="gitline" data-git-totals></p>
-				<p class="ptitle sub">Recent</p>
-				<div data-git-recent></div>
-				<p class="ptitle sub">Most active</p>
-				<p class="gitline" data-git-active></p>
+				<div data-git-detail>
+					<p class="ptitle sub">Recent</p>
+					<div data-git-recent></div>
+					<p class="ptitle sub">Most active</p>
+					<p class="gitline" data-git-active></p>
+				</div>
 			</div>
 		</section>
 
 		<section class="panel" data-panel="projects" aria-label="Projects">
 			<h2 class="sr-only" data-panel-head tabindex="-1">Projects</h2>
-			<div class="search" data-search="project">
-				<span class="chips" data-chips></span>
-				<input type="search" placeholder="search projects · # tags" aria-label="Search projects" />
-			</div>
+			{
+				projects.length > 0 && (
+					<div class="search" data-search="project">
+						<span class="chips" data-chips />
+						<input
+							type="search"
+							placeholder="search projects · # tags"
+							aria-label="Search projects"
+						/>
+					</div>
+				)
+			}
 			<div class="list" data-scroll>
 				<div>
 					{
+						projects.length === 0 && (
+							<div class="hollow">
+								<p class="hollow-lead">Nothing here yet — on purpose.</p>
+								<p class="hollow-note">
+									Work lands on this shelf once it ships something real: a running
+									system, a repository you can read, numbers that hold up. Two are
+									close.
+								</p>
+								<p class="hollow-note">
+									Until then, the <a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a> is the complete record.
+								</p>
+							</div>
+						)
+					}
+					{
 						projects.map((p) => (
-							<article class="entry" data-id={`project:${p.name}`} data-ts={String(Date.UTC(p.year, 6, 1))} data-tags={p.tags.join(" ")}>
+							<article
+								class="entry"
+								data-id={`project:${p.name}`}
+								data-ts={String(Date.UTC(p.year, 6, 1))}
+								data-tags={p.tags.join(" ")}
+							>
 								{p.href ? (
 									<a class="entry-title inkable" href={p.href}>
 										{p.name}
@@ -95,7 +147,6 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 											{t}
 										</button>
 									))}
-									{p.sample && <i class="sample">sample</i>}
 								</div>
 							</article>
 						))
@@ -106,20 +157,46 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 
 		<section class="panel" data-panel="writing" aria-label="Writing">
 			<h2 class="sr-only" data-panel-head tabindex="-1">Writing</h2>
-			<div class="search" data-search="post">
-				<span class="chips" data-chips></span>
-				<input
-					type="search"
-					placeholder="search posts · # tags · years"
-					aria-label="Search writing"
-				/>
-			</div>
+			{
+				posts.length > 0 && (
+					<div class="search" data-search="post">
+						<span class="chips" data-chips />
+						<input
+							type="search"
+							placeholder="search posts · # tags · years"
+							aria-label="Search writing"
+						/>
+					</div>
+				)
+			}
 			<div class="list" data-scroll>
 				<div>
 					{
+						posts.length === 0 && (
+							<div class="hollow">
+								<p class="hollow-lead">No posts yet.</p>
+								<p class="hollow-note">
+									The machinery is built and waiting — live figures, code that
+									actually compiles in the page, margins that answer back. The first
+									essay is being written, not generated.
+								</p>
+								<p class="hollow-note">
+									<a href="/rss.xml">rss ↗</a> if you want to know when.
+								</p>
+							</div>
+						)
+					}
+					{
 						posts.map((post) => (
-							<article class="entry" data-id={`post:${post.id}`} data-ts={String(post.data.date.valueOf())} data-tags={post.data.tags?.join(" ")}>
-								<a class="entry-title inkable" href={`/writing/${post.id}`}>{post.data.title}</a>
+							<article
+								class="entry"
+								data-id={`post:${post.id}`}
+								data-ts={String(post.data.date.valueOf())}
+								data-tags={post.data.tags?.join(" ")}
+							>
+								<a class="entry-title inkable" href={`/writing/${post.id}`}>
+									{post.data.title}
+								</a>
 								<p class="entry-meta">
 									{fmt(post.data.date)} · {post.data.minutes} min
 								</p>
@@ -129,7 +206,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 											{t}
 										</button>
 									))}
-									{post.data.sample && <i class="sample">sample</i>}
+									{post.data.draft && <i class="sample">draft</i>}
 								</div>
 							</article>
 						))
@@ -148,7 +225,9 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 						education.map((e) => (
 							<div class="cvrow">
 								<h3>{e.school}</h3>
-								<span>{e.span}{e.detail && ` · ${e.detail}`}</span>
+								<span>
+									{e.degree} · {e.span}
+								</span>
 							</div>
 						))
 					}
@@ -157,16 +236,30 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month:
 						experience.map((e) => (
 							<div class="cvrow">
 								<h3>{e.role}</h3>
-								<span>{e.span}</span>
-								{e.detail && <p>{e.detail}</p>}
-								{e.sample && <div class="tags"><i class="sample">sample</i></div>}
+								<span>
+									{e.org} · {e.span}
+								</span>
+								<p>{e.detail}</p>
 							</div>
 						))
 					}
+					<p class="ptitle sub">Elsewhere</p>
+					<div class="cvrow links">
+						<a href={`mailto:${contact.email}`}>{contact.email}</a>
+						<a href={contact.github} rel="me">github ↗</a>
+						<a href={contact.linkedin} rel="me">linkedin ↗</a>
+						<a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a>
+					</div>
 				</div>
 			</div>
 		</section>
 	</div>
+
+	<footer class="corner">
+		<span>{place.city}</span>
+		<span class="clock" data-clock data-tz={place.tz}></span>
+		<span>© {year}</span>
+	</footer>
 </div>
 
 <script>

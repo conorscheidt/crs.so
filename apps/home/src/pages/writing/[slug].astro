@@ -1,9 +1,10 @@
 ---
-import { getCollection, render } from "astro:content";
+import { render } from "astro:content";
 import Shell from "../../layouts/Shell.astro";
+import { publishedPosts } from "../../lib/posts";
 
 export async function getStaticPaths() {
-	const all = await getCollection("writing");
+	const all = await publishedPosts();
 	return all.map((entry) => ({ params: { slug: entry.id }, props: { post: entry } }));
 }
 
@@ -54,7 +55,7 @@ const date = post.data.date.toLocaleDateString("en-US", {
 				<h1 class="press">{post.data.title}</h1>
 				<p class="ameta">
 					{date} · {post.data.minutes} min read
-					{post.data.sample && <span> · sample</span>}
+					{post.data.draft && <span> · draft</span>}
 				</p>
 				{
 					post.data.tags.length > 0 && (

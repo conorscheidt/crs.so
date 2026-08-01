@@ -3,12 +3,12 @@
  * four hub routes). Static output → they land in dist as plain files and are
  * served with the immutable-ish asset headers.
  */
-import { getCollection } from "astro:content";
 import type { APIRoute, GetStaticPaths } from "astro";
 import { renderOg } from "../../lib/og";
+import { publishedPosts } from "../../lib/posts";
 
 export const getStaticPaths: GetStaticPaths = async () => {
-	const posts = await getCollection("writing");
+	const posts = await publishedPosts();
 	return [
 		{
 			params: { slug: "index" },
