@@ -1,22 +1,26 @@
 /**
- * Analytics, in two halves, both cookieless and inert until configured.
+ * Analytics, in two halves, both cookieless.
  *
- *   pageviews  → Cloudflare Web Analytics (the beacon in Shell.astro; set
- *                PUBLIC_CF_BEACON). Nothing to write here: it is server-side
- *                measured, respects Do Not Track, and needs no consent banner.
+ *   pageviews  → Cloudflare Web Analytics (the beacon in Shell.astro). Nothing
+ *                to write here: it is measured for us, respects Do Not Track,
+ *                and needs no consent banner.
  *
- *   behaviour  → the events below, POSTed to workers/analytics (Workers
- *                Analytics Engine) when PUBLIC_ANALYTICS_URL is set. This half
- *                covers what people do: which posts get read to the end, which
- *                code blocks get run, which figures get dragged, what people
- *                search for.
+ *   behaviour  → the events below, POSTed to this site's own `/api/e`, which
+ *                the site's Worker writes to Analytics Engine. This half covers
+ *                what people do: which posts get read to the end, which code
+ *                blocks get run, which figures get dragged, what people search
+ *                for.
+ *
+ * The endpoint is a same-origin path, not a configured URL: nothing to set, no
+ * CORS, and no third-party hostname for a blocker to recognise. It is the same
+ * in every environment.
  *
  * Rules: never throw into the page, never block a frame (sendBeacon), never
  * send anything identifying. Events are coarse names plus small numeric or
  * enum fields; the only free text from the visitor is their own search terms,
  * which are the point of the search event.
  */
-const ENDPOINT = import.meta.env.PUBLIC_ANALYTICS_URL as string | undefined;
+const ENDPOINT = "/api/e";
 
 /** The site's whole event vocabulary. Adding one means adding it here. */
 export type Event =
@@ -31,7 +35,7 @@ export type Event =
 	| "theme-flip"; // day/night toggled (field: to)
 
 export function track(event: Event, fields: Record<string, string | number> = {}): void {
-	if (!ENDPOINT || typeof navigator === "undefined") return;
+	if (typeof navigator === "undefined") return;
 	try {
 		const body = JSON.stringify({ event, path: location.pathname, ...fields });
 		if (navigator.sendBeacon) {

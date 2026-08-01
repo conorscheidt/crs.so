@@ -1,9 +1,11 @@
 {
-	// Cloudflare Workers Static Assets, pure static with no Worker script. Deploys via
-	// Workers Builds (root dir apps/home, build `bun run build`) or `bun run deploy`.
+	// Cloudflare Workers Static Assets. One Worker, one deploy: `bun run deploy`.
+	// The script exists only to answer /api/e; assets are served from the edge
+	// without invoking it, so page loads are unaffected.
 	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "crs-so",
 	"compatibility_date": "2026-06-19",
+	"main": "./worker.ts",
 
 	// The apex is the only address this site answers on. Without this, the deploy
 	// is also reachable at crs-so.<subdomain>.workers.dev, a second crawlable
@@ -18,10 +20,19 @@
 
 	"assets": {
 		"directory": "./dist",
+		"binding": "ASSETS",
+		// Everything else is served as an asset without the script running. Only
+		// this prefix is routed to the Worker first.
+		"run_worker_first": ["/api/*"],
 		// matches astro's `trailingSlash: "never"`: one URL per page
 		"html_handling": "drop-trailing-slash",
 		"not_found_handling": "404-page"
 	},
+
+	// Behaviour events. Created on first deploy; no dashboard, query it with the
+	// SQL API.
+	"analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "crs_so_events" }],
+
 	"observability": {
 		"enabled": true,
 		"head_sampling_rate": 0.5

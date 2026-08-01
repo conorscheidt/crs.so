@@ -24,7 +24,15 @@ const canonical = new URL(Astro.url.pathname, site);
 const ogPath = ogSlug ?? (Astro.url.pathname === "/" ? "index" : Astro.url.pathname.slice(1));
 const ogImage = new URL(`/og/${ogPath}.png`, site);
 
-const cfBeacon = import.meta.env.PUBLIC_CF_BEACON as string | undefined;
+/*
+ * Cloudflare Web Analytics beacon token. Not a secret: it is public in the
+ * page source of every site that uses one, so it is committed rather than
+ * passed through an environment variable that would make dev and production
+ * different builds. Empty means the script is not emitted at all. To turn
+ * pageviews on: Analytics & Logs → Web Analytics → add crs.so → paste the
+ * token out of the snippet here.
+ */
+const CF_BEACON = "";
 
 /*
  * Icons. The full set ships because an SVG favicon alone is not enough:
@@ -110,17 +118,13 @@ const jsonLd = JSON.stringify({
 		<link rel="alternate" type="application/rss+xml" title="Conor Scheidt — Writing" href="/rss.xml" />
 		<script type="application/ld+json" set:html={jsonLd} />
 		{
-			/**
-			 * Cloudflare Web Analytics — cookieless pageviews, no consent banner
-			 * required, ~2 KB, loaded after everything else. Inert until
-			 * PUBLIC_CF_BEACON is set, so dev and forks send nothing.
-			 */
-			cfBeacon && (
+			/* cookieless pageviews, no consent banner required, ~2 KB, last in line */
+			CF_BEACON && (
 				<script
 					is:inline
 					defer
 					src="https://static.cloudflareinsights.com/beacon.min.js"
-					data-cf-beacon={`{"token":"${cfBeacon}"}`}
+					data-cf-beacon={`{"token":"${CF_BEACON}"}`}
 				/>
 			)
 		}
