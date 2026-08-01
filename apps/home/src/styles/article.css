@@ -669,9 +669,11 @@
 
 .colo-mark {
 	display: block;
-	width: 152px;
-	height: 152px;
-	margin: var(--s4) 0 var(--s2) -6px;
+	width: 100%;
+	max-width: 300px;
+	height: 220px;
+	margin: var(--s4) 0 var(--s3) -10px;
+	touch-action: none;
 }
 
 .colo-head h1 {

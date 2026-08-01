@@ -11,6 +11,9 @@ import { initCursor } from "./cursor";
 const clock = new Clock();
 initCursor(clock);
 
+/** Dimple radius in css px; matches the cursor ring's radius, as on the hub. */
+const DIMPLE = 10;
+
 const canvas = document.querySelector<HTMLCanvasElement>("[data-colophon-mark]");
 const ctx = canvas?.getContext("2d") ?? null;
 
@@ -28,13 +31,27 @@ if (canvas && ctx) {
 			if (differing === 1) E.push([i, j]);
 		}
 	}
-	const DOTS_PER_EDGE = 13;
+	// dense enough that the edges read as strokes of particles, like the hub's
+	// object rather than a wireframe with beads on it
+	const DOTS_PER_EDGE = 46;
 
 	const ink = (a: number): string => {
 		const s = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
 		const n = Number.parseInt(s.slice(1), 16);
 		return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
 	};
+
+	// the cursor dimples this object too, as on the hub
+	const pointer = { x: -1e4, y: -1e4, active: false };
+	canvas.addEventListener("pointermove", (ev) => {
+		const b = canvas.getBoundingClientRect();
+		pointer.x = ev.clientX - b.left;
+		pointer.y = ev.clientY - b.top;
+		pointer.active = true;
+	});
+	canvas.addEventListener("pointerleave", () => {
+		pointer.active = false;
+	});
 
 	let phase = 0;
 	clock.subscribe((_t, dt) => {
@@ -50,9 +67,11 @@ if (canvas && ctx) {
 		ctx.clearRect(0, 0, w, h);
 
 		// two independent rotations: xw (the fourth-dimensional one) and yz
-		const a = phase * 0.34;
-		const b = phase * 0.23;
-		const k = Math.min(w, h) * 0.34;
+		const a = phase * 0.26;
+		const b = phase * 0.17;
+		// 0.20 keeps the far corners inside the box at every rotation; the
+		// projection swells as vertices pass near the camera
+		const k = Math.min(w, h) * 0.2;
 		const proj = V.map((v) => {
 			const [x, y, z, u] = v;
 			const x1 = x * Math.cos(a) - u * Math.sin(a);
@@ -73,13 +92,26 @@ if (canvas && ctx) {
 			if (!(p && q)) continue;
 			for (let s = 0; s <= DOTS_PER_EDGE; s++) {
 				const t = s / DOTS_PER_EDGE;
-				const x = p.x + (q.x - p.x) * t;
-				const y = p.y + (q.y - p.y) * t;
+				let x = p.x + (q.x - p.x) * t;
+				let y = p.y + (q.y - p.y) * t;
 				const d = p.depth + (q.depth - p.depth) * t;
+
+				// screen-space dimple, same law as the hub's shader
+				if (pointer.active) {
+					const dx = x - pointer.x;
+					const dy = y - pointer.y;
+					const r2 = dx * dx + dy * dy;
+					const rr = DIMPLE * DIMPLE;
+					const push = Math.exp(-r2 / (rr * 4)) * DIMPLE * 0.7;
+					const len = Math.sqrt(r2) + 1e-4;
+					x += (dx / len) * push;
+					y += (dy / len) * push;
+				}
+
 				const c = Math.min(1, Math.max(0, (d + 1.2) / 2.4));
 				const fade = c * c * (3 - 2 * c);
-				ctx.fillStyle = ink(0.24 + 0.7 * fade);
-				const r = 0.62 + 0.72 * fade;
+				ctx.fillStyle = ink(0.2 + 0.72 * fade);
+				const r = 0.42 + 0.72 * fade;
 				ctx.beginPath();
 				ctx.arc(x, y, r, 0, Math.PI * 2);
 				ctx.fill();

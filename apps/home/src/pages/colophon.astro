@@ -1,8 +1,12 @@
 ---
 /**
- * Colophon: what the site is set in, what it is made of, who made it. A
- * standalone page rather than a hub section: one narrow measure, a small
- * object of its own, no rails.
+ * Colophon: what the type is, what the site is made of, where it was made.
+ * A standalone page rather than a hub section: one narrow measure, one small
+ * device, no rails.
+ *
+ * Formatting: Astro drops the newline that follows a closing inline tag, so a
+ * line must not begin right after one without an explicit `&#32;` (the
+ * "Spectralat 300" bug). The entities below are required.
  */
 
 import { place } from "../data/about";
@@ -11,7 +15,7 @@ import Shell from "../layouts/Shell.astro";
 
 <Shell
 	title="Colophon — Conor Scheidt"
-	description="What this site is set in, and what it is made of."
+	description="The type, the materials, and the machinery behind crs.so."
 	scrollable
 >
 	<div class="colo">
@@ -23,39 +27,37 @@ import Shell from "../layouts/Shell.astro";
 
 		<div class="colo-body">
 			<p>
-				Set in <b>Fraunces</b> — optical size 144 for display, where the letterforms are drawn
-				thin and wide — with <b>Spectral</b> at 300 for reading, and <b>JetBrains Mono</b> reserved
-				for anything that has to mean exactly one character. Warm black on warm paper.
-				Night is the same two inks exchanged, which is why it inverts in a single frame
-				and never fades.
+				Type is <b>Fraunces</b>, cut at optical size 144 for display, set beside
+				&#32;<b>Spectral</b> at 300 for reading. <b>JetBrains Mono</b> sets code. Two inks:
+				warm black, warm paper. Night exchanges them, which is why the switch costs one
+				frame and never fades.
 			</p>
 
 			<p>
-				The object between the menu and the page is <b>4,600 points</b>, positioned entirely in
-				a vertex shader — one draw call, no compute pass, no vertex buffer, eighty bytes
-				of uniform. A trefoil knot on the index; the edges of an icosahedron under
-				Projects; a loxodrome under Writing; three Borromean rings under About. Changing
-				section interpolates between two parametrisations rather than swapping models.
-				Machines without WebGPU get the same mathematics on a canvas, at a lower count.
+				The object at the centre is <b>4,600 points</b>. Each position is computed in a
+				vertex shader from the parameter of a curve, so there is no geometry buffer and no
+				compute pass: one draw call, eighty bytes of uniform. Index is a trefoil knot.
+				Projects is the edge set of an icosahedron; Writing, a loxodrome; About, three
+				Borromean rings. Changing section interpolates the parameters rather than swapping
+				models. Where WebGPU is missing, the same equations run on a canvas at a lower
+				count.
 			</p>
 
 			<p>
-				Built with <b>Astro</b> and TypeScript, drawn with <b>d3</b>, typeset with <b>KaTeX</b>.
-				The C and C++ in the essays are compiled in the page by <b>clang</b> and <b>lld</b>,
-				carried in as WebAssembly — eighteen megabytes, fetched once and kept — after
-				<a href="https://github.com/binji/wasm-clang" rel="noopener">binji&rsquo;s wasm-clang</a>.
-				When one of those programs reads standard input it genuinely blocks, on a
-				<code>SharedArrayBuffer</code>, until you answer.
+				Built with <b>Astro</b> and TypeScript. Figures in <b>d3</b>, mathematics in
+				&#32;<b>KaTeX</b>. The C and C++ in the essays compile in the page: <b>clang</b> and
+				&#32;<b>lld</b> built for WebAssembly, eighteen megabytes fetched once and kept. The
+				port follows <a href="https://github.com/binji/wasm-clang" rel="noopener">binji&rsquo;s
+				wasm-clang</a>. A program that reads standard input blocks on a
+				&#32;<code>SharedArrayBuffer</code> until you type, the way it would in a terminal.
 			</p>
 
 			<p>
-				Static files on Cloudflare. No trackers, no third-party fonts, and no cookie notice
-				because there are no cookies. Source at <a href="https://git.crs.so" rel="me">git.crs.so</a>.
+				Static files, served from Cloudflare. No analytics, no third-party requests, no
+				cookies. Source at <a href="https://git.crs.so" rel="me">git.crs.so</a>.
 			</p>
 
-			<p class="colo-sign">
-				Written and set by hand in {place.city}.
-			</p>
+			<p class="colo-sign">{place.city}</p>
 		</div>
 	</div>
 </Shell>

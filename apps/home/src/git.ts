@@ -24,12 +24,23 @@ interface FeedItem {
 	url: string;
 }
 
+interface Repo {
+	name: string;
+	description: string;
+	commits: number;
+	updated: number;
+	url: string;
+	/** [language, share 0–1] descending, at most three */
+	langs: [string, number][];
+}
+
 interface GitData {
 	heat: Map<number, number>;
 	commits: number;
 	repos: number;
 	recent: FeedItem[];
-	active: { name: string; count: number }[];
+	/** the busiest repositories, busiest first */
+	popular: Repo[];
 }
 
 /** Consecutive days ending today (or yesterday) with at least one commit. */
@@ -96,10 +107,42 @@ function sampleData(): GitData {
 				url: "#",
 			},
 		],
-		active: [
-			{ name: "basalt", count: 412 },
-			{ name: "crs.so", count: 296 },
-			{ name: "plankton", count: 188 },
+		popular: [
+			{
+				name: "basalt",
+				description: "Git server and frontend, written from scratch in Rust.",
+				commits: 412,
+				updated: Date.now() - 2 * 3.6e6,
+				url: "#",
+				langs: [
+					["Rust", 0.82],
+					["HTML", 0.12],
+					["Shell", 0.06],
+				],
+			},
+			{
+				name: "crs.so",
+				description: "This site — the object, the article system, the toolchain.",
+				commits: 296,
+				updated: Date.now() - 8.64e7,
+				url: "#",
+				langs: [
+					["TypeScript", 0.71],
+					["CSS", 0.2],
+					["WGSL", 0.09],
+				],
+			},
+			{
+				name: "plankton",
+				description: "Distributed internet-scale measurement framework.",
+				commits: 188,
+				updated: Date.now() - 21 * 8.64e7,
+				url: "#",
+				langs: [
+					["Python", 0.54],
+					["Rust", 0.46],
+				],
+			},
 		],
 	};
 }
@@ -113,7 +156,9 @@ async function fetchData(): Promise<GitData> {
 	]);
 	if (!(heatRes.ok && repoRes.ok && feedRes.ok)) throw new Error("git api");
 	const heatRaw = (await heatRes.json()) as HeatPoint[];
-	const repoRaw = (await repoRes.json()) as { data: { name: string; html_url: string }[] };
+	const repoRaw = (await repoRes.json()) as {
+		data: { name: string; html_url: string; description?: string; updated_at?: string }[];
+	};
 	const feedRaw = (await feedRes.json()) as {
 		op_type: string;
 		repo: { name: string; html_url: string };
@@ -149,12 +194,23 @@ async function fetchData(): Promise<GitData> {
 			});
 		}
 	}
-	const active = [...perRepo.entries()]
+	const byCommits = new Map(repoRaw.data.map((r) => [r.name, r]));
+	const popular: Repo[] = [...perRepo.entries()]
 		.sort((a, b) => b[1] - a[1])
 		.slice(0, 3)
-		.map(([name, count]) => ({ name, count }));
+		.map(([name, count]) => {
+			const r = byCommits.get(name);
+			return {
+				name,
+				description: r?.description ?? "",
+				commits: count,
+				updated: r?.updated_at ? new Date(r.updated_at).getTime() : Date.now(),
+				url: r?.html_url ?? `https://git.crs.so/${USER}/${name}`,
+				langs: [],
+			};
+		});
 
-	return { heat, commits, repos: repoRaw.data.length, recent, active };
+	return { heat, commits, repos: repoRaw.data.length, recent, popular };
 }
 
 function age(ts: number): string {
@@ -191,75 +247,149 @@ export async function initGitBlock(root: HTMLElement): Promise<void> {
 		data = sampleData();
 	}
 
-	// The year as dots, one per week, riding higher and darker with volume.
-	// It scales to the column exactly (uniform viewBox, width 100%).
-	const heatEl = root.querySelector<HTMLElement>("[data-git-heat]");
 	const weeks = weekly(data.heat);
-	if (heatEl) {
-		const W = 320;
-		const H = 30;
-		const BASE = H - 4;
-		const peak = Math.max(1, ...weeks);
-		const today = Math.floor(Date.now() / MS_DAY);
-		const NS = "http://www.w3.org/2000/svg";
-		const svg = document.createElementNS(NS, "svg");
-		svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-		svg.setAttribute("aria-label", "commits per week over the last year");
-		const rule = document.createElementNS(NS, "line");
-		rule.setAttribute("x1", "0");
-		rule.setAttribute("x2", String(W));
-		rule.setAttribute("y1", String(BASE + 0.5));
-		rule.setAttribute("y2", String(BASE + 0.5));
-		rule.setAttribute("class", "gitrule");
-		svg.appendChild(rule);
-		weeks.forEach((v, i) => {
-			const t = Math.min(1, v / peak);
-			const x = 2 + (i * (W - 4)) / (WEEKS - 1);
-			const dot = document.createElementNS(NS, "circle");
-			dot.setAttribute("cx", x.toFixed(2));
-			dot.setAttribute("cy", (BASE - t * (BASE - 6)).toFixed(2));
-			dot.setAttribute("r", v === 0 ? "0.9" : (1.1 + t * 1.9).toFixed(2));
-			dot.setAttribute("class", "gitdot");
-			// base weight rides a custom property so the CSS hover can win
-			// without !important
-			dot.style.setProperty("--o", v === 0 ? "0.18" : (0.4 + 0.6 * t).toFixed(2));
-			const end = new Date((today - (WEEKS - 1 - i) * 7) * MS_DAY);
-			const title = document.createElementNS(NS, "title");
-			title.textContent = `${v} commit${v === 1 ? "" : "s"} · week of ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-			dot.appendChild(title);
-			svg.appendChild(dot);
-		});
-		heatEl.replaceChildren(svg);
-	}
-
-	const totals = root.querySelector<HTMLElement>("[data-git-totals]");
-	if (totals) {
-		const days = streak(data.heat);
-		const busiest = Math.max(0, ...weeks);
-		const bits = [
-			`<em>${data.commits}</em> commits · <em>${data.repos}</em> repos`,
-			days > 1 ? `<em>${days}</em>-day streak` : "",
-			busiest > 0 ? `busiest week <em>${busiest}</em>` : "",
-		].filter(Boolean);
-		totals.innerHTML = bits.join(" · ");
-	}
-
-	const recentEl = root.querySelector<HTMLElement>("[data-git-recent]");
-	if (recentEl) {
-		for (const r of data.recent) {
-			const row = document.createElement("a");
-			row.className = "commit";
-			row.href = r.url;
-			row.innerHTML = "<em></em><span></span>";
-			(row.firstElementChild as HTMLElement).textContent = r.message;
-			(row.lastElementChild as HTMLElement).textContent = `${r.repo} · ${age(r.when)}`;
-			recentEl.appendChild(row);
-		}
-	}
-
-	const activeEl = root.querySelector<HTMLElement>("[data-git-active]");
-	if (activeEl)
-		activeEl.innerHTML = data.active.map((a) => `${a.name} <em>${a.count}</em>`).join(" · ");
-
+	renderYear(root, weeks);
+	renderTotals(root, data, weeks);
+	renderPopular(root, data.popular);
+	renderRecent(root, data.recent);
 	root.hidden = false;
+}
+
+const NS = "http://www.w3.org/2000/svg";
+
+/**
+ * The year as a single stroke whose width tracks weekly commits. It spans the
+ * column exactly (uniform viewBox, width 100%). Hovering a week isolates it
+ * and the line beneath reports that week's activity.
+ */
+function renderYear(root: HTMLElement, weeks: number[]): void {
+	const host = root.querySelector<HTMLElement>("[data-git-heat]");
+	const readout = root.querySelector<HTMLElement>("[data-git-readout]");
+	if (!host) return;
+	const W = 320;
+	const H = 30;
+	const Y = 15;
+	const peak = Math.max(1, ...weeks);
+	const today = Math.floor(Date.now() / MS_DAY);
+
+	const svg = document.createElementNS(NS, "svg");
+	svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+	svg.setAttribute("aria-label", "commits per week over the last year");
+	const seg = W / WEEKS;
+
+	weeks.forEach((v, i) => {
+		const t = v / peak;
+		const mark = document.createElementNS(NS, "path");
+		mark.setAttribute(
+			"d",
+			`M ${(i * seg).toFixed(2)} ${Y} L ${((i + 1) * seg - 0.6).toFixed(2)} ${Y}`,
+		);
+		mark.setAttribute("class", "gitbrush");
+		mark.setAttribute("stroke-width", (0.7 + t * 9).toFixed(2));
+		mark.style.setProperty("--o", (0.2 + 0.62 * t).toFixed(2));
+		const end = new Date((today - (WEEKS - 1 - i) * 7) * MS_DAY);
+		const label = `${v} commit${v === 1 ? "" : "s"} · week of ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+		mark.addEventListener("pointerenter", () => {
+			svg.classList.add("isolating");
+			mark.classList.add("on");
+			if (readout)
+				readout.textContent =
+					v === 0
+						? `quiet week · ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+						: label;
+		});
+		mark.addEventListener("pointerleave", () => {
+			svg.classList.remove("isolating");
+			mark.classList.remove("on");
+			if (readout) readout.textContent = "";
+		});
+		const title = document.createElementNS(NS, "title");
+		title.textContent = label;
+		mark.appendChild(title);
+		svg.appendChild(mark);
+	});
+
+	// quarter marks, so the stroke reads as a year
+	const months = Array.from({ length: 4 }, (_, q) => {
+		const d = new Date((today - (3 - q) * 91) * MS_DAY);
+		return { x: (q * W) / 4, label: d.toLocaleDateString("en-US", { month: "short" }) };
+	});
+	for (const m of months) {
+		const t = document.createElementNS(NS, "text");
+		t.setAttribute("x", m.x.toFixed(1));
+		t.setAttribute("y", String(H - 1));
+		t.setAttribute("class", "gittick");
+		t.textContent = m.label;
+		svg.appendChild(t);
+	}
+	host.replaceChildren(svg);
+}
+
+function renderTotals(root: HTMLElement, data: GitData, weeks: number[]): void {
+	const el = root.querySelector<HTMLElement>("[data-git-totals]");
+	if (!el) return;
+	const days = streak(data.heat);
+	const bits = [
+		`<em>${data.commits.toLocaleString()}</em> commits`,
+		`<em>${data.repos}</em> repos`,
+		days > 1 ? `<em>${days}</em>-day streak` : `busiest week <em>${Math.max(0, ...weeks)}</em>`,
+	];
+	el.innerHTML = bits.join(" · ");
+}
+
+/** Popular repositories, each a link with a language bar. */
+function renderPopular(root: HTMLElement, repos: Repo[]): void {
+	const host = root.querySelector<HTMLElement>("[data-git-repos]");
+	if (!host) return;
+	host.replaceChildren();
+	for (const r of repos) {
+		const a = document.createElement("a");
+		a.className = "repo";
+		a.href = r.url;
+		const top = document.createElement("span");
+		top.className = "repo-top";
+		const nm = document.createElement("b");
+		nm.textContent = r.name;
+		const meta = document.createElement("span");
+		meta.className = "repo-meta";
+		meta.textContent = `${r.commits} · ${age(r.updated)}`;
+		top.append(nm, meta);
+		a.appendChild(top);
+		if (r.description) {
+			const d = document.createElement("span");
+			d.className = "repo-desc";
+			d.textContent = r.description;
+			a.appendChild(d);
+		}
+		if (r.langs.length > 0) {
+			const bar = document.createElement("span");
+			bar.className = "repo-langs";
+			r.langs.forEach(([lang, share], i) => {
+				const s = document.createElement("i");
+				s.style.flex = String(share);
+				s.style.setProperty("--o", (0.75 - i * 0.22).toFixed(2));
+				s.title = `${lang} ${Math.round(share * 100)}%`;
+				bar.appendChild(s);
+			});
+			a.appendChild(bar);
+		}
+		host.appendChild(a);
+	}
+}
+
+function renderRecent(root: HTMLElement, recent: FeedItem[]): void {
+	const host = root.querySelector<HTMLElement>("[data-git-recent]");
+	if (!host) return;
+	host.replaceChildren();
+	for (const r of recent) {
+		const row = document.createElement("a");
+		row.className = "commit";
+		row.href = r.url;
+		const msg = document.createElement("em");
+		msg.textContent = r.message;
+		const meta = document.createElement("span");
+		meta.textContent = `${r.repo} · ${age(r.when)}`;
+		row.append(msg, meta);
+		host.appendChild(row);
+	}
 }

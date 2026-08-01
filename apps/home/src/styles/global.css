@@ -743,10 +743,10 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	margin-top: var(--s3);
 }
 
-/* the year as a row of dots, matching the object's particles; it spans the
-   column exactly (uniform viewBox, width 100%) */
+/* The year as one brush stroke, weighted by activity. The viewBox matches the
+   column exactly, so it always lines up with the panel. */
 .hm {
-	margin: var(--s1) 0 var(--s2);
+	margin: var(--s1) 0 2px;
 }
 
 .hm svg {
@@ -755,25 +755,42 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	overflow: visible;
 }
 
-.gitrule {
-	stroke: var(--rule);
-	stroke-width: 1;
-}
-
-.gitdot {
-	fill: var(--ink);
-	opacity: var(--o, 0.5);
+.gitbrush {
+	stroke: var(--ink);
+	stroke-linecap: butt;
+	opacity: var(--o, 0.4);
 	transition: opacity 160ms ease;
 }
 
-.gitdot:hover {
+/* isolate on hover: the hovered week goes full, the year recedes */
+.isolating .gitbrush {
+	opacity: 0.1;
+}
+
+.isolating .gitbrush.on {
 	opacity: 1;
+}
+
+.gittick {
+	font-family: var(--font-mark);
+	font-size: 7.5px;
+	fill: var(--ink-45);
+}
+
+.gitreadout {
+	font-size: 11px;
+	line-height: 1.5;
+	min-height: 1.5em;
+	color: var(--ink-70);
+	font-style: italic;
+	margin-bottom: 2px;
 }
 
 .gitline {
 	font-size: 12.5px;
 	color: var(--ink-45);
 	line-height: 1.65;
+	margin-bottom: var(--s1);
 }
 
 .gitline em {
@@ -781,18 +798,14 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	color: var(--ink);
 }
 
-.gitline i {
-	font-style: italic;
-	color: var(--ink-45);
-}
-
+/* recent commits — message left, repo and age right */
 .commit {
 	display: flex;
 	justify-content: space-between;
-	gap: 8px;
-	font-size: 12px;
+	gap: var(--s1);
+	font-size: 11.5px;
 	color: var(--ink-45);
-	line-height: 1.75;
+	line-height: 1.8;
 	text-decoration: none;
 }
 
@@ -802,20 +815,77 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	transition: color 120ms ease;
+	transition: color 160ms ease;
 }
 
 .commit span {
 	white-space: nowrap;
+	font-family: var(--font-mark);
+	font-size: 9.5px;
+	letter-spacing: 0.04em;
 }
 
 .commit:hover em {
 	color: var(--ink);
 }
 
-.hm b:hover {
-	outline: 1px solid var(--ink-45);
-	outline-offset: 1px;
+/* popular repositories — each row a link, with a hairline language bar */
+.repo {
+	display: block;
+	padding: 6px 0;
+	border-bottom: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+	text-decoration: none;
+	color: inherit;
+}
+
+.repo:last-child {
+	border-bottom: 0;
+}
+
+.repo-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: var(--s2);
+}
+
+.repo-top b {
+	font-weight: 300;
+	font-size: 13.5px;
+	color: var(--ink-70);
+	transition: color 160ms ease;
+}
+
+.repo:hover .repo-top b {
+	color: var(--ink);
+}
+
+.repo-meta {
+	font-family: var(--font-mark);
+	font-size: 9.5px;
+	letter-spacing: 0.04em;
+	color: var(--ink-45);
+	white-space: nowrap;
+}
+
+.repo-desc {
+	display: block;
+	font-size: 11.5px;
+	line-height: 1.45;
+	color: var(--ink-45);
+	margin-top: 2px;
+}
+
+.repo-langs {
+	display: flex;
+	gap: 1px;
+	height: 2px;
+	margin-top: 5px;
+}
+
+.repo-langs i {
+	background: var(--ink);
+	opacity: var(--o, 0.5);
 }
 
 /* About panel. */
