@@ -128,9 +128,23 @@ export function initCursor(clock: Clock): void {
 	});
 	document.addEventListener("pointerdown", () => ring.classList.add("press"));
 	document.addEventListener("pointerup", () => ring.classList.remove("press"));
-	document.documentElement.addEventListener("pointerleave", () => {
+	const root = document.documentElement;
+	root.addEventListener("pointerleave", () => {
 		shown = false;
 		ring.classList.remove("on");
+	});
+
+	/**
+	 * Returning from the browser's own chrome does not always produce a
+	 * pointermove, so the ring would stay hidden until the pointer moved.
+	 * (The stylesheet hides the native cursor with a transparent cursor image,
+	 * not `cursor: none`; see global.css. Don't touch `style.cursor` here, it
+	 * would override that.)
+	 */
+	root.addEventListener("pointerenter", () => {
+		if (shown) return;
+		shown = true;
+		ring.classList.add("on");
 	});
 
 	if (reduced) {

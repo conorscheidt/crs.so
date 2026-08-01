@@ -145,12 +145,12 @@ const jsonLd = JSON.stringify({
 				const d = document.documentElement;
 				d.classList.add("js");
 				d.dataset.theme = t === "day" ? "day" : "night";
-				// pre-paint cursor class too: cross-document clicks otherwise flash
-				// the native cursor while the new page boots
-				if (
-					matchMedia("(pointer: fine)").matches &&
-					!matchMedia("(prefers-reduced-motion: reduce)").matches
-				) {
+				// Pre-paint cursor class: a cross-document click otherwise flashes
+				// the native cursor while the new page boots. The condition must
+				// match cursor.ts exactly: pointer:fine and nothing else. Reduced
+				// motion still gets the ring (it just follows rigidly), so gating
+				// this on it would leave those visitors with a native cursor until JS ran.
+				if (matchMedia("(pointer: fine)").matches) {
 					d.classList.add("no-native-cursor");
 				}
 			})();

@@ -21,6 +21,9 @@
 	// for the duplicate not to exist. `custom_domain: true` has Wrangler create
 	// and own the DNS record, so the binding lives in this file rather than in
 	// dashboard state nobody can diff.
+	// www is not here: it is a proxied placeholder record plus a Redirect Rule,
+	// handled at the edge before any Worker runs. Routing it through this script
+	// would mean the Worker ran on every request just to answer a redirect.
 	"routes": [{ "pattern": "crs.so", "custom_domain": true }],
 	"workers_dev": false,
 	// Defaults to workers_dev; stated anyway, because a preview URL is a public URL.

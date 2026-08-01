@@ -168,13 +168,28 @@ main {
 	outline-offset: 3px;
 }
 
-/* Hide the native cursor everywhere; the ring replaces it. Low-specificity
-   so nothing needs !important. html itself has to carry cursor:none: the
-   ::view-transition overlay inherits from the root, so without it every
-   navigation flashes the native arrow. */
+/* Hide the native cursor everywhere; the ring replaces it. `html` itself has
+   to carry this: the ::view-transition overlay inherits `cursor` from the
+   root, so without it every navigation flashes the native arrow.
+
+   Uses a transparent image rather than `cursor: none`. Chrome and Safari both
+   fail to re-hide the pointer when it returns from the browser's own chrome,
+   and on GPU-composited layers the hardware cursor can survive `none`
+   entirely, leaving the native arrow on top of the ring even across reloads.
+   A 1×1 transparent PNG is a real cursor image, so it gets drawn and paints
+   nothing. `none` stays as the fallback for anything that refuses the image.
+
+   The selector is written out rather than wrapped in `:where()`, whose zero
+   specificity would lose to any `cursor` rule a dependency adds. No other rule
+   sets `cursor` today, so `!important` isn't needed. */
 html.no-native-cursor,
-html.no-native-cursor :where(*, *::before, *::after) {
-	cursor: none;
+html.no-native-cursor *,
+html.no-native-cursor *::before,
+html.no-native-cursor *::after {
+	cursor:
+		url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
+		0 0,
+		none;
 }
 
 #cursor {
