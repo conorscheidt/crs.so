@@ -91,7 +91,7 @@ export function shade(
 	};
 }
 
-/** Ink-luminance alpha gain (parity with WGSL): day ≈ ×1.35, night ≈ ×1.05. */
+/** Ink-luminance alpha gain (parity with WGSL): day ≈ ×1.55, night ≈ ×1.08. */
 export function inkGain(r: number, g: number, b: number): number {
-	return 1 + 0.4 * (1 - (0.2126 * r + 0.7152 * g + 0.0722 * b));
+	return 1 + 0.62 * (1 - (0.2126 * r + 0.7152 * g + 0.0722 * b));
 }

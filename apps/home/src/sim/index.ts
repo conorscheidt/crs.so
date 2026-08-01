@@ -69,7 +69,7 @@ export async function bootSim(
 		inkG: 0,
 		inkB: 0,
 		cursorActive: 0,
-		dotR: 1.15 * dpr,
+		dotR: 1.02 * dpr,
 		fade: 0,
 		accentW: initial === "projects" ? 1 : 0,
 	};

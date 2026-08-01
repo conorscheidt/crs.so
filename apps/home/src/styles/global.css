@@ -277,7 +277,7 @@ html.no-native-cursor :where(*, *::before, *::after) {
 
 .hub {
 	display: grid;
-	grid-template-columns: 232px 1fr 324px;
+	grid-template-columns: 248px 1fr 424px;
 	height: 100dvh;
 }
 
@@ -304,14 +304,6 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	font-style: italic;
 	font-size: 13px;
 	letter-spacing: 0.04em;
-	color: var(--ink-45);
-}
-
-/* one-line credential summary; the About panel has the detail */
-.standing {
-	margin-top: 3px;
-	font-size: 12px;
-	letter-spacing: 0.03em;
 	color: var(--ink-45);
 }
 
@@ -819,7 +811,7 @@ html.no-native-cursor :where(*, *::before, *::after) {
 }
 
 .cvrow {
-	padding: 9px 2px;
+	padding: 7px 2px;
 	border-bottom: 1px solid var(--rule);
 }
 

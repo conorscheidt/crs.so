@@ -27,7 +27,7 @@ struct U {
 const TAU: f32 = 6.28318530718;
 const CAM_Z: f32 = 4.0;
 const LIGHT: vec3f = vec3f(-0.45, -0.55, 0.7);
-const N: f32 = 3000.0;
+const N: f32 = 4600.0;
 
 const ICO_VERTS = array<vec3f, 12>(
 	vec3f(0.0, 0.5257311, 0.8506508), vec3f(0.0, 0.5257311, -0.8506508),
@@ -175,7 +175,7 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 	// Dark ink over light paper reads washed-out at the same alpha as light ink
 	// over dark paper, so boost density as ink luminance falls (day ≈ ×1.35).
 	let lum = dot(u.ink, vec3f(0.2126, 0.7152, 0.0722));
-	let gain = 1.0 + 0.4 * (1.0 - lum);
+	let gain = 1.0 + 0.62 * (1.0 - lum);
 	let alpha = min(0.92, p.w * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain);
 	let size = u.dot_r * size_mul * (0.62 + 0.38 * dt);
 

@@ -121,9 +121,8 @@ function renderUnreachable(root: HTMLElement): void {
 	root.querySelector("[data-git-heat]")?.replaceChildren();
 	const line = root.querySelector<HTMLElement>("[data-git-totals]");
 	if (line) {
-		line.className = "hollow-note";
-		line.innerHTML =
-			"Not reporting yet — <em>Basalt</em>, the git server this reads from, is still being written. This fills in when the server answers.";
+		line.className = "hollow-lead";
+		line.textContent = "Couldn’t fetch git stats.";
 	}
 	root.hidden = false;
 }

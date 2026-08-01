@@ -17,7 +17,6 @@ const year = new Date().getUTCFullYear();
 	<header class="col-l">
 		<a class="name press inkable" href="/">Conor<br />Scheidt</a>
 		<p class="role">software · mathematics</p>
-		<p class="standing">Applied math &amp; CS, Northwestern ’29</p>
 		<nav aria-label="Sections">
 			<a href="/" aria-current={section === "index" ? "page" : undefined}>Index</a>
 			<a href="/projects" aria-current={section === "projects" ? "page" : undefined}>Projects</a>
@@ -68,16 +67,8 @@ const year = new Date().getUTCFullYear();
 			{
 				!latest && (
 					<div class="latest">
-						<p class="ptitle">Now</p>
-						<p class="hollow-lead">
-							Building a git server in Rust, and the trading infrastructure behind a student
-							fund’s live experiments.
-						</p>
-						<p class="hollow-note">
-							The writing and the project shelf open when there is something finished to put
-							on them. The <a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a> is
-							complete now.
-						</p>
+						<p class="ptitle">Latest</p>
+						<p class="hollow-lead">Nothing published yet.</p>
 					</div>
 				)
 			}
@@ -113,16 +104,8 @@ const year = new Date().getUTCFullYear();
 					{
 						projects.length === 0 && (
 							<div class="hollow">
-								<p class="hollow-lead">Nothing here yet — on purpose.</p>
-								<p class="hollow-note">
-									Work lands on this shelf once it ships something real: a running
-									system, a repository you can read, numbers that hold up. Two are
-									close.
-								</p>
-								<p class="hollow-note">
-									Until then, the <a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a> is the complete record.
-								</p>
-							</div>
+								<p class="hollow-lead">Nothing here yet.</p>
+								</div>
 						)
 					}
 					{
@@ -175,15 +158,7 @@ const year = new Date().getUTCFullYear();
 						posts.length === 0 && (
 							<div class="hollow">
 								<p class="hollow-lead">No posts yet.</p>
-								<p class="hollow-note">
-									The machinery is built and waiting — live figures, code that
-									actually compiles in the page, margins that answer back. The first
-									essay is being written, not generated.
-								</p>
-								<p class="hollow-note">
-									<a href="/rss.xml">rss ↗</a> if you want to know when.
-								</p>
-							</div>
+								</div>
 						)
 					}
 					{

@@ -20,7 +20,7 @@ export const OBJECT_INDEX: Record<Section, number> = {
 /** Per-object base camera pitch (radians) — lerped through morphs. */
 export const BASE_PITCH = [0.16, 0.16, 0.38, 0.32] as const;
 
-export const N = 3000;
+export const N = 4600;
 /** Icosahedron vertex accents ride as extra instances after the pool. */
 export const N_ACCENT = 12;
 
