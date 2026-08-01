@@ -1,0 +1,65 @@
+---
+/**
+ * Colophon: what the site is set in, what it is made of, who made it. A
+ * standalone page rather than a hub section: one narrow measure, a small
+ * object of its own, no rails.
+ */
+
+import { place } from "../data/about";
+import Shell from "../layouts/Shell.astro";
+---
+
+<Shell
+	title="Colophon — Conor Scheidt"
+	description="What this site is set in, and what it is made of."
+	scrollable
+>
+	<div class="colo">
+		<header class="colo-head">
+			<a class="colo-back" href="/">← crs.so</a>
+			<canvas class="colo-mark" data-colophon-mark aria-hidden="true"></canvas>
+			<h1>Colophon</h1>
+		</header>
+
+		<div class="colo-body">
+			<p>
+				Set in <b>Fraunces</b> — optical size 144 for display, where the letterforms are drawn
+				thin and wide — with <b>Spectral</b> at 300 for reading, and <b>JetBrains Mono</b> reserved
+				for anything that has to mean exactly one character. Warm black on warm paper.
+				Night is the same two inks exchanged, which is why it inverts in a single frame
+				and never fades.
+			</p>
+
+			<p>
+				The object between the menu and the page is <b>4,600 points</b>, positioned entirely in
+				a vertex shader — one draw call, no compute pass, no vertex buffer, eighty bytes
+				of uniform. A trefoil knot on the index; the edges of an icosahedron under
+				Projects; a loxodrome under Writing; three Borromean rings under About. Changing
+				section interpolates between two parametrisations rather than swapping models.
+				Machines without WebGPU get the same mathematics on a canvas, at a lower count.
+			</p>
+
+			<p>
+				Built with <b>Astro</b> and TypeScript, drawn with <b>d3</b>, typeset with <b>KaTeX</b>.
+				The C and C++ in the essays are compiled in the page by <b>clang</b> and <b>lld</b>,
+				carried in as WebAssembly — eighteen megabytes, fetched once and kept — after
+				<a href="https://github.com/binji/wasm-clang" rel="noopener">binji&rsquo;s wasm-clang</a>.
+				When one of those programs reads standard input it genuinely blocks, on a
+				<code>SharedArrayBuffer</code>, until you answer.
+			</p>
+
+			<p>
+				Static files on Cloudflare. No trackers, no third-party fonts, and no cookie notice
+				because there are no cookies. Source at <a href="https://git.crs.so" rel="me">git.crs.so</a>.
+			</p>
+
+			<p class="colo-sign">
+				Written and set by hand in {place.city}.
+			</p>
+		</div>
+	</div>
+</Shell>
+
+<script>
+	import "../colophon";
+</script>

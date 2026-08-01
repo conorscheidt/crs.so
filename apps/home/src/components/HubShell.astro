@@ -195,6 +195,12 @@ const year = new Date().getUTCFullYear();
 			<div class="list" data-scroll>
 				<div>
 					<p class="blurb">{blurb}</p>
+					<div class="links">
+						<a href={`mailto:${contact.email}`}>{contact.email}</a>
+						<a href={contact.github} rel="me">github ↗</a>
+						<a href={contact.linkedin} rel="me">linkedin ↗</a>
+						<a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a>
+					</div>
 					<p class="ptitle">Education</p>
 					{
 						education.map((e) => (
@@ -218,13 +224,6 @@ const year = new Date().getUTCFullYear();
 							</div>
 						))
 					}
-					<p class="ptitle sub">Elsewhere</p>
-					<div class="cvrow links">
-						<a href={`mailto:${contact.email}`}>{contact.email}</a>
-						<a href={contact.github} rel="me">github ↗</a>
-						<a href={contact.linkedin} rel="me">linkedin ↗</a>
-						<a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a>
-					</div>
 				</div>
 			</div>
 		</section>
@@ -233,7 +232,7 @@ const year = new Date().getUTCFullYear();
 	<footer class="corner">
 		<span>{place.city}</span>
 		<span class="clock" data-clock data-tz={place.tz}></span>
-		<span>© {year}</span>
+		<span>© {year} · <a href="/colophon">colophon</a></span>
 	</footer>
 </div>
 

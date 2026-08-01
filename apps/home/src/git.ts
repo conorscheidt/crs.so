@@ -1,7 +1,10 @@
 /**
  * git.crs.so block: client-side fetch against the self-hosted git server.
- * There is no sample fallback; if the server does not answer, the panel says
- * so.
+ *
+ * In production there is no fallback: if the server does not answer, the
+ * panel says so. In `bun dev` a sample payload stands in (the server does not
+ * exist yet) so the populated layout can be worked on. `import.meta.env.DEV`
+ * is compile-time, so the mock is not in the shipped bundle.
  */
 const API = "https://git.crs.so/api/v1";
 const USER = "crsche";
@@ -50,6 +53,55 @@ function weekly(heat: Map<number, number>): number[] {
 		for (let i = 0; i < 7; i++) sum += heat.get(today - (WEEKS - 1 - w) * 7 - (6 - i)) ?? 0;
 		return sum;
 	});
+}
+
+/** Dev only: a plausible year for working on the populated layout. */
+function sampleData(): GitData {
+	const heat = new Map<number, number>();
+	const today = Math.floor(Date.now() / MS_DAY);
+	for (let d = 0; d < DAYS; d++) {
+		const v = (Math.imul(d + 7, 2_654_435_761) >>> 8) % 100;
+		const swell = 0.45 + 0.55 * Math.sin(d / 34) ** 2;
+		const buckets: [number, number][] = [
+			[38, 0],
+			[62, 1],
+			[82, 2],
+			[94, 4],
+			[101, 7],
+		];
+		const base = buckets.find(([cap]) => v < cap)?.[1] ?? 0;
+		heat.set(today - d, Math.round(base * swell));
+	}
+	return {
+		heat,
+		commits: 1204,
+		repos: 11,
+		recent: [
+			{
+				repo: "basalt",
+				message: "pack: stream thin packs without buffering",
+				when: Date.now() - 2 * 3.6e6,
+				url: "#",
+			},
+			{
+				repo: "crs.so",
+				message: "sim: drag-to-spin with capped inertia",
+				when: Date.now() - 8.64e7,
+				url: "#",
+			},
+			{
+				repo: "basalt",
+				message: "refs: atomic transactional updates",
+				when: Date.now() - 2 * 8.64e7,
+				url: "#",
+			},
+		],
+		active: [
+			{ name: "basalt", count: 412 },
+			{ name: "crs.so", count: 296 },
+			{ name: "plankton", count: 188 },
+		],
+	};
 }
 
 async function fetchData(): Promise<GitData> {
@@ -132,8 +184,11 @@ export async function initGitBlock(root: HTMLElement): Promise<void> {
 	try {
 		data = await fetchData();
 	} catch {
-		renderUnreachable(root);
-		return;
+		if (!import.meta.env.DEV) {
+			renderUnreachable(root);
+			return;
+		}
+		data = sampleData();
 	}
 
 	// The year as dots, one per week, riding higher and darker with volume.

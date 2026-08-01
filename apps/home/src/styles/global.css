@@ -277,7 +277,7 @@ html.no-native-cursor :where(*, *::before, *::after) {
 
 .hub {
 	display: grid;
-	grid-template-columns: 248px 1fr 424px;
+	grid-template-columns: 248px 1fr 372px;
 	height: 100dvh;
 }
 
@@ -322,6 +322,21 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	color: var(--ink-45);
 	pointer-events: none;
 	z-index: 2;
+}
+
+.corner a {
+	color: inherit;
+	text-decoration: none;
+	border-bottom: 1px dotted var(--ink-45);
+	pointer-events: auto;
+	transition:
+		color 200ms ease,
+		border-color 200ms ease;
+}
+
+.corner a:hover {
+	color: var(--ink);
+	border-bottom-color: var(--ink);
 }
 
 .corner .clock {
@@ -805,8 +820,9 @@ html.no-native-cursor :where(*, *::before, *::after) {
 
 /* About panel. */
 .blurb {
-	font-size: 14px;
-	line-height: 1.6;
+	font-size: 13.5px;
+	line-height: 1.62;
+	color: var(--ink-70);
 	margin-bottom: var(--s2);
 }
 
@@ -823,30 +839,37 @@ html.no-native-cursor :where(*, *::before, *::after) {
 	font-family: var(--font-display);
 	font-weight: 260;
 	font-variation-settings: "opsz" 40;
-	font-size: 16.5px;
+	font-size: 15.5px;
+	line-height: 1.25;
 }
 
 .cvrow span {
-	font-size: 12px;
-	letter-spacing: 0.05em;
+	display: block;
+	font-size: 11.5px;
+	letter-spacing: 0.04em;
 	color: var(--ink-45);
+	margin-top: 1px;
 }
 
 .cvrow p {
-	font-size: 13px;
+	font-size: 12.5px;
 	color: var(--ink-70);
-	margin-top: 3px;
-	line-height: 1.45;
+	margin-top: 4px;
+	line-height: 1.5;
 }
 
-.cvrow.links {
+/* contact links sit directly under the blurb so they are visible without
+   scrolling, however long the CV below gets */
+.links {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px var(--s2);
-	border-bottom: 0;
+	gap: 3px var(--s2);
+	margin-bottom: var(--s3);
+	padding-bottom: var(--s2);
+	border-bottom: 1px solid var(--rule);
 }
 
-.cvrow.links a {
+.links a {
 	font-size: 12.5px;
 	color: var(--ink-45);
 	text-decoration: none;
@@ -855,7 +878,7 @@ html.no-native-cursor :where(*, *::before, *::after) {
 		text-shadow 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.cvrow.links a:hover {
+.links a:hover {
 	color: var(--ink);
 	text-shadow: 0 0 4px color-mix(in srgb, var(--ink) 25%, transparent);
 }

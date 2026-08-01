@@ -4,7 +4,7 @@
  * version. Don't add anything the résumé doesn't support.
  */
 export const blurb =
-	"Applied mathematics and computer science at Northwestern. I build systems where the hard part is real — trading infrastructure and market simulators, a git server written from scratch in Rust, browser simulators for non-equilibrium statistical mechanics, and internet-scale measurement pipelines.";
+	"Applied mathematics and computer science at Northwestern. I work on systems where the hard part is real: trading infrastructure, compilers and runtimes, and the numerical methods underneath them.";
 
 export interface SchoolEntry {
 	school: string;
@@ -36,27 +36,29 @@ export interface ExperienceEntry {
 	detail: string;
 }
 
+// Written as positions (what the role is responsible for), not as a project
+// list. One line each; the résumé carries the bullets.
 export const experience: ExperienceEntry[] = [
 	{
 		role: "Quantitative Developer",
 		org: "Northwestern Financial Technologies",
-		span: "Sept 2025 — present",
+		span: "Sept 2025 —",
 		detail:
-			"A live Kalshi event-futures trading bot behind the club's trading experiments, and its limit-order-book market simulator (20k orders/s).",
+			"Own the live trading stack: an event-futures bot and the order-book simulator it trades against.",
 	},
 	{
 		role: "Undergraduate Researcher",
-		org: "Gingrich Group, Northwestern",
-		span: "June 2024 — Sept 2025",
+		org: "Gingrich Group",
+		span: "2024 — 2025",
 		detail:
-			"Browser simulators for reaction–diffusion and tensor-network stochastic chemistry, used by 100+ students; HPC parameter sweeps re-architected for ~80% less wall-clock time.",
+			"Built the group's simulation tooling — browser simulators for coursework, and HPC sweeps cut to a fifth of their runtime.",
 	},
 	{
 		role: "Undergraduate Researcher",
-		org: "AquaLab, Northwestern",
-		span: "Jan 2023 — Feb 2024",
+		org: "AquaLab",
+		span: "2023 — 2024",
 		detail:
-			"Plankton — a distributed Python/Rust/MongoDB framework mapping site- and DNS-level telemetry at internet scale; 500M+ requests across 100k+ domains on EC2.",
+			"Ran the lab's internet-scale measurement pipeline, from crawler to the datasets other studies were built on.",
 	},
 ];
 
