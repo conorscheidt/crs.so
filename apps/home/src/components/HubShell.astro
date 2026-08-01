@@ -40,7 +40,9 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 
 <div class="hub" data-section={section}>
 	<header class="col-l">
-		<a class="name press inkable" href="/" data-astro-prefetch="false">Conor<br />Scheidt</a>
+		<h1 class="namewrap">
+			<a class="name press inkable" href="/" data-astro-prefetch="false">Conor<br />Scheidt</a>
+		</h1>
 		<p class="role">software · mathematics</p>
 		<nav aria-label="Sections">
 			<a href="/" aria-current={section === "index" ? "page" : undefined} data-astro-prefetch="false">Index</a>

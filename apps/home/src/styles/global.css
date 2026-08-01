@@ -289,6 +289,15 @@ html.no-native-cursor *::after {
 	z-index: 2;
 }
 
+/* h1 wrapper around the name, so hub routes have a top-level heading (the
+   section headings are h2). It inherits everything so the UA heading size,
+   weight and line-height don't affect the anchor inside. */
+.namewrap {
+	font-size: inherit;
+	font-weight: inherit;
+	line-height: inherit;
+}
+
 .name {
 	--opsz: 144;
 	font-family: var(--font-display);
