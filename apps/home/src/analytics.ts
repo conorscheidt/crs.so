@@ -35,7 +35,11 @@ export function track(event: Event, fields: Record<string, string | number> = {}
 	try {
 		const body = JSON.stringify({ event, path: location.pathname, ...fields });
 		if (navigator.sendBeacon) {
-			navigator.sendBeacon(ENDPOINT, new Blob([body], { type: "application/json" }));
+			// text/plain is a CORS-safelisted content type, so the beacon is a
+			// single request. `application/json` would earn a preflight OPTIONS
+			// on every event, doubling the requests. The body
+			// is JSON either way; the sink parses text.
+			navigator.sendBeacon(ENDPOINT, new Blob([body], { type: "text/plain;charset=UTF-8" }));
 		} else {
 			void fetch(ENDPOINT, {
 				method: "POST",

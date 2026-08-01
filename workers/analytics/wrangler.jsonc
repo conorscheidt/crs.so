@@ -1,13 +1,18 @@
 {
-	// Optional custom-event sink, deployed separately (not part of the static site
-	// builds). Receives JSON events from shared/scripts/analytics.ts `track()` and
-	// writes them to a Workers Analytics Engine dataset. Inert until you deploy it
-	// and point PUBLIC_ANALYTICS_URL at its URL.
-	//   bun x wrangler deploy --config workers/analytics/wrangler.jsonc
+	// Optional custom-event sink, deployed separately and not part of the static
+	// site build. Receives events from apps/home/src/analytics.ts `track()` and
+	// writes them to a Workers Analytics Engine dataset. The site is inert until
+	// this is deployed and PUBLIC_ANALYTICS_URL points at the resulting URL.
+	//   bunx wrangler deploy --config workers/analytics/wrangler.jsonc
 	"$schema": "../../node_modules/wrangler/config-schema.json",
-	"name": "crsche-analytics",
+	"name": "crs-so-analytics",
 	"main": "index.ts",
 	"compatibility_date": "2026-06-19",
+	// Needs a public URL, since it is the endpoint. To serve it from the
+	// site's own domain instead (fewer third-party blocks), set workers_dev to
+	// false and add:  "routes": [{ "pattern": "beacon.crs.so", "custom_domain": true }]
+	"workers_dev": true,
+	"preview_urls": false,
 	"observability": { "enabled": true },
-	"analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "crsche_events" }]
+	"analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "crs_so_events" }]
 }

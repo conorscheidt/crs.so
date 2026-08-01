@@ -4,8 +4,21 @@
 	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "crs-so",
 	"compatibility_date": "2026-06-19",
+
+	// The apex is the only address this site answers on. Without this, the deploy
+	// is also reachable at crs-so.<subdomain>.workers.dev, a second crawlable
+	// copy of every page. The canonical tags point home, but the cheaper fix is
+	// for the duplicate not to exist. `custom_domain: true` has Wrangler create
+	// and own the DNS record, so the binding lives in this file rather than in
+	// dashboard state nobody can diff.
+	"routes": [{ "pattern": "crs.so", "custom_domain": true }],
+	"workers_dev": false,
+	// Defaults to workers_dev; stated anyway, because a preview URL is a public URL.
+	"preview_urls": false,
+
 	"assets": {
 		"directory": "./dist",
+		// matches astro's `trailingSlash: "never"`: one URL per page
 		"html_handling": "drop-trailing-slash",
 		"not_found_handling": "404-page"
 	},
