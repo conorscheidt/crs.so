@@ -32,7 +32,7 @@ The numbers above are not decoration: they are bound to the figure. Grab the dot
 riding the first overshoot and drag it — down to damp the ring, sideways to slow the
 clock. The values in the prose answer[^2].
 
-<Fig kind="oscillator" id="osc" n={1} caption="two views of one law. Left: the s-plane — drag the pole; the dashed arc is |s| = ω, and cos θ = ζ. Right: the response x(t) with its envelope — drag the dot on the first peak instead (the overshoot inverts to ζ exactly). Either handle moves both panels and the bound values above." />
+<Fig kind="oscillator" id="osc" n={1} wide caption="two views of one law. Left: the s-plane — drag the pole; the dashed arc is |s| = ω, and cos θ = ζ. Right: the response x(t) with its envelope — drag the dot on the first peak instead (the overshoot inverts to ζ exactly). Either handle moves both panels and the bound values above." />
 
 ## Reading the response
 
@@ -45,11 +45,14 @@ Drag the handle to the floor and watch the ringing die.
 The snippet is an editor, not a picture. Click into it — vim bindings are on —
 change the step count or the damping, and run it. Compilation happens in a worker
 with a vendored clang and lld; the first run pays the toolchain cost once, then it
-is cached hard. The program reads stdin for real.
+is cached hard. And stdio is REAL: run it, and the program stops at the `scanf`,
+waiting in the output area like a terminal until you answer.
 
-<Code lang="c" runnable stdin code={`#include <stdio.h>
+<Code lang="c" runnable code={`#include <stdio.h>
 
 int main(void) {
+    printf("steps? ");
+    fflush(stdout);
     int steps;
     if (scanf("%d", &steps) != 1) steps = 100;
     double x = 1.0, v = 0.0, dt = 0.05;
@@ -64,10 +67,10 @@ int main(void) {
 ## One law, five runtimes
 
 The same integrator, spoken natively everywhere the page can execute it. C++ goes
-through the same clang worker with the C++ front end — and reads stdin too (type a
-damping ratio first, then run):
+through the same clang worker with the C++ front end — and it, too, will stop and
+ask:
 
-<Code lang="cpp" runnable stdin code={`#include <array>
+<Code lang="cpp" runnable code={`#include <array>
 #include <cstdio>
 
 template <int Steps>
@@ -82,6 +85,8 @@ auto simulate(double zeta, double omega) {
 }
 
 int main() {
+    std::printf("zeta? ");
+    std::fflush(stdout);
     double zeta;
     if (std::scanf("%lf", &zeta) != 1) zeta = 0.12;
     double peak = 0;
@@ -155,7 +160,7 @@ The network below anneals while you watch — grab a node and throw it (the
 simulation reheats), or hover one to light its neighbourhood. Its temperature
 $\alpha$, cooling live, is <b data-bind="alpha" data-fig="net">1.00</b>:
 
-<Fig kind="graph" id="net" n={3} caption="a d3-force embedding: nodes sized by degree, dragging reheats the annealing, hovering a node raises its neighbourhood and quiets the rest." />
+<Fig kind="graph" id="net" n={3} wide caption="a d3-force embedding: nodes sized by degree, dragging reheats the annealing, hovering a node raises its neighbourhood and quiets the rest." />
 
 And the distribution plate puts its parameters where they belong — on the curve
 itself. The peak drags $\mu =$ <b data-bind="mu" data-fig="dist">0.50</b>, the

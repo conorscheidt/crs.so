@@ -1,6 +1,4 @@
 ---
-import "katex/dist/katex.min.css";
-import "../../styles/article.css";
 import { getCollection, render } from "astro:content";
 import Shell from "../../layouts/Shell.astro";
 
@@ -69,5 +67,5 @@ const date = post.data.date.toLocaleDateString("en-US", {
 </Shell>
 
 <script>
-	import "../../article";
+	import "../../app";
 </script>

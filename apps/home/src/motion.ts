@@ -15,8 +15,9 @@ export const MOTION = {
 	 * The GPU uniform receives cursorR × devicePixelRatio.
 	 */
 	cursorR: 10,
-	/** Lenis wheel smoothing (good range 0.16–0.22, tested on a trackpad). */
-	scrollLerp: 0.18,
+	/** Lenis wheel smoothing: lower = longer, smoother glide (0.18 felt
+	 *  stiff). */
+	scrollLerp: 0.13,
 	/** Micro-interaction tokens (ms). */
 	hover: { ms: 120 },
 	press: { ms: 90 },

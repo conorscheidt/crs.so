@@ -115,6 +115,9 @@ interface Req {
 	cpp?: boolean;
 	warm?: boolean;
 	stdin?: string;
+	/** terminal stdin channel: Int32Array ctl [flag, len] at 0, bytes at 8.
+	 *  flag 0 = waiting · 1 = line ready · 2 = EOF */
+	stdinSab?: SharedArrayBuffer;
 }
 
 // One driver, one MemFS, one hostWrite hook: concurrent requests would
@@ -126,7 +129,7 @@ self.onmessage = (e: MessageEvent<Req>): void => {
 	queue = queue.then(() => handle(e.data));
 };
 
-async function handle({ id, src, cpp, warm, stdin }: Req): Promise<void> {
+async function handle({ id, src, cpp, warm, stdin, stdinSab }: Req): Promise<void> {
 	const t0 = performance.now();
 
 	if (warm) {
@@ -139,27 +142,46 @@ async function handle({ id, src, cpp, warm, stdin }: Req): Promise<void> {
 		return;
 	}
 
-	let raw = "";
+	// stdout streams to the page as the program writes it (terminal semantics);
+	// the final message carries only status. Compile diagnostics stream too.
+	let streamed = false;
 	currentWrite = (s) => {
-		raw += s;
+		streamed = true;
+		self.postMessage({ id, out: s });
 	};
 	let ok = true;
 	let errMsg = "";
 	try {
 		const d = ensureDriver();
 		d.setStdin(stdin ?? "");
+		if (stdinSab) {
+			const ctl = new Int32Array(stdinSab, 0, 2);
+			const data = new Uint8Array(stdinSab, 8);
+			const decoder = new TextDecoder();
+			d.setStdinWaiter(() => {
+				Atomics.store(ctl, 0, 0);
+				self.postMessage({ id, stdinReq: true });
+				Atomics.wait(ctl, 0, 0);
+				if (Atomics.load(ctl, 0) === 2) return null;
+				return decoder.decode(data.slice(0, Atomics.load(ctl, 1)));
+			});
+		} else {
+			d.setStdinWaiter(null);
+		}
 		await d.compileLinkRun(src ?? "", !!cpp);
 	} catch (err) {
 		ok = false;
 		errMsg = err instanceof Error ? err.message : String(err);
 	}
 	currentWrite = () => {};
+	ensureDriver().setStdinWaiter(null);
 
-	const text = raw.replace(/^\n+|\n+$/g, "");
 	const ms = Math.round(performance.now() - t0);
-	if (ok) {
-		self.postMessage({ id, stdout: text, stderr: "", ok: true, ms });
-	} else {
-		self.postMessage({ id, stdout: "", stderr: `${text}\n${errMsg}`.trim(), ok: false, ms });
-	}
+	self.postMessage({
+		id,
+		stdout: "",
+		stderr: ok || streamed ? (ok ? "" : errMsg) : errMsg,
+		ok,
+		ms,
+	});
 }

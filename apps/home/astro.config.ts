@@ -10,6 +10,16 @@ export default {
 	site: "https://crs.so",
 	output: "static",
 	trailingSlash: "never",
+	// cross-origin isolation in dev/preview: terminal stdin blocks the clang
+	// worker on a SharedArrayBuffer. `credentialless` (not require-corp) so
+	// plain cross-origin fetches (the Forgejo git block) keep working.
+	// Production mirrors these in public/_headers.
+	server: {
+		headers: {
+			"Cross-Origin-Opener-Policy": "same-origin",
+			"Cross-Origin-Embedder-Policy": "credentialless",
+		},
+	},
 	build: {
 		inlineStylesheets: "auto",
 	},

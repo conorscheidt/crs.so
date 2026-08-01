@@ -114,6 +114,9 @@
 
 .atags {
 	margin-top: var(--s2);
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
 }
 
 .atags a {
@@ -232,9 +235,18 @@
 	position: relative;
 }
 
+/* footnote references hover like other text links: colour rises + ink halo */
 .fnref a {
 	text-decoration: none;
+	color: var(--ink-70);
+	transition:
+		color 200ms ease,
+		text-shadow 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fnref:hover a {
 	color: var(--ink);
+	text-shadow: 0 0 4px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 .fncard {
@@ -329,9 +341,9 @@
 
 .mmark {
 	font-style: normal;
-	color: var(--ink-45);
-	font-size: 0.78em;
-	margin-left: 1px;
+	color: var(--ink-70);
+	font-size: 0.9em;
+	margin-left: 2px;
 	transition: color 160ms ease;
 }
 
@@ -393,13 +405,29 @@
 	touch-action: none;
 }
 
+/* each plate is sized to its own content */
 .afig[data-kind="oscillator"] .figmount {
-	height: 236px;
+	height: 264px;
 }
 
-.afig[data-kind="geometry"] .figmount,
+.afig[data-kind="geometry"] .figmount {
+	height: 330px;
+}
+
 .afig[data-kind="graph"] .figmount {
-	height: 216px;
+	height: 246px;
+}
+
+.afig[data-kind="distribution"] .figmount {
+	height: 190px;
+}
+
+/* wide plates extend past the prose column into the margins, distill-style */
+@media (min-width: 1080px) {
+	.afig.wide {
+		width: 840px;
+		margin-left: -100px;
+	}
 }
 
 /* plates clip: constructions may run off to infinity (bisectors, circles),
@@ -687,32 +715,17 @@
 	color: var(--ink-70);
 }
 
-.stdinrow {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 6px;
-	font-size: 10.5px;
-	letter-spacing: 0.08em;
-	color: var(--ink-45);
-}
-
-.stdinrow input {
-	flex: 1;
+/* terminal stdin: the program waits on an inline prompt where the output
+   cursor sits; the blinking caret is the only affordance */
+.termin input {
 	background: none;
 	border: 0;
-	border-bottom: 1px solid var(--rule);
-	font-family: var(--font-mark);
-	font-size: 12.5px;
-	color: var(--ink);
 	outline: none;
-	padding: 2px 0;
-}
-
-.stdinrow input::placeholder {
-	font-family: var(--font-text);
-	font-style: italic;
-	color: var(--ink-45);
+	font: inherit;
+	color: var(--ink);
+	caret-color: var(--ink);
+	width: 24ch;
+	padding: 0;
 }
 
 .outtext {

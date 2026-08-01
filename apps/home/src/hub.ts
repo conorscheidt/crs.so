@@ -1,13 +1,13 @@
 /**
- * Hub client controller. One layout, four URLs.
- * Section changes are client-side: pushState + title/aria swap + panel
- * crossfade + object morph. All four panels stay mounted, so lenis
- * instances persist for the page's lifetime. Article links pass through
- * untouched (cross-document view transitions).
+ * Hub controller. One layout, four URLs. Section changes are client-side:
+ * pushState + title/aria swap + panel crossfade + object morph. All four
+ * panels stay mounted, so lenis instances persist for the hub's lifetime.
+ * Booted and torn down by app.ts: hub ⇄ article navigation is a same-document
+ * swap, so everything here must be reversible (listeners on an
+ * AbortController, sim and lenis owned here).
  */
 import Lenis from "lenis";
-import { Clock } from "./clock";
-import { initCursor } from "./cursor";
+import type { Clock } from "./clock";
 import { initGitBlock } from "./git";
 import { MOTION } from "./motion";
 import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
@@ -15,14 +15,13 @@ import { initSearch } from "./search/client";
 import { bootSim, type Sim } from "./sim";
 import { readTheme, setThemeAttr, storeTheme } from "./theme";
 
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-export const clock = new Clock();
-
-function boot(): void {
+export function bootHub(clock: Clock): () => void {
 	const hub = document.querySelector<HTMLElement>(".hub");
-	if (!hub) return;
-	initCursor(clock);
+	if (!hub) return () => {};
+	const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+	const ac = new AbortController();
+	const { signal } = ac;
+	const unsubs: (() => void)[] = [];
 
 	let section: Section = ROUTES[location.pathname] ?? "index";
 	const panels = new Map<Section, HTMLElement>();
@@ -48,14 +47,16 @@ function boot(): void {
 				}),
 			);
 		}
-		clock.subscribe((t) => {
-			let v = 0;
-			for (const l of lenises.values()) {
-				l.raf(t);
-				v = Math.max(v, Math.abs(l.velocity));
-			}
-			if (v > 2) sim?.excite(Math.min(0.35, v * 0.004));
-		});
+		unsubs.push(
+			clock.subscribe((t) => {
+				let v = 0;
+				for (const l of lenises.values()) {
+					l.raf(t);
+					v = Math.max(v, Math.abs(l.velocity));
+				}
+				if (v > 2) sim?.excite(Math.min(0.35, v * 0.004));
+			}),
+		);
 	}
 
 	const offsets = new Map<Section, number>();
@@ -65,7 +66,8 @@ function boot(): void {
 	const canvas = hub.querySelector<HTMLCanvasElement>("#sim");
 	if (canvas) {
 		void bootSim(canvas, clock, section).then((s) => {
-			sim = s;
+			if (signal.aborted) s.destroy();
+			else sim = s;
 		});
 		const colC = canvas.parentElement as HTMLElement;
 		colC.addEventListener("pointermove", (ev) => {
@@ -78,7 +80,7 @@ function boot(): void {
 			"pointermove",
 			(ev: PointerEvent) =>
 				sim?.setTilt(ev.clientX / innerWidth - 0.5, ev.clientY / innerHeight - 0.5),
-			{ passive: true },
+			{ passive: true, signal },
 		);
 	}
 
@@ -152,13 +154,17 @@ function boot(): void {
 				apply(to, true);
 			}
 		},
-		{ capture: true },
+		{ capture: true, signal },
 	);
 
-	addEventListener("popstate", () => {
-		const to = ROUTES[location.pathname];
-		if (to) apply(to, false);
-	});
+	addEventListener(
+		"popstate",
+		() => {
+			const to = ROUTES[location.pathname];
+			if (to) apply(to, false);
+		},
+		{ signal },
+	);
 
 	// Eclipse toggle: instant, synchronous inversion; the disc slide and
 	// a pulse through the cloud are the only things that animate.
@@ -177,14 +183,24 @@ function boot(): void {
 	});
 
 	// bfcache restore: the frozen document may carry a stale theme and clock.
-	addEventListener("pageshow", (ev: PageTransitionEvent) => {
-		if (!ev.persisted) return;
-		setThemeAttr(readTheme());
-		sim?.setInk();
-		syncLabel();
-		clock.epochReset();
-		for (const l of lenises.values()) l.resize();
-	});
-}
+	addEventListener(
+		"pageshow",
+		(ev: PageTransitionEvent) => {
+			if (!ev.persisted) return;
+			setThemeAttr(readTheme());
+			sim?.setInk();
+			syncLabel();
+			clock.epochReset();
+			for (const l of lenises.values()) l.resize();
+		},
+		{ signal },
+	);
 
-boot();
+	return () => {
+		ac.abort();
+		for (const u of unsubs) u();
+		for (const l of lenises.values()) l.destroy();
+		sim?.destroy();
+		sim = null;
+	};
+}

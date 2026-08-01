@@ -97,6 +97,9 @@ class MemFS {
 	hostWrite: (s: string) => void;
 	stdinStr = "";
 	stdinStrPos = 0;
+	/** Blocking refill for terminal-style stdin: returns more input, or null
+	 *  for EOF. Runs on the worker thread (Atomics.wait), never the main one. */
+	stdinWaiter: (() => string | null) | null = null;
 
 	setStdin(text: string): void {
 		this.stdinStr = text;
@@ -186,7 +189,16 @@ class MemFS {
 			iovs += 4;
 			const len = m.read32(iovs);
 			iovs += 4;
-			const n = Math.min(len, this.stdinStr.length - this.stdinStrPos);
+			let n = Math.min(len, this.stdinStr.length - this.stdinStrPos);
+			if (n === 0 && this.stdinWaiter) {
+				// terminal semantics: the program blocks here until the reader
+				// side delivers a line (or EOF)
+				const more = this.stdinWaiter();
+				if (more !== null) {
+					this.stdinStr += more;
+					n = Math.min(len, this.stdinStr.length - this.stdinStrPos);
+				}
+			}
 			if (n === 0) break;
 			m.write(buf, this.stdinStr.substr(this.stdinStrPos, n));
 			size += n;
@@ -390,6 +402,9 @@ export class ClangDriver {
 
 	setStdin(text: string): void {
 		this.memfs.setStdin(text);
+	}
+	setStdinWaiter(waiter: (() => string | null) | null): void {
+		this.memfs.stdinWaiter = waiter;
 	}
 	private ready: Promise<void>;
 	private readonly common = [

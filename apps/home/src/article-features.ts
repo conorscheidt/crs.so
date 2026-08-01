@@ -12,34 +12,46 @@ import type { FigureImpl } from "./figures/registry";
 
 const FIGURES = { oscillator, geometry, graph, distribution };
 
-export function initToc(): void {
+export function initToc(): () => void {
 	const toc = document.querySelector<HTMLElement>("[data-toc]");
 	const fill = document.querySelector<HTMLElement>("[data-toc-progress]");
-	if (!toc) return;
+	if (!toc) return () => {};
+	const ac = new AbortController();
+	const { signal } = ac;
 	const links = [...toc.querySelectorAll<HTMLAnchorElement>("a[data-head]")];
 	const heads = links
 		.map((a) => document.getElementById(a.dataset.head ?? ""))
 		.filter((h): h is HTMLElement => h !== null);
+
+	// Geometry is cached so the scroll handler never forces layout (per-
+	// frame getBoundingClientRect on every heading was the article's jank).
+	let tops: number[] = [];
+	let max = 0;
+	const measure = (): void => {
+		tops = heads.map((h) => h.getBoundingClientRect().top + scrollY);
+		max = document.documentElement.scrollHeight - innerHeight;
+	};
+	const page = document.querySelector(".apage");
+	const ro = new ResizeObserver(measure);
+	if (page) ro.observe(page);
+	addEventListener("resize", measure, { passive: true, signal });
+
 	let ticking = false;
 	const update = (): void => {
 		ticking = false;
+		const line = scrollY + innerHeight * 0.33;
 		let active = 0;
-		for (const [i, h] of heads.entries()) {
-			if (h.getBoundingClientRect().top < innerHeight * 0.33) active = i;
+		for (const [i, top] of tops.entries()) {
+			if (top < line) active = i;
 		}
 		// short last sections never cross the threshold — the page bottom wins
-		if (scrollY + innerHeight >= document.documentElement.scrollHeight - 4) {
-			active = heads.length - 1;
-		}
+		if (scrollY + innerHeight >= max + innerHeight - 4) active = heads.length - 1;
 		for (const [i, a] of links.entries()) {
 			a.classList.toggle("on", i === active);
 			if (i === active) a.setAttribute("aria-current", "true");
 			else a.removeAttribute("aria-current");
 		}
-		if (fill) {
-			const max = document.documentElement.scrollHeight - innerHeight;
-			fill.style.transform = `scaleY(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
-		}
+		if (fill) fill.style.transform = `scaleY(${max > 0 ? Math.min(1, scrollY / max) : 0})`;
 	};
 	addEventListener(
 		"scroll",
@@ -49,9 +61,14 @@ export function initToc(): void {
 				requestAnimationFrame(update);
 			}
 		},
-		{ passive: true },
+		{ passive: true, signal },
 	);
+	measure();
 	update();
+	return () => {
+		ac.abort();
+		ro.disconnect();
+	};
 }
 
 export function initFootnotes(): void {
@@ -77,10 +94,11 @@ export function initFootnotes(): void {
 const NOTE_SYMS = ["*", "†", "‡", "§", "‖", "¶"];
 const noteSym = (i: number): string => (NOTE_SYMS[i % 6] ?? "*").repeat(Math.floor(i / 6) + 1);
 
-export function initMarginals(): void {
+export function initMarginals(): () => void {
 	const rail = document.querySelector<HTMLElement>("[data-mrail]");
 	const prose = document.querySelector<HTMLElement>("[data-prose]");
-	if (!(rail && prose)) return;
+	if (!(rail && prose)) return () => {};
+	const ros: ResizeObserver[] = [];
 	const wide = matchMedia("(min-width: 1080px)").matches;
 	const anchors = document.querySelectorAll<HTMLElement>("[data-manchor]");
 	for (const [i, anchor] of anchors.entries()) {
@@ -98,15 +116,21 @@ export function initMarginals(): void {
 			note.style.top = `${anchor.getBoundingClientRect().top + scrollY - (prose.getBoundingClientRect().top + scrollY)}px`;
 		};
 		place();
-		new ResizeObserver(place).observe(prose);
+		const ro = new ResizeObserver(place);
+		ro.observe(prose);
+		ros.push(ro);
 		anchor.addEventListener("pointerenter", () => note.classList.add("lit"));
 		anchor.addEventListener("pointerleave", () => note.classList.remove("lit"));
 		note.addEventListener("pointerenter", () => anchor.classList.add("mlit"));
 		note.addEventListener("pointerleave", () => anchor.classList.remove("mlit"));
 	}
+	return () => {
+		for (const ro of ros) ro.disconnect();
+	};
 }
 
-export function initFigures(): void {
+export function initFigures(): () => void {
+	const impls: FigureImpl[] = [];
 	for (const root of document.querySelectorAll<HTMLElement>("[data-fig-root]")) {
 		const kind = root.dataset.kind as keyof typeof FIGURES;
 		const mount = root.querySelector<HTMLElement>("[data-fig-mount]");
@@ -135,7 +159,11 @@ export function initFigures(): void {
 			for (const b of binds) b.classList.remove("lit");
 		});
 		root.querySelector("[data-fig-reset]")?.addEventListener("click", () => impl.reset());
+		impls.push(impl);
 	}
+	return () => {
+		for (const impl of impls) impl.destroy();
+	};
 }
 
 /**
@@ -143,20 +171,28 @@ export function initFigures(): void {
  * article text must paint instantly, so the editor machinery loads at idle
  * as its own chunk and enhances in place.
  */
-export function initCode(): void {
+export function initCode(): () => void {
 	const blocks = [...document.querySelectorAll<HTMLElement>("[data-code]")];
-	if (blocks.length === 0) return;
+	if (blocks.length === 0) return () => {};
+	let cancelled = false;
 	const load = (): void => {
-		void import("./article-code").then((m) => m.initCodeBlocks(blocks));
+		void import("./article-code").then((m) => {
+			if (!cancelled) m.initCodeBlocks(blocks);
+		});
 	};
 	if ("requestIdleCallback" in globalThis) requestIdleCallback(load, { timeout: 2000 });
 	else globalThis.setTimeout(load, 300);
+	return () => {
+		cancelled = true;
+		// the chunk is a singleton — if it ever mounted, tear its editors down
+		void import("./article-code").then((m) => m.destroyEditors());
+	};
 }
 
-export function initArticleFeatures(): void {
-	initToc();
+export function initArticleFeatures(): () => void {
+	const cleanups = [initToc(), initMarginals(), initFigures(), initCode()];
 	initFootnotes();
-	initMarginals();
-	initFigures();
-	initCode();
+	return () => {
+		for (const c of cleanups) c();
+	};
 }

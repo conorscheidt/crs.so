@@ -22,6 +22,17 @@ export const paperTheme = EditorView.theme({
 	"&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
 		backgroundColor: V("--cm-sel"),
 	},
+	// vim block cursor: site caret ink, never the plugin's default orange
+	"& .cm-fat-cursor": {
+		background: V("--cm-caret"),
+		color: "var(--paper)",
+		outline: "none",
+	},
+	"&:not(.cm-focused) .cm-fat-cursor": {
+		background: "transparent",
+		outline: `1px solid ${V("--cm-caret")}`,
+		color: "inherit",
+	},
 	".cm-gutters": { display: "none" },
 	".cm-scroller": { overflow: "auto", lineHeight: "1.65" },
 	".cm-activeLine": { backgroundColor: "transparent" },

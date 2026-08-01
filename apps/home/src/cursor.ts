@@ -1,20 +1,23 @@
 /**
- * The cursor: a plain ring. It leans a few pixels toward the nearest
- * interactable in reach (the pointer itself never moves) and changes mode by
- * what it is over: swell on interactives, ring+dot for grabbable figure
- * handles, small over text fields. Ring diameter = 2 × cursorR, the same
- * token the sim dimple uses.
+ * The cursor: a ring that lags slightly behind the pointer, stretched along
+ * the direction of travel by the lag and settling round at rest. It leans a
+ * few pixels toward the nearest interactable and changes mode by what it is
+ * over: swell on interactives, ring+dot for grabbable figure handles, small
+ * over text fields. Under prefers-reduced-motion the ring stays (native
+ * cursors are hidden) but follows rigidly: no lag, no stretch, no lean.
+ * Ring diameter = 2 × cursorR, the same token the sim dimple uses.
  */
 import type { Clock } from "./clock";
 import { MOTION } from "./motion";
 
 const REACH = 150;
 const LEAN_MAX = 5;
-const INTERACTIVE = "a, button, [role=button], label, summary, .tag, [data-fig-canvas]";
+const STRETCH_MAX = 0.42;
+const INTERACTIVE = "a, button, [role=button], label, summary, .tag, [data-fig-mount]";
 
 export function initCursor(clock: Clock): void {
 	if (!matchMedia("(pointer: fine)").matches) return;
-	if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+	const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 	document.documentElement.classList.add("no-native-cursor");
 	const r = MOTION.cursorR;
@@ -23,6 +26,7 @@ export function initCursor(clock: Clock): void {
 	ring.setAttribute("aria-hidden", "true");
 	ring.innerHTML = `<svg width="${2 * r + 2}" height="${2 * r + 2}" viewBox="0 0 ${2 * r + 2} ${2 * r + 2}"><circle cx="${r + 1}" cy="${r + 1}" r="${r}" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><circle class="dot" cx="${r + 1}" cy="${r + 1}" r="1.8" fill="currentColor"/></svg>`;
 	document.body.appendChild(ring);
+	const svg = ring.querySelector("svg") as SVGSVGElement;
 
 	let tx = -100;
 	let ty = -100;
@@ -33,8 +37,17 @@ export function initCursor(clock: Clock): void {
 	let shown = false;
 
 	// Interactable centres, refreshed lazily since pages mutate (panels, chips).
+	// Never refreshed mid-scroll: the rect reads would force layout every tick.
 	let targets: { x: number; y: number }[] = [];
 	let staleAt = 0;
+	let lastScroll = 0;
+	addEventListener(
+		"scroll",
+		() => {
+			lastScroll = performance.now();
+		},
+		{ passive: true, capture: true },
+	);
 	const refresh = (): void => {
 		targets = [...document.querySelectorAll<HTMLElement>(INTERACTIVE)]
 			.filter((el) => el.offsetParent !== null)
@@ -74,11 +87,33 @@ export function initCursor(clock: Clock): void {
 		},
 		{ passive: true },
 	);
+
+	if (reduced) {
+		// rigid follow: the same ring, without physics
+		document.addEventListener(
+			"pointermove",
+			(ev) => {
+				ring.style.translate = `${ev.clientX - r - 1}px ${ev.clientY - r - 1}px`;
+			},
+			{ passive: true },
+		);
+		return;
+	}
+
 	clock.subscribe((t, dt) => {
-		if (t > staleAt) refresh();
+		if (t > staleAt && t - lastScroll > 200) refresh();
 		const k = Math.min(1, dt * 22);
 		x += (tx - x) * k;
 		y += (ty - y) * k;
+
+		// droplet: the pull of the lag stretches the ring along travel,
+		// squashes it across, and settles round once the pointer rests
+		const px = tx - x;
+		const py = ty - y;
+		const pull = Math.min(1, Math.hypot(px, py) / 90);
+		const s = STRETCH_MAX * pull * pull * (3 - 2 * pull);
+		svg.style.rotate = `${Math.atan2(py, px)}rad`;
+		svg.style.scale = `${1 + s} ${1 - s * 0.45}`;
 
 		// nearest interactable within reach: the ring leans toward it
 		let best: { x: number; y: number } | null = null;
@@ -95,9 +130,9 @@ export function initCursor(clock: Clock): void {
 		let ly = 0;
 		if (best) {
 			const a = Math.atan2(best.y - y, best.x - x);
-			const pull = (1 - bestD / REACH) * LEAN_MAX;
-			lx = Math.cos(a) * pull || 0;
-			ly = Math.sin(a) * pull || 0;
+			const lean = (1 - bestD / REACH) * LEAN_MAX;
+			lx = Math.cos(a) * lean || 0;
+			ly = Math.sin(a) * lean || 0;
 		}
 		const lk = Math.min(1, dt * 10);
 		leanX += (lx - leanX) * lk;

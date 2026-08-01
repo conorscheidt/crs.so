@@ -31,7 +31,7 @@
 	--cm-comment: rgba(34, 31, 26, 0.38);
 	--cm-punct: rgba(34, 31, 26, 0.5);
 	--cm-caret: #221f1a;
-	--cm-sel: rgba(34, 31, 26, 0.12);
+	--cm-sel: rgba(34, 31, 26, 0.16);
 }
 
 :root[data-theme="night"] {
@@ -52,7 +52,7 @@
 	--cm-comment: rgba(232, 228, 217, 0.36);
 	--cm-punct: rgba(232, 228, 217, 0.46);
 	--cm-caret: #e8e4d9;
-	--cm-sel: rgba(232, 228, 217, 0.14);
+	--cm-sel: rgba(232, 228, 217, 0.18);
 }
 
 /* Article ⇄ hub: native cross-document view transitions.
@@ -154,6 +154,13 @@ main {
 ::selection {
 	background: var(--ink);
 	color: var(--paper);
+}
+
+/* code blocks keep their syntax colours under selection, with only a light
+   wash (the global invert would flatten the highlighting) */
+.codeblk ::selection {
+	background-color: var(--cm-sel);
+	color: currentColor;
 }
 
 :focus-visible {
@@ -698,10 +705,11 @@ html.no-native-cursor :where(*, *::before, *::after) {
 
 .commit em {
 	font-style: normal;
-	color: var(--ink);
+	color: var(--ink-70);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	transition: color 120ms ease;
 }
 
 .commit span {
@@ -709,7 +717,7 @@ html.no-native-cursor :where(*, *::before, *::after) {
 }
 
 .commit:hover em {
-	opacity: 0.62;
+	color: var(--ink);
 }
 
 .hm b:hover {

@@ -1,7 +1,9 @@
 /**
- * Section router, the pure part: route tables plus the click guard as a
- * testable function. The DOM wiring lives in hub.ts. Article links are never
- * intercepted (cross-document view transitions need a real navigation).
+ * Section router, the pure part: route tables plus the click guards as
+ * testable functions. The DOM wiring lives in hub.ts / app.ts.
+ * Hub ⇄ article travel is same-document: app.ts fetches and swaps with
+ * document.startViewTransition, since a cross-document navigation would
+ * flash the browser's own cursor, which CSS cannot reach.
  */
 export type Section = "index" | "projects" | "writing" | "about";
 
@@ -43,4 +45,15 @@ export function interceptable(click: ClickInfo, pageOrigin: string): Section | n
 	if (click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return null;
 	if (click.origin !== pageOrigin || click.target !== "") return null;
 	return ROUTES[click.pathname] ?? null;
+}
+
+export const ARTICLE_RE = /^\/writing\/[^/]+$/;
+
+export type PageKind = "hub" | "article";
+
+/** Which page kind a path renders, or null for anything the browser owns. */
+export function pageKind(pathname: string): PageKind | null {
+	if (ROUTES[pathname]) return "hub";
+	if (ARTICLE_RE.test(pathname)) return "article";
+	return null;
 }

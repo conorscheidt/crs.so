@@ -1,10 +1,20 @@
 /**
  * The heavy half of the article code blocks — CodeMirror (+vim) and the
  * clang/wasm runner. Loaded at idle by article-features.initCode so article
- * text never waits on it.
+ * text never waits on it. The output area is a terminal: stdout streams in,
+ * and a blocked stdin read parks the program on an inline prompt right where
+ * the output cursor sits (SharedArrayBuffer + Atomics under the hood).
  */
 import { mountEditor } from "@shared/scripts/playground/editor";
 import { RUNNABLE, run, warmCpp, warmLight } from "@shared/scripts/playground/runner";
+
+const live: { destroy: () => void }[] = [];
+
+/** Same-document navigation support: drop every mounted editor. */
+export function destroyEditors(): void {
+	for (const e of live) e.destroy();
+	live.length = 0;
+}
 
 export function initCodeBlocks(blocks: HTMLElement[]): void {
 	for (const blk of blocks) {
@@ -14,11 +24,11 @@ export function initCodeBlocks(blocks: HTMLElement[]): void {
 		if (!mount) continue;
 		const runnable = blk.dataset.runnable !== undefined && RUNNABLE.has(lang);
 		const editor = mountEditor(mount, { code: src.trim(), lang, readOnly: !runnable, vim: true });
+		live.push(editor);
 
 		if (!runnable) continue;
 		const out = blk.querySelector<HTMLElement>("[data-out]");
 		const outText = blk.querySelector<HTMLElement>("[data-outtext]");
-		const stdinField = blk.querySelector<HTMLInputElement>("[data-stdin-field]");
 		const runBtn = blk.querySelector<HTMLButtonElement>("[data-run]");
 		let warmed = false;
 		blk.addEventListener("pointerenter", () => {
@@ -30,13 +40,49 @@ export function initCodeBlocks(blocks: HTMLElement[]): void {
 		runBtn?.addEventListener("click", async () => {
 			if (!(out && outText && runBtn)) return;
 			out.hidden = false;
-			outText.hidden = false;
 			runBtn.disabled = true;
-			outText.textContent = "compiling…";
-			const r = await run(lang, editor.getValue(), stdinField?.value ?? "");
+			outText.textContent = "";
+			let streamed = false;
+			const append = (s: string): void => {
+				streamed = true;
+				outText.append(s);
+			};
+			const r = await run(lang, editor.getValue(), "", {
+				onOut: append,
+				onStdinReq(write) {
+					const row = document.createElement("span");
+					row.className = "termin";
+					const input = document.createElement("input");
+					input.type = "text";
+					input.spellcheck = false;
+					input.setAttribute("aria-label", "program input");
+					row.append(input);
+					outText.append(row);
+					input.focus();
+					input.addEventListener("keydown", (ke) => {
+						if (ke.key === "Enter") {
+							const v = input.value;
+							row.remove();
+							append(`${v}\n`);
+							write(v);
+						} else if (ke.key === "d" && ke.ctrlKey) {
+							ke.preventDefault();
+							row.remove();
+							write(null);
+						}
+					});
+				},
+			});
 			runBtn.disabled = false;
-			const body = [r.stdout, r.stderr].filter(Boolean).join("\n");
-			outText.textContent = `${body}\n[${r.ok ? "exit 0" : "error"} · ${r.ms} ms]`.trim();
+			if (!streamed) {
+				const body = [r.stdout, r.stderr].filter(Boolean).join("\n");
+				if (body) outText.append(`${body}\n`);
+			} else if (r.stderr) {
+				const tail = outText.textContent?.endsWith("\n") || !outText.textContent ? "" : "\n";
+				outText.append(`${tail}${r.stderr}\n`);
+			}
+			if (streamed && !(outText.textContent ?? "").endsWith("\n")) outText.append("\n");
+			outText.append(`[${r.ok ? "exit 0" : "error"} · ${r.ms} ms]`);
 		});
 	}
 }
