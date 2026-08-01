@@ -30,6 +30,7 @@ export function initCodeBlocks(blocks: HTMLElement[]): void {
 		runBtn?.addEventListener("click", async () => {
 			if (!(out && outText && runBtn)) return;
 			out.hidden = false;
+			outText.hidden = false;
 			runBtn.disabled = true;
 			outText.textContent = "compiling…";
 			const r = await run(lang, editor.getValue(), stdinField?.value ?? "");

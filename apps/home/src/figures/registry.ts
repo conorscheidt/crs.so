@@ -1,7 +1,8 @@
 /**
- * Figure registry. Article MDX asks for a figure by kind; implementations
- * live here as plain factories over a canvas. Keep them dependency-free and
- * monochrome.
+ * Figure registry contract. A figure factory owns a mount element, renders an
+ * SVG plate into it (d3), and reports live parameters to the prose through
+ * hooks.onParams. Emphasis is a CSS class ("lit" on the svg root) so strokes
+ * ease on the site's transition curve. Plates are monochrome ink.
  */
 export interface FigureImpl {
 	reset: () => void;
@@ -14,4 +15,4 @@ export interface FigureHooks {
 	onParams: (params: Record<string, number>) => void;
 }
 
-export type FigureFactory = (canvas: HTMLCanvasElement, hooks: FigureHooks) => FigureImpl;
+export type FigureFactory = (mount: HTMLElement, hooks: FigureHooks) => FigureImpl;

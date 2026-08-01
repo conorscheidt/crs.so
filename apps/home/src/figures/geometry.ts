@@ -1,25 +1,27 @@
 /**
- * Geometry plate: draggable construction. Three vertices, their triangle,
- * the perpendicular bisectors as hairlines, and their circumcircle. Dragging
- * a vertex updates the construction. onParams reports the circumradius.
+ * Geometry plate: a labeled, draggable construction. Triangle ABC (each
+ * vertex a handle), the perpendicular bisectors as dashed construction lines
+ * with right-angle ticks at the midpoints, the circumcentre O, the
+ * circumcircle, and the radius O–A labeled r. Dragging a vertex updates the
+ * construction. onParams reports r (fraction of the plate's short side).
  */
-import { fitCanvas, ink, litSpring, mix } from "./ink";
+import { drag } from "d3-drag";
+import { type G, grabOn, handle, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
-const TAU = Math.PI * 2;
+// coordinates live in a square centred in the plate (an anisotropic space
+// would distort the circle); chosen acute so the circumcircle fits
 const START: [number, number][] = [
-	[0.3, 0.68],
-	[0.62, 0.22],
-	[0.82, 0.74],
+	[0.24, 0.74],
+	[0.5, 0.14],
+	[0.8, 0.6],
 ];
+const NAMES = ["A", "B", "C"];
 
-export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
+export const geometry: FigureFactory = (mount, hooks): FigureImpl => {
 	let pts = START.map(([x, y]) => ({ x, y }));
-	let grab = -1;
-	let hover = -1;
-	let raf = 0;
+	let update: () => void = () => {};
 
-	/** circumcentre in pixel space, since normalized space is anisotropic */
 	const circum = (px: { x: number; y: number }[]): { x: number; y: number; r: number } | null => {
 		const [a, b, c] = px as [
 			{ x: number; y: number },
@@ -36,25 +38,52 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 		return { x: ux, y: uy, r: Math.hypot(a.x - ux, a.y - uy) };
 	};
 
-	function draw(): void {
-		const ctx = fitCanvas(canvas);
-		if (!ctx) return;
-		const w = canvas.clientWidth;
-		const h = canvas.clientHeight || 170;
-		ctx.clearRect(0, 0, w, h);
-		const X = (p: { x: number }): number => p.x * w;
-		const Y = (p: { y: number }): number => p.y * h;
-		const em = Math.max(litS.value(), grab >= 0 ? 1 : 0);
+	function build(): void {
+		const { svg, w, h } = plate(mount);
+		const svgNode = svg.node() as SVGSVGElement;
+		const side = Math.min(w, h);
+		const ox = (w - side) / 2;
+		const g = svg.append("g") as G;
 
-		const pixelPts = pts.map((p) => ({ x: X(p), y: Y(p) }));
-		const cc = circum(pixelPts);
-		if (cc) {
-			// perpendicular bisectors
-			ctx.strokeStyle = ink(0.2);
-			ctx.lineWidth = 1;
+		const circle = g.append("circle").attr("class", "curve").attr("fill", "none");
+		const bisectors = [0, 1, 2].map(() => g.append("line").attr("class", "hair"));
+		const rightAngles = [0, 1, 2].map(() => g.append("path").attr("class", "hair"));
+		const tri = g.append("path").attr("class", "shape");
+		const radius = g.append("line").attr("class", "hair emph");
+		const rLabel = g.append("text").attr("class", "vlabel");
+		const centre = g.append("circle").attr("class", "dotmark").attr("r", 2.2);
+		const oLabel = g.append("text").attr("class", "vlabel");
+		const labels = NAMES.map(() => g.append("text").attr("class", "vlabel"));
+		const handles = pts.map(() => handle(g));
+
+		update = () => {
+			const P = pts.map((p) => ({ x: ox + p.x * side, y: p.y * side }));
+			const cc = circum(P);
+			tri.attr("d", `M ${P[0]?.x} ${P[0]?.y} L ${P[1]?.x} ${P[1]?.y} L ${P[2]?.x} ${P[2]?.y} Z`);
+			P.forEach((p, i) => {
+				handles[i]?.attr("transform", `translate(${p.x},${p.y})`);
+				// vertex label pushed outward from the triangle's centroid
+				const cx = (P[0]?.x ?? 0) / 3 + (P[1]?.x ?? 0) / 3 + (P[2]?.x ?? 0) / 3;
+				const cy = (P[0]?.y ?? 0) / 3 + (P[1]?.y ?? 0) / 3 + (P[2]?.y ?? 0) / 3;
+				const dx = p.x - cx;
+				const dy = p.y - cy;
+				const L = Math.hypot(dx, dy) || 1;
+				labels[i]
+					?.attr("x", p.x + (dx / L) * 14)
+					.attr("y", p.y + (dy / L) * 14 + 4)
+					.attr("text-anchor", "middle")
+					.text(NAMES[i] ?? "");
+			});
+			if (!cc) return;
+			circle.attr("cx", cc.x).attr("cy", cc.y).attr("r", cc.r);
+			centre.attr("cx", cc.x).attr("cy", cc.y);
+			oLabel
+				.attr("x", cc.x + 7)
+				.attr("y", cc.y - 6)
+				.text("O");
 			for (let i = 0; i < 3; i++) {
-				const p = pixelPts[i] as { x: number; y: number };
-				const q = pixelPts[(i + 1) % 3] as { x: number; y: number };
+				const p = P[i] as { x: number; y: number };
+				const q = P[(i + 1) % 3] as { x: number; y: number };
 				const mx = (p.x + q.x) / 2;
 				const my = (p.y + q.y) / 2;
 				let dx = cc.x - mx;
@@ -62,98 +91,66 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 				const L = Math.hypot(dx, dy) || 1;
 				dx /= L;
 				dy /= L;
-				ctx.beginPath();
-				ctx.moveTo(mx - dx * 1000, my - dy * 1000);
-				ctx.lineTo(mx + dx * 1000, my + dy * 1000);
-				ctx.stroke();
+				bisectors[i]
+					?.attr("x1", mx - dx * 1000)
+					.attr("y1", my - dy * 1000)
+					.attr("x2", mx + dx * 1000)
+					.attr("y2", my + dy * 1000);
+				// right-angle tick: bisector ⟂ edge at the midpoint
+				let ex = q.x - p.x;
+				let ey = q.y - p.y;
+				const EL = Math.hypot(ex, ey) || 1;
+				ex /= EL;
+				ey /= EL;
+				const s = 5;
+				rightAngles[i]?.attr(
+					"d",
+					`M ${mx + ex * s} ${my + ey * s} L ${mx + ex * s + dx * s} ${my + ey * s + dy * s} L ${mx + dx * s} ${my + dy * s}`,
+				);
 			}
-			ctx.strokeStyle = ink(mix(0.65, 0.95, em));
-			ctx.lineWidth = mix(1.1, 1.5, em);
-			ctx.beginPath();
-			ctx.arc(cc.x, cc.y, cc.r, 0, TAU);
-			ctx.stroke();
-			ctx.fillStyle = ink(0.6);
-			ctx.fillRect(cc.x - 1.5, cc.y - 1.5, 3, 3);
+			const A = P[0] as { x: number; y: number };
+			radius.attr("x1", cc.x).attr("y1", cc.y).attr("x2", A.x).attr("y2", A.y);
+			rLabel
+				.attr("x", (cc.x + A.x) / 2 + 7)
+				.attr("y", (cc.y + A.y) / 2 - 5)
+				.text("r");
 			hooks.onParams({ r: cc.r / Math.min(w, h) });
-		}
+		};
 
-		ctx.strokeStyle = ink(mix(0.75, 0.95, em));
-		ctx.lineWidth = 1.2;
-		ctx.beginPath();
-		ctx.moveTo(X(pts[0] as { x: number }), Y(pts[0] as { y: number }));
-		for (const p of [...pts.slice(1), pts[0]] as { x: number; y: number }[]) {
-			ctx.lineTo(X(p), Y(p));
-		}
-		ctx.stroke();
-
-		pts.forEach((p, i) => {
-			ctx.fillStyle = ink(i === grab || i === hover ? 1 : 0.8);
-			ctx.beginPath();
-			ctx.arc(X(p), Y(p), i === grab || i === hover ? 4.5 : 3.5, 0, TAU);
-			ctx.fill();
+		handles.forEach((hd, i) => {
+			grabOn(mount, hd);
+			hd.call(
+				drag<SVGGElement, unknown>().on("drag", (ev) => {
+					const r = svgNode.getBoundingClientRect();
+					const se = (ev as { sourceEvent: PointerEvent }).sourceEvent;
+					const p = pts[i] as { x: number; y: number };
+					p.x = Math.min(1.3, Math.max(-0.3, (se.clientX - r.left - ox) / side));
+					p.y = Math.min(0.94, Math.max(0.06, (se.clientY - r.top) / side));
+					update();
+				}),
+			);
 		});
+
+		update();
 	}
 
-	const schedule = (): void => {
-		cancelAnimationFrame(raf);
-		raf = requestAnimationFrame(draw);
-	};
-	const litS = litSpring(schedule);
-
-	const near = (ev: PointerEvent): number => {
-		const r = canvas.getBoundingClientRect();
-		return pts.findIndex(
-			(p) =>
-				Math.hypot(ev.clientX - r.left - p.x * r.width, ev.clientY - r.top - p.y * r.height) < 16,
-		);
-	};
-
-	canvas.addEventListener("pointerdown", (ev) => {
-		grab = near(ev);
-		if (grab >= 0) {
-			try {
-				canvas.setPointerCapture(ev.pointerId);
-			} catch {}
-			schedule();
-		}
-	});
-	canvas.addEventListener("pointermove", (ev) => {
-		const r = canvas.getBoundingClientRect();
-		if (grab >= 0) {
-			const p = pts[grab] as { x: number; y: number };
-			p.x = Math.min(0.97, Math.max(0.03, (ev.clientX - r.left) / r.width));
-			p.y = Math.min(0.95, Math.max(0.05, (ev.clientY - r.top) / r.height));
-			schedule();
-			return;
-		}
-		const h2 = near(ev);
-		if (h2 !== hover) {
-			hover = h2;
-			canvas.dataset.cursorMode = h2 >= 0 ? "grab" : "";
-			schedule();
-		}
-	});
-	canvas.addEventListener("pointerup", () => {
-		grab = -1;
-		schedule();
-	});
-
-	const ro = new ResizeObserver(schedule);
-	ro.observe(canvas);
-	draw();
+	const ro = new ResizeObserver(() => build());
+	ro.observe(mount);
+	build();
 
 	return {
 		reset(): void {
 			pts = START.map(([x, y]) => ({ x, y }));
-			schedule();
+			build();
 		},
 		setLit(on: boolean): void {
-			litS.set(on);
+			mount.querySelector("svg")?.classList.toggle("lit", on);
 		},
-		redraw: schedule,
+		redraw(): void {
+			update();
+		},
 		destroy(): void {
 			ro.disconnect();
-			cancelAnimationFrame(raf);
 		},
 	};
 };

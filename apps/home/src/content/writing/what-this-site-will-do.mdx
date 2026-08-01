@@ -32,7 +32,7 @@ The numbers above are not decoration: they are bound to the figure. Grab the dot
 riding the first overshoot and drag it — down to damp the ring, sideways to slow the
 clock. The values in the prose answer[^2].
 
-<Fig kind="oscillator" id="osc" n={1} caption="the response x(t). Drag the dot on the first peak: vertical sets ζ (the overshoot is inverted exactly), horizontal sets ω. Hover the bound values above and the curve answers." />
+<Fig kind="oscillator" id="osc" n={1} caption="two views of one law. Left: the s-plane — drag the pole; the dashed arc is |s| = ω, and cos θ = ζ. Right: the response x(t) with its envelope — drag the dot on the first peak instead (the overshoot inverts to ζ exactly). Either handle moves both panels and the bound values above." />
 
 ## Reading the response
 
@@ -64,9 +64,10 @@ int main(void) {
 ## One law, five runtimes
 
 The same integrator, spoken natively everywhere the page can execute it. C++ goes
-through the same clang worker with the C++ front end and libc++:
+through the same clang worker with the C++ front end — and reads stdin too (type a
+damping ratio first, then run):
 
-<Code lang="cpp" runnable code={`#include <array>
+<Code lang="cpp" runnable stdin code={`#include <array>
 #include <cstdio>
 
 template <int Steps>
@@ -81,10 +82,12 @@ auto simulate(double zeta, double omega) {
 }
 
 int main() {
+    double zeta;
+    if (std::scanf("%lf", &zeta) != 1) zeta = 0.12;
     double peak = 0;
-    for (double x : simulate<600>(0.12, 2.4))
+    for (double x : simulate<600>(zeta, 2.4))
         peak = x < peak ? x : peak;
-    std::printf("first overshoot: %.4f\\n", peak);
+    std::printf("zeta = %.2f -> first overshoot: %.4f\\n", zeta, peak);
 }`} />
 
 JavaScript runs in a sandboxed worker, instantly and offline — here checking the
@@ -146,13 +149,13 @@ every one obeys the same contract: direct manipulation in the plate, live values
 the prose, emphasis that eases both ways. Drag any vertex; the perpendicular
 bisectors and the circumcircle follow:
 
-<Fig kind="geometry" id="geo" n={2} caption="a draggable construction: three vertices, their bisector hairlines, and the circumcircle they prove." />
+<Fig kind="geometry" id="geo" n={2} caption="a labelled construction: triangle ABC, dashed perpendicular bisectors with their right-angle ticks, the circumcentre O, and the circumcircle through all three vertices — drag any vertex and the proof follows." />
 
-The network below relaxes continuously while you watch — grab a node and throw it;
-the spring energy the prose is reading right now is
-<b data-bind="energy" data-fig="net">0.00</b>:
+The network below anneals while you watch — grab a node and throw it (the
+simulation reheats), or hover one to light its neighbourhood. Its temperature
+$\alpha$, cooling live, is <b data-bind="alpha" data-fig="net">1.00</b>:
 
-<Fig kind="graph" id="net" n={3} caption="a force-directed embedding, relaxing live. Drag nodes; the energy readout in the prose answers." />
+<Fig kind="graph" id="net" n={3} caption="a d3-force embedding: nodes sized by degree, dragging reheats the annealing, hovering a node raises its neighbourhood and quiets the rest." />
 
 And the distribution plate puts its parameters where they belong — on the curve
 itself. The peak drags $\mu =$ <b data-bind="mu" data-fig="dist">0.50</b>, the
@@ -160,7 +163,7 @@ inflection point drags $\sigma =$ <b data-bind="sigma" data-fig="dist">0.11</b>,
 and a fixed deterministic sample stays put underneath so the fit is
 honest[^3]:
 
-<Fig kind="distribution" id="dist" n={4} caption="a normal fit over a fixed sample. Drag the peak to move μ, the inflection point to widen σ." />
+<Fig kind="distribution" id="dist" n={4} caption="a normal fit over a fixed sample, carrying its own notation: the dashed drop-line marks μ, the bracket at the inflection height spans σ, and the ±σ band is shaded. Drag the peak to move μ, the inflection handle to widen σ." />
 
 ## Quiet blocks
 

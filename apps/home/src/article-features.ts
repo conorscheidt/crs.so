@@ -109,14 +109,14 @@ export function initMarginals(): void {
 export function initFigures(): void {
 	for (const root of document.querySelectorAll<HTMLElement>("[data-fig-root]")) {
 		const kind = root.dataset.kind as keyof typeof FIGURES;
-		const canvas = root.querySelector<HTMLCanvasElement>("[data-fig-canvas]");
+		const mount = root.querySelector<HTMLElement>("[data-fig-mount]");
 		const factory = FIGURES[kind];
-		if (!(canvas && factory)) continue;
+		if (!(mount && factory)) continue;
 		const figId = root.dataset.figRoot ?? "";
 		const binds = document.querySelectorAll<HTMLElement>(
 			`[data-bind][data-fig="${figId}"], [class*="vbind-${figId}-"]`,
 		);
-		const impl: FigureImpl = factory(canvas, {
+		const impl: FigureImpl = factory(mount, {
 			onParams(params) {
 				for (const b of binds) {
 					const v = params[b.dataset.bind ?? ""];

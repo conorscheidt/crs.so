@@ -1,14 +1,30 @@
 /**
- * Graph plate: a small force-directed network. Nodes are draggable; the
- * embedding relaxes continuously while visible. onParams reports the spring
- * energy, for prose about convergence.
+ * Graph plate: a d3-force embedding. Nodes are sized by degree and draggable
+ * (dragging reheats the simulation); hovering a node highlights its
+ * neighbourhood and fades the rest. onParams reports the simulation
+ * temperature α as it anneals.
  */
-import { fitCanvas, hash, ink } from "./ink";
+import { drag } from "d3-drag";
+import {
+	forceCenter,
+	forceCollide,
+	forceLink,
+	forceManyBody,
+	forceSimulation,
+	type SimulationLinkDatum,
+	type SimulationNodeDatum,
+} from "d3-force";
+import { type G, grabOn, hash, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
-const TAU = Math.PI * 2;
-const N_NODES = 12;
-const EDGES: [number, number][] = [
+interface N extends SimulationNodeDatum {
+	id: number;
+	deg: number;
+}
+type L = SimulationLinkDatum<N>;
+
+const N_NODES = 14;
+const EDGE_IDS: [number, number][] = [
 	[0, 1],
 	[0, 2],
 	[1, 3],
@@ -25,177 +41,140 @@ const EDGES: [number, number][] = [
 	[10, 11],
 	[2, 6],
 	[1, 5],
+	[11, 12],
+	[12, 13],
+	[10, 13],
 ];
 
-export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
-	interface Node {
-		x: number;
-		y: number;
-		vx: number;
-		vy: number;
-	}
-	const seed = (): Node[] =>
+export const graph: FigureFactory = (mount, hooks): FigureImpl => {
+	const seed = (): N[] =>
 		Array.from({ length: N_NODES }, (_, i) => ({
-			x: 0.5 + (hash(i, 11) - 0.5) * 0.6,
-			y: 0.5 + (hash(i, 12) - 0.5) * 0.6,
-			vx: 0,
-			vy: 0,
+			id: i,
+			deg: EDGE_IDS.filter(([a, b]) => a === i || b === i).length,
+			x: 0.5 + (hash(i, 11) - 0.5) * 0.5,
+			y: 0.5 + (hash(i, 12) - 0.5) * 0.5,
 		}));
-	let nodes = seed();
-	let lit = 0;
-	let litTarget = 0;
-	let grab = -1;
-	let hover = -1;
-	let raf = 0;
-	let running = true;
-	// canvas aspect (w/h), refreshed each draw; forces act in isotropic space
-	// (units of height) so a wide canvas doesn't stretch the embedding flat
-	let aspect = 2.8;
 
-	function step(): void {
-		const K = 0.02;
-		const REST = 0.3;
-		const REPEL = 0.006;
-		const A = aspect;
-		for (let i = 0; i < N_NODES; i++) {
-			const a = nodes[i] as Node;
-			for (let j = i + 1; j < N_NODES; j++) {
-				const b = nodes[j] as Node;
-				const dx = (b.x - a.x) * A;
-				const dy = b.y - a.y;
-				const d2 = dx * dx + dy * dy + 0.002;
-				const f = REPEL / d2;
-				const d = Math.sqrt(d2);
-				a.vx -= ((dx / d) * f) / A;
-				a.vy -= (dy / d) * f;
-				b.vx += ((dx / d) * f) / A;
-				b.vy += (dy / d) * f;
+	let nodes = seed();
+	let links: L[] = EDGE_IDS.map(([source, target]) => ({ source, target }));
+	const sim = forceSimulation<N>()
+		.force("charge", forceManyBody().strength(-150))
+		.force("collide", forceCollide(13))
+		.alphaDecay(0.015);
+
+	let update: () => void = () => {};
+
+	function wire(w: number, h: number): void {
+		// seed coordinates are stored normalized; scale into the plate once
+		for (const n of nodes) {
+			if ((n.x ?? 0) <= 1) {
+				n.x = (n.x ?? 0.5) * w;
+				n.y = (n.y ?? 0.5) * h;
 			}
 		}
-		for (const [i, j] of EDGES) {
-			const a = nodes[i] as Node;
-			const b = nodes[j] as Node;
-			const dx = (b.x - a.x) * A;
-			const dy = b.y - a.y;
-			const d = Math.hypot(dx, dy) || 1e-4;
-			const f = K * (d - REST);
-			a.vx += ((dx / d) * f) / A;
-			a.vy += (dy / d) * f;
-			b.vx -= ((dx / d) * f) / A;
-			b.vy -= (dy / d) * f;
-		}
-		let energy = 0;
-		nodes.forEach((n, i) => {
-			if (i === grab) return;
-			n.vx += (0.5 - n.x) * 0.002;
-			n.vy += (0.5 - n.y) * 0.002;
-			n.vx *= 0.86;
-			n.vy *= 0.86;
-			n.x = Math.min(0.96, Math.max(0.04, n.x + n.vx));
-			n.y = Math.min(0.94, Math.max(0.06, n.y + n.vy));
-			energy += n.vx * n.vx + n.vy * n.vy;
-		});
-		// clamp the seeding transient so the prose readout shows settling,
-		// not the startup spike
-		hooks.onParams({ energy: Math.min(99.99, energy * 1e4) });
+		sim
+			.nodes(nodes)
+			.force("link", forceLink<N, L>(links).distance(58).strength(0.7))
+			.force("center", forceCenter(w / 2, h / 2).strength(0.08))
+			.alpha(1)
+			.restart();
 	}
 
-	function draw(): void {
-		const ctx = fitCanvas(canvas);
-		if (!ctx) return;
-		const w = canvas.clientWidth;
-		const h = canvas.clientHeight || 170;
-		aspect = w / h || 2.8;
-		ctx.clearRect(0, 0, w, h);
-		lit += (litTarget - lit) * 0.12;
-		const em = Math.max(lit, grab >= 0 ? 1 : 0);
-		ctx.strokeStyle = ink(0.4 + 0.3 * em);
-		ctx.lineWidth = 1.1;
-		for (const [i, j] of EDGES) {
-			const a = nodes[i] as Node;
-			const b = nodes[j] as Node;
-			ctx.beginPath();
-			ctx.moveTo(a.x * w, a.y * h);
-			ctx.lineTo(b.x * w, b.y * h);
-			ctx.stroke();
-		}
-		const base = 0.82 + 0.15 * em;
-		nodes.forEach((n, i) => {
-			ctx.fillStyle = ink(i === grab || i === hover ? 1 : base);
-			ctx.beginPath();
-			ctx.arc(n.x * w, n.y * h, i === grab || i === hover ? 4.5 : 3.2, 0, TAU);
-			ctx.fill();
-		});
-	}
+	function build(): void {
+		const { svg, w, h } = plate(mount);
+		const g = svg.append("g") as G;
+		const edgeSel = g.selectAll("line").data(links).join("line").attr("class", "edge");
+		const nodeSel = g
+			.selectAll<SVGCircleElement, N>("circle")
+			.data(nodes)
+			.join("circle")
+			.attr("class", "node")
+			.attr("r", (d) => 2.6 + d.deg * 0.9);
 
-	function loop(): void {
-		if (!running) return;
-		step();
-		draw();
-		raf = requestAnimationFrame(loop);
-	}
+		// hover a node: highlight its neighbourhood, fade the rest
+		nodeSel
+			.on("pointerenter", (_ev, d) => {
+				const near = new Set<N>([d]);
+				for (const l of links) {
+					if (l.source === d) near.add(l.target as N);
+					if (l.target === d) near.add(l.source as N);
+				}
+				nodeSel.classed("dim", (n) => !near.has(n)).classed("hot", (n) => n === d);
+				edgeSel.classed("dim", (l) => l.source !== d && l.target !== d);
+			})
+			.on("pointerleave", () => {
+				nodeSel.classed("dim", false).classed("hot", false);
+				edgeSel.classed("dim", false);
+			});
+		grabOn(mount, nodeSel as unknown as G);
 
-	// relax only while visible to save battery
-	const io = new IntersectionObserver(([entry]) => {
-		const vis = entry?.isIntersecting ?? false;
-		if (vis && !running) {
-			running = true;
-			loop();
-		} else if (!vis) {
-			running = false;
-			cancelAnimationFrame(raf);
-		}
-	});
-	io.observe(canvas);
-	loop();
-
-	const near = (ev: PointerEvent): number => {
-		const r = canvas.getBoundingClientRect();
-		return nodes.findIndex(
-			(n) =>
-				Math.hypot(ev.clientX - r.left - n.x * r.width, ev.clientY - r.top - n.y * r.height) < 14,
+		nodeSel.call(
+			drag<SVGCircleElement, N>()
+				.on("start", (_ev, d) => {
+					sim.alphaTarget(0.25).restart();
+					d.fx = d.x;
+					d.fy = d.y;
+				})
+				.on("drag", (ev, d) => {
+					const se = (ev as { sourceEvent: PointerEvent }).sourceEvent;
+					const r = (svg.node() as SVGSVGElement).getBoundingClientRect();
+					d.fx = Math.min(w - 8, Math.max(8, se.clientX - r.left));
+					d.fy = Math.min(h - 8, Math.max(8, se.clientY - r.top));
+				})
+				.on("end", (_ev, d) => {
+					sim.alphaTarget(0);
+					d.fx = null;
+					d.fy = null;
+				}),
 		);
-	};
-	canvas.addEventListener("pointerdown", (ev) => {
-		grab = near(ev);
-		if (grab >= 0) {
-			try {
-				canvas.setPointerCapture(ev.pointerId);
-			} catch {}
-		}
+
+		update = () => {
+			for (const n of nodes) {
+				n.x = Math.min(w - 8, Math.max(8, n.x ?? 0));
+				n.y = Math.min(h - 8, Math.max(8, n.y ?? 0));
+			}
+			edgeSel
+				.attr("x1", (d) => (d.source as N).x ?? 0)
+				.attr("y1", (d) => (d.source as N).y ?? 0)
+				.attr("x2", (d) => (d.target as N).x ?? 0)
+				.attr("y2", (d) => (d.target as N).y ?? 0);
+			nodeSel.attr("cx", (d) => d.x ?? 0).attr("cy", (d) => d.y ?? 0);
+			hooks.onParams({ alpha: sim.alpha() });
+		};
+
+		wire(w, h);
+		sim.on("tick", update);
+		update();
+	}
+
+	// anneal only while visible to save battery
+	const io = new IntersectionObserver(([entry]) => {
+		if (entry?.isIntersecting) sim.restart();
+		else sim.stop();
 	});
-	canvas.addEventListener("pointermove", (ev) => {
-		const r = canvas.getBoundingClientRect();
-		if (grab >= 0) {
-			const n = nodes[grab] as Node;
-			n.x = (ev.clientX - r.left) / r.width;
-			n.y = (ev.clientY - r.top) / r.height;
-			n.vx = 0;
-			n.vy = 0;
-			return;
-		}
-		const h2 = near(ev);
-		if (h2 !== hover) {
-			hover = h2;
-			canvas.dataset.cursorMode = h2 >= 0 ? "grab" : "";
-		}
-	});
-	canvas.addEventListener("pointerup", () => {
-		grab = -1;
-	});
+	io.observe(mount);
+
+	const ro = new ResizeObserver(() => build());
+	ro.observe(mount);
+	build();
 
 	return {
 		reset(): void {
+			sim.stop();
 			nodes = seed();
+			links = EDGE_IDS.map(([source, target]) => ({ source, target }));
+			build();
 		},
 		setLit(on: boolean): void {
-			litTarget = on ? 1 : 0;
+			mount.querySelector("svg")?.classList.toggle("lit", on);
 		},
-		redraw: draw,
+		redraw(): void {
+			update();
+		},
 		destroy(): void {
-			running = false;
-			cancelAnimationFrame(raf);
+			sim.stop();
 			io.disconnect();
+			ro.disconnect();
 		},
 	};
 };

@@ -1,21 +1,22 @@
 /**
- * Distribution plate: a deterministic sample binned into a histogram with a
- * normal curve over it. Two handles on the curve: the peak drags μ, the
- * inflection point drags σ. onParams reports both.
+ * Distribution plate: a normal fit over a fixed deterministic sample, with
+ * handles on the curve. The peak handle drags μ, the inflection handle drags
+ * σ. The ±σ band is shaded, μ is a dashed drop-line, σ an annotated bracket.
+ * onParams reports μ and σ.
  */
-import { fitCanvas, hash, ink, litSpring, mix } from "./ink";
+import { drag } from "d3-drag";
+import { scaleLinear } from "d3-scale";
+import { area, line } from "d3-shape";
+import { axis, bottomAxis, type G, grabOn, handle, hash, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
-const TAU = Math.PI * 2;
 const SAMPLES = 260;
 const BINS = 36;
 
-export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
+export const distribution: FigureFactory = (mount, hooks): FigureImpl => {
 	let mu = 0.5;
 	let sigma = 0.11;
-	let grab: "mu" | "sigma" | null = null;
-	let hover: "mu" | "sigma" | null = null;
-	let raf = 0;
+	let update: () => void = () => {};
 
 	// fixed sample: sum of three hashes ≈ bell curve, deterministic
 	const sample = Array.from(
@@ -34,131 +35,118 @@ export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
 		return Math.exp(-0.5 * z * z);
 	};
 
-	const handles = (w: number, h: number): { mu: [number, number]; sigma: [number, number] } => ({
-		mu: [mu * w, h * (1 - 0.82)],
-		sigma: [(mu + sigma) * w, h * (1 - 0.82 * Math.exp(-0.5))],
-	});
-
-	function draw(): void {
-		const ctx = fitCanvas(canvas);
-		if (!ctx) return;
-		const w = canvas.clientWidth;
-		const h = canvas.clientHeight || 170;
-		ctx.clearRect(0, 0, w, h);
-		const em = Math.max(litS.value(), grab === null ? 0 : 1);
+	function build(): void {
+		const { svg, w, h } = plate(mount);
+		const svgNode = svg.node() as SVGSVGElement;
+		const pad = 14;
+		const x = scaleLinear([0, 1], [pad, w - pad]);
+		const yTop = pad + 6;
+		const y0 = h - 22;
+		const py = (v: number): number => y0 - v * (y0 - yTop);
+		const g = svg.append("g") as G;
 
 		// histogram
-		const bw = w / BINS;
-		ctx.fillStyle = ink(0.24);
+		const bw = (x(1) - x(0)) / BINS;
 		bins.forEach((b, i) => {
-			const bh = (b / binMax) * h * 0.7;
-			ctx.fillRect(i * bw + 1, h - bh, bw - 2, bh);
+			g.append("rect")
+				.attr("class", "bar")
+				.attr("x", x(i / BINS) + 1)
+				.attr("width", bw - 2)
+				.attr("y", y0 - (b / binMax) * (y0 - yTop) * 0.85)
+				.attr("height", (b / binMax) * (y0 - yTop) * 0.85);
 		});
 
-		// baseline
-		ctx.strokeStyle = ink(0.3);
-		ctx.lineWidth = 1;
-		ctx.beginPath();
-		ctx.moveTo(0, h - 0.5);
-		ctx.lineTo(w, h - 0.5);
-		ctx.stroke();
+		// baseline axis with ticks
+		axis(
+			g.append("g").attr("transform", `translate(0,${y0})`) as G,
+			bottomAxis(x).tickValues([0, 0.25, 0.5, 0.75, 1]).tickSize(3),
+		);
 
-		// the curve
-		ctx.strokeStyle = ink(mix(0.75, 1, em));
-		ctx.lineWidth = mix(1.2, 1.6, em);
-		ctx.beginPath();
-		for (let px = 0; px <= w; px++) {
-			const y = h - pdf(px / w) * h * 0.82;
-			if (px === 0) ctx.moveTo(px, y);
-			else ctx.lineTo(px, y);
-		}
-		ctx.stroke();
+		const band = g.append("path").attr("class", "wash");
+		const curve = g.append("path").attr("class", "curve");
+		const muLine = g.append("line").attr("class", "hair");
+		const muLabel = g.append("text").attr("class", "vlabel");
+		const sigBracket = g.append("line").attr("class", "hair emph");
+		const sigLabel = g.append("text").attr("class", "vlabel");
+		const muH = handle(g, "mu");
+		const sigH = handle(g, "sigma");
 
-		// handles: peak (μ) and inflection (σ)
-		const H = handles(w, h);
-		for (const key of ["mu", "sigma"] as const) {
-			const [hx, hy] = H[key];
-			const active = grab === key || hover === key;
-			ctx.fillStyle = ink(active ? 1 : 0.8);
-			ctx.beginPath();
-			ctx.arc(hx, hy, active ? 4.5 : 3.5, 0, TAU);
-			ctx.fill();
-			if (active && grab !== key) {
-				ctx.strokeStyle = ink(0.3);
-				ctx.beginPath();
-				ctx.arc(hx, hy, 9, 0, TAU);
-				ctx.stroke();
-			}
-		}
-		hooks.onParams({ mu, sigma });
+		const xs = Array.from({ length: 161 }, (_, i) => i / 160);
+		const curveLine = line<number>()
+			.x((v) => x(v))
+			.y((v) => py(pdf(v)));
+		const bandArea = area<number>()
+			.x((v) => x(v))
+			.y0(y0)
+			.y1((v) => py(pdf(v)));
+
+		update = () => {
+			curve.attr("d", curveLine(xs));
+			const bandXs = xs.filter((v) => v >= mu - sigma && v <= mu + sigma);
+			band.attr("d", bandArea(bandXs));
+			muLine.attr("x1", x(mu)).attr("x2", x(mu)).attr("y1", y0).attr("y2", py(1));
+			muLabel
+				.attr("x", x(mu))
+				.attr("y", y0 + 16)
+				.attr("text-anchor", "middle")
+				.text("μ");
+			// σ bracket at the inflection height, μ → μ+σ
+			const infY = py(Math.exp(-0.5));
+			sigBracket
+				.attr("x1", x(mu))
+				.attr("x2", x(mu + sigma))
+				.attr("y1", infY)
+				.attr("y2", infY);
+			sigLabel
+				.attr("x", x(mu + sigma / 2))
+				.attr("y", infY - 6)
+				.attr("text-anchor", "middle")
+				.text("σ");
+			muH.attr("transform", `translate(${x(mu)},${py(1)})`);
+			sigH.attr("transform", `translate(${x(mu + sigma)},${infY})`);
+			hooks.onParams({ mu, sigma });
+		};
+
+		const px = (ev: { sourceEvent: PointerEvent }): number => {
+			const r = svgNode.getBoundingClientRect();
+			return x.invert(ev.sourceEvent.clientX - r.left);
+		};
+		muH.call(
+			drag<SVGGElement, unknown>().on("drag", (ev) => {
+				mu = Math.min(0.9, Math.max(0.1, px(ev as { sourceEvent: PointerEvent })));
+				update();
+			}),
+		);
+		sigH.call(
+			drag<SVGGElement, unknown>().on("drag", (ev) => {
+				sigma = Math.min(0.3, Math.max(0.03, px(ev as { sourceEvent: PointerEvent }) - mu));
+				update();
+			}),
+		);
+		grabOn(mount, muH);
+		grabOn(mount, sigH);
+
+		update();
 	}
 
-	const schedule = (): void => {
-		cancelAnimationFrame(raf);
-		raf = requestAnimationFrame(draw);
-	};
-	const litS = litSpring(schedule);
-
-	const near = (ev: PointerEvent): "mu" | "sigma" | null => {
-		const r = canvas.getBoundingClientRect();
-		const H = handles(r.width, r.height);
-		for (const key of ["sigma", "mu"] as const) {
-			const [hx, hy] = H[key];
-			if (Math.hypot(ev.clientX - r.left - hx, ev.clientY - r.top - hy) < 15) return key;
-		}
-		return null;
-	};
-
-	canvas.addEventListener("pointerdown", (ev) => {
-		grab = near(ev);
-		if (grab) {
-			try {
-				canvas.setPointerCapture(ev.pointerId);
-			} catch {}
-			schedule();
-		}
-	});
-	canvas.addEventListener("pointermove", (ev) => {
-		const r = canvas.getBoundingClientRect();
-		if (grab === "mu") {
-			mu = Math.min(0.9, Math.max(0.1, (ev.clientX - r.left) / r.width));
-			schedule();
-			return;
-		}
-		if (grab === "sigma") {
-			sigma = Math.min(0.3, Math.max(0.03, (ev.clientX - r.left) / r.width - mu));
-			schedule();
-			return;
-		}
-		const h2 = near(ev);
-		if (h2 !== hover) {
-			hover = h2;
-			canvas.dataset.cursorMode = h2 ? "grab" : "";
-			schedule();
-		}
-	});
-	canvas.addEventListener("pointerup", () => {
-		grab = null;
-		schedule();
-	});
-
-	const ro = new ResizeObserver(schedule);
-	ro.observe(canvas);
-	draw();
+	const ro = new ResizeObserver(() => build());
+	ro.observe(mount);
+	build();
 
 	return {
 		reset(): void {
 			mu = 0.5;
 			sigma = 0.11;
-			schedule();
+			update();
 		},
 		setLit(on: boolean): void {
-			litS.set(on);
+			mount.querySelector("svg")?.classList.toggle("lit", on);
 		},
-		redraw: schedule,
+		redraw(): void {
+			update();
+		},
 		destroy(): void {
 			ro.disconnect();
-			cancelAnimationFrame(raf);
 		},
 	};
 };

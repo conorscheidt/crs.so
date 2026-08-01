@@ -161,8 +161,12 @@ main {
 	outline-offset: 3px;
 }
 
-/* Every native cursor is replaced by a variant of the ring (swell / ring+dot /
-   quiet); low-specificity so nothing needs !important. */
+/* Hide every native cursor; each is replaced by a variant of the ring
+   (swell / ring+dot / quiet). Low-specificity so nothing needs !important.
+   html itself has to carry cursor:none: the ::view-transition overlay
+   inherits from the root, so without it every cross-document transition
+   flashes the native arrow. */
+html.no-native-cursor,
 html.no-native-cursor :where(*, *::before, *::after) {
 	cursor: none;
 }
