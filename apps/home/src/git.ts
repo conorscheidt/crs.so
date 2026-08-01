@@ -1,21 +1,18 @@
 /**
- * git.crs.so block: client-side fetch against the self-hosted git server.
+ * git.crs.so block: client-side fetch against basalt, the git server and
+ * frontend written for this domain. The API is built for this panel: one
+ * request returning exactly what is drawn, summarised server-side. The
+ * contract is documented on `Summary` below; basalt implements it.
  *
  * No fallback: if the server does not answer, the panel says so. A sample
  * year for working on the populated layout is in data/mocks.ts.
  */
 import { GIT_HOST } from "./data/projects";
 
-const API = `${GIT_HOST}/api/v1`;
-const USER = "crsche";
+const API = `${GIT_HOST}/api`;
 const DAYS = 364; // 52 whole weeks
 const WEEKS = 52;
 const MS_DAY = 86_400_000;
-
-interface HeatPoint {
-	timestamp: number;
-	contributions: number;
-}
 
 interface FeedItem {
 	repo: string;
@@ -66,70 +63,75 @@ function weekly(heat: Map<number, number>): number[] {
 	});
 }
 
-async function fetchData(): Promise<GitData> {
-	const signal = AbortSignal.timeout(4000);
-	const [heatRes, repoRes, feedRes] = await Promise.all([
-		fetch(`${API}/users/${USER}/heatmap`, { signal }),
-		fetch(`${API}/repos/search?limit=50&sort=updated`, { signal }),
-		fetch(`${API}/users/${USER}/activities/feeds?only-performed-by=true&limit=20`, { signal }),
-	]);
-	if (!(heatRes.ok && repoRes.ok && feedRes.ok)) throw new Error("git api");
-	const heatRaw = (await heatRes.json()) as HeatPoint[];
-	const repoRaw = (await repoRes.json()) as {
-		data: { name: string; html_url: string; description?: string; updated_at?: string }[];
-	};
-	const feedRaw = (await feedRes.json()) as {
-		op_type: string;
-		repo: { name: string; html_url: string };
-		content: string;
-		created: string;
+/**
+ * Response contract with basalt. One request, already summarised: the server
+ * has its own object store and can answer far faster than the browser could
+ * reassemble this from generic endpoints. The response holds only what the
+ * block draws.
+ *
+ *   GET https://git.crs.so/api/summary
+ *
+ *   {
+ *     "days":    [[epochDay, commits], …],   // last 364 days; omit empty days
+ *     "commits": 1204,                        // all time, all repos
+ *     "repos":   11,
+ *     "popular": [{ name, description, commits, updated, langs }],  // ≤3
+ *     "recent":  [{ repo, message, when }]                          // ≤3
+ *   }
+ *
+ *   epochDay  floor(unix_ms / 86400000), UTC
+ *   updated,
+ *   when      unix ms
+ *   langs     [[language, share 0–1], …] descending, ≤3, shares sum to ≤1
+ *   message   the commit subject only: one line, already trimmed
+ *
+ * URLs are derived client-side rather than sent: a repo lives at
+ * ${GIT_HOST}/{name} and its log at ${GIT_HOST}/{name}/commits.
+ */
+interface Summary {
+	days: [number, number][];
+	commits: number;
+	repos: number;
+	popular: {
+		name: string;
+		description?: string;
+		commits: number;
+		updated: number;
+		langs?: [string, number][];
 	}[];
+	recent: { repo: string; message: string; when: number }[];
+}
 
-	const heat = new Map<number, number>();
+async function fetchData(): Promise<GitData> {
+	const res = await fetch(`${API}/summary`, { signal: AbortSignal.timeout(4000) });
+	if (!res.ok) throw new Error(`git api ${res.status}`);
+	const s = (await res.json()) as Summary;
+
 	const today = Math.floor(Date.now() / MS_DAY);
-	let commits = 0;
-	for (const h of heatRaw) {
-		const day = Math.floor((h.timestamp * 1000) / MS_DAY);
-		if (today - day < DAYS) heat.set(day, (heat.get(day) ?? 0) + h.contributions);
-		commits += h.contributions;
+	const heat = new Map<number, number>();
+	for (const [day, n] of s.days ?? []) {
+		if (today - day < DAYS) heat.set(day, n);
 	}
 
-	const perRepo = new Map<string, number>();
-	const recent: FeedItem[] = [];
-	for (const f of feedRaw) {
-		if (!f.op_type.includes("commit") && f.op_type !== "commit_repo") continue;
-		perRepo.set(f.repo.name, (perRepo.get(f.repo.name) ?? 0) + 1);
-		if (recent.length < 3) {
-			let message = "";
-			try {
-				const c = JSON.parse(f.content) as { Commits?: { Message: string }[] };
-				message = c.Commits?.[0]?.Message.split("\n")[0] ?? "";
-			} catch {}
-			recent.push({
-				repo: f.repo.name,
-				message: message || "pushed",
-				when: new Date(f.created).getTime(),
-				url: f.repo.html_url,
-			});
-		}
-	}
-	const byCommits = new Map(repoRaw.data.map((r) => [r.name, r]));
-	const popular: Repo[] = [...perRepo.entries()]
-		.sort((a, b) => b[1] - a[1])
-		.slice(0, 3)
-		.map(([name, count]) => {
-			const r = byCommits.get(name);
-			return {
-				name,
-				description: r?.description ?? "",
-				commits: count,
-				updated: r?.updated_at ? new Date(r.updated_at).getTime() : Date.now(),
-				url: r?.html_url ?? `${GIT_HOST}/${name}`,
-				langs: [],
-			};
-		});
-
-	return { heat, commits, repos: repoRaw.data.length, recent, popular };
+	return {
+		heat,
+		commits: s.commits ?? 0,
+		repos: s.repos ?? 0,
+		popular: (s.popular ?? []).slice(0, 3).map((r) => ({
+			name: r.name,
+			description: r.description ?? "",
+			commits: r.commits,
+			updated: r.updated,
+			url: `${GIT_HOST}/${r.name}`,
+			langs: (r.langs ?? []).slice(0, 3),
+		})),
+		recent: (s.recent ?? []).slice(0, 3).map((c) => ({
+			repo: c.repo,
+			message: c.message,
+			when: c.when,
+			url: `${GIT_HOST}/${c.repo}/commits`,
+		})),
+	};
 }
 
 function age(ts: number): string {

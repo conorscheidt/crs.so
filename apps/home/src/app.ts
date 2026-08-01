@@ -23,20 +23,63 @@ function boot(): () => void {
 	return currentKind === "hub" ? bootHub(clock) : bootArticle(clock);
 }
 
-const cache = new Map<string, string>();
+/**
+ * Warm pages, parsed. Astro's viewport prefetch puts the bytes in the HTTP
+ * cache; this keeps the built Document, so a swap costs a clone instead of a
+ * fetch and a parse.
+ *
+ * Speculation-rules prerender would run the whole target page in a hidden
+ * context (a second WebGPU device, a second clock, a second Lenis) and then
+ * throw it away, because every internal click here is intercepted for a
+ * same-document swap and never becomes the cross-document navigation a
+ * prerender could activate.
+ *
+ * The promise is cached, not the result, so two warms of one URL share a
+ * single fetch, and a click during a warm awaits it rather than racing it.
+ */
+const cache = new Map<string, Promise<Document | null>>();
 
-async function fetchPage(url: string): Promise<string | null> {
-	const hit = cache.get(url);
-	if (hit) return hit;
-	try {
-		const res = await fetch(url, { headers: { accept: "text/html" } });
-		if (!res.ok) return null;
-		const text = await res.text();
-		cache.set(url, text);
-		return text;
-	} catch {
-		return null;
+function warm(url: string): Promise<Document | null> {
+	let hit = cache.get(url);
+	if (!hit) {
+		hit = fetch(url, { headers: { accept: "text/html" } })
+			.then((res) => (res.ok ? res.text() : null))
+			.then((text) => (text ? new DOMParser().parseFromString(text, "text/html") : null))
+			.catch(() => null);
+		cache.set(url, hit);
 	}
+	return hit;
+}
+
+/**
+ * Only links this navigator will swap are worth warming; this is the same test
+ * the click handler applies. Section-to-section travel belongs to the hub
+ * router and never fetches anything (all four panels are already mounted), so
+ * warming a nav link would waste three round trips.
+ */
+function warmable(a: HTMLAnchorElement): string | null {
+	if (a.origin !== location.origin || a.target !== "") return null;
+	if (a.pathname === location.pathname) return null;
+	const kind = pageKind(a.pathname);
+	if (!kind || (kind === "hub" && currentKind === "hub")) return null;
+	return a.pathname + a.search;
+}
+
+/**
+ * Warm on intent. A pointer resting on a link, or focus landing on it, comes
+ * ~200ms before the click, enough to have fetched and parsed by the time it
+ * lands. Keyboard focus is treated the same as the mouse.
+ */
+for (const type of ["pointerover", "focusin"] as const) {
+	document.addEventListener(
+		type,
+		(ev) => {
+			const a = (ev.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
+			const url = a && warmable(a);
+			if (url) void warm(url);
+		},
+		{ passive: true, capture: true },
+	);
 }
 
 interface ViewTransitionLike {
@@ -84,19 +127,21 @@ async function goto(url: string, push: boolean): Promise<void> {
 	if (navigating) return;
 	navigating = true;
 	try {
-		const html = await fetchPage(url);
+		const doc = await warm(url);
 		const main = document.querySelector("main");
-		const doc = html ? new DOMParser().parseFromString(html, "text/html") : null;
 		const newMain = doc?.querySelector("main");
 		if (!(main && doc && newMain)) {
 			location.href = url; // graceful: let the browser do it
 			return;
 		}
+		// Clone: the cached Document must survive being navigated to twice, and
+		// replaceChildren would otherwise adopt its nodes straight out of it.
+		const incoming = newMain.cloneNode(true) as HTMLElement;
 		await swap(() => {
 			teardown();
 			document.title = doc.title;
 			document.body.className = doc.body.className;
-			main.replaceChildren(...newMain.childNodes);
+			main.replaceChildren(...incoming.childNodes);
 			scrollTo(0, 0);
 			if (push) history.pushState({ app: true }, "", url);
 			lastPath = location.pathname;
