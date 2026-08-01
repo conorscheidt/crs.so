@@ -3,7 +3,7 @@
  * the perpendicular bisectors as hairlines, and their circumcircle. Dragging
  * a vertex updates the construction. onParams reports the circumradius.
  */
-import { fitCanvas, ink } from "./ink";
+import { fitCanvas, ink, litSpring, mix } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 const TAU = Math.PI * 2;
@@ -15,7 +15,6 @@ const START: [number, number][] = [
 
 export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 	let pts = START.map(([x, y]) => ({ x, y }));
-	let lit = false;
 	let grab = -1;
 	let hover = -1;
 	let raf = 0;
@@ -45,7 +44,7 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 		ctx.clearRect(0, 0, w, h);
 		const X = (p: { x: number }): number => p.x * w;
 		const Y = (p: { y: number }): number => p.y * h;
-		const strong = lit || grab >= 0;
+		const em = Math.max(litS.value(), grab >= 0 ? 1 : 0);
 
 		const pixelPts = pts.map((p) => ({ x: X(p), y: Y(p) }));
 		const cc = circum(pixelPts);
@@ -68,8 +67,8 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 				ctx.lineTo(mx + dx * 1000, my + dy * 1000);
 				ctx.stroke();
 			}
-			ctx.strokeStyle = ink(strong ? 0.85 : 0.55);
-			ctx.lineWidth = strong ? 1.4 : 1;
+			ctx.strokeStyle = ink(mix(0.55, 0.85, em));
+			ctx.lineWidth = mix(1, 1.4, em);
 			ctx.beginPath();
 			ctx.arc(cc.x, cc.y, cc.r, 0, TAU);
 			ctx.stroke();
@@ -78,7 +77,7 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 			hooks.onParams({ r: cc.r / Math.min(w, h) });
 		}
 
-		ctx.strokeStyle = ink(strong ? 0.9 : 0.65);
+		ctx.strokeStyle = ink(mix(0.65, 0.9, em));
 		ctx.lineWidth = 1.1;
 		ctx.beginPath();
 		ctx.moveTo(X(pts[0] as { x: number }), Y(pts[0] as { y: number }));
@@ -99,6 +98,7 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 		cancelAnimationFrame(raf);
 		raf = requestAnimationFrame(draw);
 	};
+	const litS = litSpring(schedule);
 
 	const near = (ev: PointerEvent): number => {
 		const r = canvas.getBoundingClientRect();
@@ -148,8 +148,7 @@ export const geometry: FigureFactory = (canvas, hooks): FigureImpl => {
 			schedule();
 		},
 		setLit(on: boolean): void {
-			lit = on;
-			schedule();
+			litS.set(on);
 		},
 		redraw: schedule,
 		destroy(): void {

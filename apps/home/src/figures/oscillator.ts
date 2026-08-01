@@ -5,6 +5,7 @@
  * the live values and highlight the curve on hover; hovering the figure
  * highlights the bound terms.
  */
+import { litSpring, mix } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 const TAU = Math.PI * 2;
@@ -13,7 +14,6 @@ export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
 	const ctx = canvas.getContext("2d");
 	let zeta = 0.12;
 	let omega = 2.4;
-	let lit = false;
 	let hover = false;
 	let dragging = false;
 	let raf = 0;
@@ -68,8 +68,9 @@ export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
 		}
 
 		// response x(t), closed form for underdamped, critical and overdamped
-		ctx.strokeStyle = ink(lit || hover || dragging ? 0.95 : 0.6);
-		ctx.lineWidth = lit || hover || dragging ? 1.6 : 1.1;
+		const em = Math.max(litS.value(), hover || dragging ? 1 : 0);
+		ctx.strokeStyle = ink(mix(0.6, 0.95, em));
+		ctx.lineWidth = mix(1.1, 1.6, em);
 		ctx.beginPath();
 		for (let px = 0; px < w; px++) {
 			const t = px / sx;
@@ -111,6 +112,7 @@ export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
 		cancelAnimationFrame(raf);
 		raf = requestAnimationFrame(draw);
 	};
+	const litS = litSpring(schedule);
 
 	const handlePos = (): { x: number; y: number } => {
 		const { y0, sx, sy } = geom();
@@ -173,8 +175,7 @@ export const oscillator: FigureFactory = (canvas, hooks): FigureImpl => {
 			schedule();
 		},
 		setLit(on: boolean): void {
-			lit = on;
-			schedule();
+			litS.set(on);
 		},
 		redraw: schedule,
 		destroy(): void {

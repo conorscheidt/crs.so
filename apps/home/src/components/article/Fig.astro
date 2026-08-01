@@ -16,9 +16,7 @@ const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"][n - 1] ?? Strin
 ---
 
 <figure class="afig" data-fig-root={id} data-kind={kind}>
+	<button type="button" class="figreset" data-fig-reset aria-label="Reset figure">↺</button>
 	<canvas data-fig-canvas></canvas>
-	<figcaption>
-		<b>fig. {roman}</b> — {caption}
-		<span class="figreset" data-fig-reset title="reset">↺</span>
-	</figcaption>
+	<figcaption><b>fig. {roman}</b> — {caption}</figcaption>
 </figure>

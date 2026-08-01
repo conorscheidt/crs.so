@@ -42,7 +42,8 @@ export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
 			vy: 0,
 		}));
 	let nodes = seed();
-	let lit = false;
+	let lit = 0;
+	let litTarget = 0;
 	let grab = -1;
 	let hover = -1;
 	let raf = 0;
@@ -99,8 +100,9 @@ export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
 		const w = canvas.clientWidth;
 		const h = canvas.clientHeight || 170;
 		ctx.clearRect(0, 0, w, h);
-		const strong = lit || grab >= 0;
-		ctx.strokeStyle = ink(strong ? 0.55 : 0.32);
+		lit += (litTarget - lit) * 0.12;
+		const em = Math.max(lit, grab >= 0 ? 1 : 0);
+		ctx.strokeStyle = ink(0.32 + 0.23 * em);
 		ctx.lineWidth = 1;
 		for (const [i, j] of EDGES) {
 			const a = nodes[i] as Node;
@@ -110,7 +112,7 @@ export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
 			ctx.lineTo(b.x * w, b.y * h);
 			ctx.stroke();
 		}
-		const base = strong ? 0.9 : 0.75;
+		const base = 0.75 + 0.15 * em;
 		nodes.forEach((n, i) => {
 			ctx.fillStyle = ink(i === grab || i === hover ? 1 : base);
 			ctx.beginPath();
@@ -180,7 +182,7 @@ export const graph: FigureFactory = (canvas, hooks): FigureImpl => {
 			nodes = seed();
 		},
 		setLit(on: boolean): void {
-			lit = on;
+			litTarget = on ? 1 : 0;
 		},
 		redraw: draw,
 		destroy(): void {

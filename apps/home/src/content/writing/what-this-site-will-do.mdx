@@ -24,7 +24,7 @@ you see typeset here — the <Marginal note="The Q factor is 1/(2ζ) — radio p
 $\omega =$ <b data-bind="omega" data-fig="osc">2.40</b>:
 
 $$
-\ddot{x} + 2\htmlClass{vbind-osc-zeta}{\zeta}\htmlClass{vbind-osc-omega}{\omega}\,\dot{x} + \htmlClass{vbind-osc-omega}{\omega}^2 x = 0
+\ddot{x} + 2\htmlClass{vbind vbind-osc-zeta}{\zeta}\htmlClass{vbind vbind-osc-omega}{\omega}\,\dot{x} + \htmlClass{vbind vbind-osc-omega}{\omega}^2 x = 0
 $$
 
 The numbers above are not decoration: they are bound to the figure. Grab the dot
@@ -67,6 +67,20 @@ already holds more plates — curves, draggable constructions, networks,
 distributions — each a hundred-line factory away:
 
 <Fig kind="geometry" id="geo" n={2} caption="a library plate: drag any vertex; the perpendicular bisectors and the circumcircle follow." />
+
+Static snippets share the same editor and theme — chrome-free, watermarked,
+read-only, every language the runner knows plus a few it doesn't:
+
+<Code lang="ts" code={`type Section = "index" | "projects" | "writing" | "about";
+
+const OBJECT_INDEX: Record<Section, number> = {
+    index: 0,     // trefoil knot
+    projects: 1,  // icosahedron edge-streams
+    writing: 2,   // loxodrome sphere
+    about: 3,     // borromean rings
+};
+
+export const objectFor = (s: Section): number => OBJECT_INDEX[s];`} />
 
 What rides on it from here: scroll-linked figure sequences, richer plates, and posts
 whose interactive parts earn their place the way this page's do — the figure is the

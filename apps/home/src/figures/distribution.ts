@@ -3,7 +3,7 @@
  * normal curve over it. Two handles on the curve: the peak drags μ, the
  * inflection point drags σ. onParams reports both.
  */
-import { fitCanvas, hash, ink } from "./ink";
+import { fitCanvas, hash, ink, litSpring, mix } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 const TAU = Math.PI * 2;
@@ -13,7 +13,6 @@ const BINS = 36;
 export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
 	let mu = 0.5;
 	let sigma = 0.11;
-	let lit = false;
 	let grab: "mu" | "sigma" | null = null;
 	let hover: "mu" | "sigma" | null = null;
 	let raf = 0;
@@ -46,7 +45,7 @@ export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
 		const w = canvas.clientWidth;
 		const h = canvas.clientHeight || 170;
 		ctx.clearRect(0, 0, w, h);
-		const strong = lit || grab !== null;
+		const em = Math.max(litS.value(), grab === null ? 0 : 1);
 
 		// histogram
 		const bw = w / BINS;
@@ -65,8 +64,8 @@ export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
 		ctx.stroke();
 
 		// the curve
-		ctx.strokeStyle = ink(strong ? 0.95 : 0.65);
-		ctx.lineWidth = strong ? 1.5 : 1.1;
+		ctx.strokeStyle = ink(mix(0.65, 0.95, em));
+		ctx.lineWidth = mix(1.1, 1.5, em);
 		ctx.beginPath();
 		for (let px = 0; px <= w; px++) {
 			const y = h - pdf(px / w) * h * 0.82;
@@ -98,6 +97,7 @@ export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
 		cancelAnimationFrame(raf);
 		raf = requestAnimationFrame(draw);
 	};
+	const litS = litSpring(schedule);
 
 	const near = (ev: PointerEvent): "mu" | "sigma" | null => {
 		const r = canvas.getBoundingClientRect();
@@ -153,8 +153,7 @@ export const distribution: FigureFactory = (canvas, hooks): FigureImpl => {
 			schedule();
 		},
 		setLit(on: boolean): void {
-			lit = on;
-			schedule();
+			litS.set(on);
 		},
 		redraw: schedule,
 		destroy(): void {

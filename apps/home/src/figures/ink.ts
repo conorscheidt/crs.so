@@ -24,3 +24,36 @@ export function hash(i: number, salt: number): number {
 	const x = Math.sin(i * 127.1 + salt * 311.7) * 43_758.5453;
 	return x - Math.floor(x);
 }
+
+/**
+ * Eased emphasis for plates. Canvas strokes ease lit on and off over ~250 ms,
+ * matching the site's DOM transitions.
+ */
+export function litSpring(onChange: () => void): {
+	set: (on: boolean) => void;
+	value: () => number;
+} {
+	let v = 0;
+	let target = 0;
+	let raf = 0;
+	const tick = (): void => {
+		v += (target - v) * 0.16;
+		if (Math.abs(target - v) < 0.01) {
+			v = target;
+			onChange();
+			return;
+		}
+		onChange();
+		raf = requestAnimationFrame(tick);
+	};
+	return {
+		set(on: boolean): void {
+			target = on ? 1 : 0;
+			cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(tick);
+		},
+		value: () => v,
+	};
+}
+
+export const mix = (a: number, b: number, t: number): number => a + (b - a) * t;

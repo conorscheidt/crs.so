@@ -51,9 +51,9 @@ const date = post.data.date.toLocaleDateString("en-US", {
 				</p>
 				{
 					post.data.tags.length > 0 && (
-						<div class="tags atags">
+						<div class="atags">
 							{post.data.tags.map((t) => (
-								<i>{t}</i>
+								<a href={`/writing?tag=${t}`}>{t}</a>
 							))}
 						</div>
 					)
