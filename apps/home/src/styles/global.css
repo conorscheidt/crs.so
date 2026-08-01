@@ -91,10 +91,12 @@
 
 @font-face {
 	font-family: "Fraunces Variable";
-	/* the full variable file (opsz + wght + SOFT + WONK): SOFT drives the
-	   ink-burn hover, worth the extra bytes over the opsz-only cut */
-	src: url("@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2") format("woff2");
-	font-weight: 100 900;
+	/* Instanced by scripts/gen-fonts.ts rather than taken from fontsource: no stock
+	   cut has both opsz (display sizes) and SOFT (ink-burn) short of the 120 KB
+	   `full` file. WONK is pinned to its default of 1 instead of dropped, so the
+	   letterforms are unchanged. The weight range must match the file: 100–300. */
+	src: url("../assets/fonts/fraunces-display.woff2") format("woff2");
+	font-weight: 100 300;
 	font-display: block;
 }
 @font-face {
@@ -172,12 +174,11 @@ main {
    to carry this: the ::view-transition overlay inherits `cursor` from the
    root, so without it every navigation flashes the native arrow.
 
-   Uses a transparent image rather than `cursor: none`. Chrome and Safari both
-   fail to re-hide the pointer when it returns from the browser's own chrome,
-   and on GPU-composited layers the hardware cursor can survive `none`
-   entirely, leaving the native arrow on top of the ring even across reloads.
-   A 1×1 transparent PNG is a real cursor image, so it gets drawn and paints
-   nothing. `none` stays as the fallback for anything that refuses the image.
+   Uses a transparent image rather than `cursor: none`, which Chromium fails to
+   re-apply when the pointer returns from the browser's own chrome, leaving the
+   native arrow on top of the ring. The 32×32 all-zero image draws nothing;
+   `none` stays as the fallback. The hotspot is centred (16 16) so the image
+   cannot shift where the click lands relative to the ring.
 
    The selector is written out rather than wrapped in `:where()`, whose zero
    specificity would lose to any `cursor` rule a dependency adds. No other rule
@@ -187,8 +188,8 @@ html.no-native-cursor *,
 html.no-native-cursor *::before,
 html.no-native-cursor *::after {
 	cursor:
-		url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
-		0 0,
+		url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAGklEQVRYw+3BAQEAAACCIP+vbkhAAQAAAO8GECAAAZf3V9cAAAAASUVORK5CYII=")
+		16 16,
 		none;
 }
 

@@ -7,6 +7,8 @@
  */
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { join } from "node:path";
+import process from "node:process";
 import { create, type Font } from "fontkit";
 import sharp from "sharp";
 import { decompress } from "wawoff2";
@@ -21,22 +23,29 @@ const DIM = "rgba(232,228,217,0.5)";
 // createRequire, not import.meta.resolve: Vite's dev module runner rewrites
 // the latter into an internal specifier that fails at runtime
 const resolve = createRequire(import.meta.url).resolve;
-const FRAUNCES = "@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2";
+// Fraunces is a local asset (instanced by scripts/gen-fonts.ts), so it is addressed
+// from the app root. Neither a package-relative specifier nor import.meta.url
+// works here: at build time this module is a bundled chunk under
+// dist/.prerender, and both resolve against that copy instead of src/.
+const FRAUNCES = join(process.cwd(), "src/assets/fonts/fraunces-display.woff2");
 const SPECTRAL = "@fontsource/spectral/files/spectral-latin-300-normal.woff2";
 
 type Face = Font;
 let display: Face | null = null;
 let text: Face | null = null;
 
+/** Absolute paths pass through; bare specifiers go through the module graph. */
 async function load(specifier: string): Promise<Face> {
-	const woff2 = await readFile(resolve(specifier));
+	const woff2 = await readFile(specifier.startsWith("/") ? specifier : resolve(specifier));
 	const ttf = await decompress(new Uint8Array(woff2));
 	return create(Buffer.from(ttf));
 }
 
 async function fonts(): Promise<{ display: Face; text: Face }> {
-	// the nameplate's instance: light, display optical size, no soft/wonk
-	display ??= (await load(FRAUNCES)).getVariation({ wght: 300, opsz: 144, SOFT: 0, WONK: 0 });
+	// The nameplate instance. WONK is left unset: the axis is baked to 1 in the
+	// instanced file, which is what every page renders. Setting it to 0 here
+	// draws the social cards in different letterforms than the site.
+	display ??= (await load(FRAUNCES)).getVariation({ wght: 300, opsz: 144, SOFT: 0 });
 	text ??= await load(SPECTRAL);
 	return { display, text };
 }

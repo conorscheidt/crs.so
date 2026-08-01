@@ -6,7 +6,7 @@ import "katex/dist/katex.min.css";
 import "../styles/article.css";
 import spectralItalicUrl from "@fontsource/spectral/files/spectral-latin-300-italic.woff2?url";
 import spectralUrl from "@fontsource/spectral/files/spectral-latin-300-normal.woff2?url";
-import frauncesUrl from "@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2?url";
+import frauncesUrl from "../assets/fonts/fraunces-display.woff2?url";
 
 type Props = {
 	title: string;
@@ -43,6 +43,10 @@ const CF_BEACON = "7d7cc357d0bb404a8db2d53475635150";
  * document's <link> tags. So it is declared first here and also lives at the
  * root. scripts/gen-favicon.ts emits all of them from one source so they
  * can't drift apart.
+ *
+ * The <link rel="preconnect"> to git.crs.so is for the index page's git block,
+ * which fetches basalt on boot: the DNS + TLS handshake happens up front
+ * rather than after the script starts the request.
  */
 
 const PERSON = {
@@ -156,6 +160,7 @@ const jsonLd = JSON.stringify({
 			})();
 		</script>
 		<link rel="preload" href={frauncesUrl} as="font" type="font/woff2" crossorigin />
+		<link rel="preconnect" href="https://git.crs.so" crossorigin />
 		<link rel="preload" href={spectralUrl} as="font" type="font/woff2" crossorigin />
 		<link rel="preload" href={spectralItalicUrl} as="font" type="font/woff2" crossorigin />
 	</head>
