@@ -4,7 +4,7 @@
  * version. Don't add anything the résumé doesn't support.
  */
 export const blurb =
-	"Applied mathematics and computer science at Northwestern. I work on systems where the hard part is real: trading infrastructure, compilers and runtimes, and the numerical methods underneath them.";
+	"Applied mathematics and computer science at Northwestern. I work on systems focused on performance and correctness — distributed systems, trading infrastructure, compilers and runtimes, and the numerical methods underneath them.";
 
 export interface SchoolEntry {
 	school: string;
@@ -18,12 +18,12 @@ export const education: SchoolEntry[] = [
 	{
 		school: "Northwestern University",
 		degree: "B.S. Applied Mathematics & Computer Science",
-		span: "expected June 2029",
+		span: "June 2029",
 		where: "Evanston, IL",
 	},
 	{
 		school: "Phillips Academy",
-		degree: "High School Diploma — 4.0 GPA",
+		degree: "High School Diploma",
 		span: "June 2025",
 		where: "Andover, MA",
 	},
@@ -51,7 +51,7 @@ export const experience: ExperienceEntry[] = [
 		org: "Gingrich Group",
 		span: "2024 — 2025",
 		detail:
-			"Research in non-equilibrium statistical mechanics — reaction–diffusion and tensor-network stochastic chemistry — and the tooling it needed: browser simulators now used in coursework, and sweep pipelines rebuilt to run five times faster on the university clusters.",
+			"Research in non-equilibrium statistical mechanics — reaction–diffusion and tensor-network stochastic chemistry — and the tooling it needed: browser simulators now used in coursework, and develop pipelines to run ~five times faster on the university clusters.",
 	},
 	{
 		role: "Undergraduate Researcher",
