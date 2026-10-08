@@ -1,10 +1,10 @@
-/**
- * Theme resolution, pure and unit-tested. Night is the default and
- * prefers-color-scheme is ignored: only a stored override changes the first
- * paint. The inline pre-paint script in Shell.astro duplicates this logic
- * verbatim.
- */
+// Night is the default; prefers-color-scheme is ignored and only a stored
+// choice changes the first paint. Shell.astro's pre-paint script repeats
+// resolveTheme inline, so keep the two in step.
 export type Theme = "day" | "night";
+
+/** Paper colour per theme, for <meta name="theme-color">. Mirrors global.css. */
+export const PAPER: Record<Theme, string> = { night: "#171310", day: "#f2f0ea" };
 
 export function resolveTheme(stored: string | null): Theme {
 	return stored === "day" ? "day" : "night";
@@ -18,12 +18,11 @@ export function readTheme(): Theme {
 	return resolveTheme(stored);
 }
 
-/** DOM-only application (pageshow restore, boot re-assert). */
 export function setThemeAttr(theme: Theme): void {
 	document.documentElement.dataset.theme = theme;
+	document.querySelector('meta[name="theme-color"]')?.setAttribute("content", PAPER[theme]);
 }
 
-/** User action: apply and persist. */
 export function storeTheme(theme: Theme): void {
 	setThemeAttr(theme);
 	try {

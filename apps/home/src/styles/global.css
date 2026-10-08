@@ -14,9 +14,7 @@
 	--s3: 21px;
 	--s4: 34px;
 	--s5: 55px;
-	--font-display: "Fraunces Variable", Georgia, serif;
-	--font-text: "Spectral", Georgia, serif;
-	--font-mark: "JetBrains Mono Variable", ui-monospace, monospace;
+	/* --font-display, --font-text, --font-mark come from the fonts config */
 	--font-mono: var(--font-mark);
 
 	/* Code: high-contrast near-grayscale, hierarchy by luminance + weight + slant
@@ -87,37 +85,6 @@
 	@view-transition {
 		navigation: none;
 	}
-}
-
-@font-face {
-	font-family: "Fraunces Variable";
-	/* Instanced by scripts/gen-fonts.ts rather than taken from fontsource: no stock
-	   cut has both opsz (display sizes) and SOFT (ink-burn) short of the 120 KB
-	   `full` file. WONK is pinned to its default of 1 instead of dropped, so the
-	   letterforms are unchanged. The weight range must match the file: 100–300. */
-	src: url("../assets/fonts/fraunces-display.woff2") format("woff2");
-	font-weight: 100 300;
-	font-display: block;
-}
-@font-face {
-	font-family: "Spectral";
-	src: url("@fontsource/spectral/files/spectral-latin-300-normal.woff2") format("woff2");
-	font-weight: 300;
-	font-display: block;
-}
-@font-face {
-	font-family: "Spectral";
-	src: url("@fontsource/spectral/files/spectral-latin-300-italic.woff2") format("woff2");
-	font-weight: 300;
-	font-style: italic;
-	font-display: block;
-}
-@font-face {
-	font-family: "JetBrains Mono Variable";
-	src: url("@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2")
-		format("woff2");
-	font-weight: 100 800;
-	font-display: block;
 }
 
 *,

@@ -1,20 +1,18 @@
 ---
+import { Font } from "astro:assets";
 import "../styles/global.css";
-/* article surface styles live globally: hub ⇄ article is a same-document
-   swap, so the destination's CSS must already be present */
+// Article styles load everywhere: hub ⇄ article is a same-document swap, so
+// the destination's CSS has to be present before the swap happens.
 import "katex/dist/katex.min.css";
 import "../styles/article.css";
-import spectralItalicUrl from "@fontsource/spectral/files/spectral-latin-300-italic.woff2?url";
-import spectralUrl from "@fontsource/spectral/files/spectral-latin-300-normal.woff2?url";
-import frauncesUrl from "../assets/fonts/fraunces-display.woff2?url";
 
 type Props = {
 	title: string;
 	description: string;
 	scrollable?: boolean;
-	/** social card slug under /og/ (defaults to the hub card for this route) */
+	/** Social card under /og/; defaults to the card for this route. */
 	ogSlug?: string;
-	/** present on article routes; drives BlogPosting structured data */
+	/** Set on article routes; adds BlogPosting structured data. */
 	article?: { published: Date; tags: string[]; minutes: number };
 };
 const { title, description, scrollable = false, ogSlug, article } = Astro.props;
@@ -24,52 +22,31 @@ const canonical = new URL(Astro.url.pathname, site);
 const ogPath = ogSlug ?? (Astro.url.pathname === "/" ? "index" : Astro.url.pathname.slice(1));
 const ogImage = new URL(`/og/${ogPath}.png`, site);
 
-/*
- * Cloudflare Web Analytics beacon token. Not a secret: it is public in the
- * page source of every site that uses one, so it is committed rather than
- * passed through an environment variable that would make dev and production
- * different builds. Empty means the script is not emitted at all. To turn
- * pageviews on: Analytics & Logs → Web Analytics → add crs.so, choose the
- * manual snippet (auto-install rewrites HTML at the edge, like Rocket
- * Loader), and paste the token out of it here.
- */
-// biome-ignore lint/security/noSecrets: a public site tag, printed in the page
+// Cloudflare Web Analytics site token. It is public (it ships in the page),
+// so it lives here rather than in an env var.
+// biome-ignore lint/security/noSecrets: public site token
 const CF_BEACON = "7d7cc357d0bb404a8db2d53475635150";
 
-/*
- * Icons. The full set ships because an SVG favicon alone is not enough:
- * PDF tabs, older browsers, bookmark bars and most feed readers want
- * `favicon.ico`, and they request it from the site root without reading this
- * document's <link> tags. So it is declared first here and also lives at the
- * root. scripts/gen-favicon.ts emits all of them from one source so they
- * can't drift apart.
- *
- * The <link rel="preconnect"> to git.crs.so is for the index page's git block,
- * which fetches basalt on boot: the DNS + TLS handshake happens up front
- * rather than after the script starts the request.
- */
-
-const PERSON = {
-	"@type": "Person",
-	"@id": "https://crs.so/#person",
-	name: "Conor Scheidt",
-	url: "https://crs.so",
-	email: "mailto:c@crs.so",
-	sameAs: ["https://github.com/conorscheidt", "https://linkedin.com/in/conorscheidt"],
-	jobTitle: "Software Engineer",
-	knowsAbout: ["compilers", "GPU simulation", "mathematics"],
-};
-
+const person = "https://crs.so/#person";
 const jsonLd = JSON.stringify({
 	"@context": "https://schema.org",
 	"@graph": [
-		PERSON,
+		{
+			"@type": "Person",
+			"@id": person,
+			name: "Conor Scheidt",
+			url: "https://crs.so",
+			email: "mailto:c@crs.so",
+			sameAs: ["https://github.com/conorscheidt", "https://linkedin.com/in/conorscheidt"],
+			affiliation: { "@type": "CollegeOrUniversity", name: "Northwestern University" },
+			knowsAbout: ["distributed systems", "compilers", "numerical methods", "trading systems"],
+		},
 		{
 			"@type": "WebSite",
 			"@id": "https://crs.so/#site",
 			url: "https://crs.so",
 			name: "Conor Scheidt",
-			publisher: { "@id": "https://crs.so/#person" },
+			publisher: { "@id": person },
 			inLanguage: "en",
 		},
 		...(article
@@ -80,8 +57,8 @@ const jsonLd = JSON.stringify({
 						description,
 						datePublished: article.published.toISOString(),
 						dateModified: article.published.toISOString(),
-						author: { "@id": "https://crs.so/#person" },
-						publisher: { "@id": "https://crs.so/#person" },
+						author: { "@id": person },
+						publisher: { "@id": person },
 						mainEntityOfPage: canonical.href,
 						image: ogImage.href,
 						keywords: article.tags.join(", "),
@@ -92,12 +69,15 @@ const jsonLd = JSON.stringify({
 			: []),
 	],
 });
+
+// The pre-paint script below runs before first paint and can't import, so it
+// inlines theme.ts#resolveTheme and the cursor gate from cursor.ts.
 ---
 
 <html lang="en" data-theme="night">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
 		<link rel="canonical" href={canonical} />
@@ -123,12 +103,26 @@ const jsonLd = JSON.stringify({
 		<meta name="theme-color" content="#171310" />
 		<link rel="alternate" type="application/rss+xml" title="Conor Scheidt — Writing" href="/rss.xml" />
 		<script type="application/ld+json" set:html={jsonLd} />
+		<script is:inline>
+			(() => {
+				let t = null;
+				try {
+					t = localStorage.getItem("crs-theme");
+				} catch {}
+				const d = document.documentElement;
+				const theme = t === "day" ? "day" : "night";
+				d.classList.add("js");
+				d.dataset.theme = theme;
+				if (theme === "day") {
+					document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#f2f0ea");
+				}
+				if (matchMedia("(pointer: fine)").matches) d.classList.add("no-native-cursor");
+			})();
+		</script>
+		<Font cssVariable="--font-display" preload />
+		<Font cssVariable="--font-text" preload />
+		<Font cssVariable="--font-mark" />
 		{
-			/* Cookieless pageviews, no consent banner required, ~2 KB. `type=module`
-			   matches the snippet Cloudflare hands out and defers by definition, so
-			   there is no `defer` to add. It is a cross-origin script under COEP
-			   `credentialless`, which loads it without credentials rather than
-			   blocking it — verified against the live site, not assumed. */
 			CF_BEACON && (
 				<script
 					is:inline
@@ -138,31 +132,6 @@ const jsonLd = JSON.stringify({
 				/>
 			)
 		}
-		<!-- Pre-paint: decide the theme before first paint. Night is the default and
-		     prefers-color-scheme is ignored. Mirrors resolveTheme in src/theme.ts. -->
-		<script is:inline>
-			(() => {
-				let t = null;
-				try {
-					t = localStorage.getItem("crs-theme");
-				} catch {}
-				const d = document.documentElement;
-				d.classList.add("js");
-				d.dataset.theme = t === "day" ? "day" : "night";
-				// Pre-paint cursor class: a cross-document click otherwise flashes
-				// the native cursor while the new page boots. The condition must
-				// match cursor.ts exactly: pointer:fine and nothing else. Reduced
-				// motion still gets the ring (it just follows rigidly), so gating
-				// this on it would leave those visitors with a native cursor until JS ran.
-				if (matchMedia("(pointer: fine)").matches) {
-					d.classList.add("no-native-cursor");
-				}
-			})();
-		</script>
-		<link rel="preload" href={frauncesUrl} as="font" type="font/woff2" crossorigin />
-		<link rel="preconnect" href="https://git.crs.so" crossorigin />
-		<link rel="preload" href={spectralUrl} as="font" type="font/woff2" crossorigin />
-		<link rel="preload" href={spectralItalicUrl} as="font" type="font/woff2" crossorigin />
 	</head>
 	<body class:list={[{ scrollable }]}>
 		<main>
