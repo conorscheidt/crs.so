@@ -52,7 +52,9 @@ async function record(req: Request, env: Env, origin: string): Promise<Response>
 
 // The browser asks this origin, never git.crs.so: no CORS on basalt, no second
 // DNS + TLS handshake for visitors, and a slow or offline basalt costs one
-// cached 503 instead of a broken homepage.
+// cached empty response instead of a broken homepage. That response is a 204
+// rather than a 5xx so every visitor's console doesn't log an error; the
+// failure is logged here instead.
 async function gitSummary(req: Request): Promise<Response> {
 	if (req.method !== "GET") return new Response(null, { status: 405 });
 	try {
@@ -67,8 +69,10 @@ async function gitSummary(req: Request): Promise<Response> {
 				"cache-control": "public, max-age=60, stale-while-revalidate=600",
 			},
 		});
-	} catch {
-		return new Response(null, { status: 503, headers: { "cache-control": "public, max-age=60" } });
+	} catch (err) {
+		// biome-ignore lint/suspicious/noConsole: surfaces in Workers Logs
+		console.warn("git summary unavailable:", String(err));
+		return new Response(null, { status: 204, headers: { "cache-control": "public, max-age=60" } });
 	}
 }
 

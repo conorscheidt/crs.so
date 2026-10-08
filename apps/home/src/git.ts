@@ -77,7 +77,7 @@ interface Summary {
 
 async function fetchData(): Promise<GitData> {
 	const res = await fetch("/api/git", { signal: AbortSignal.timeout(4000) });
-	if (!res.ok) throw new Error(`git summary ${res.status}`);
+	if (res.status !== 200) throw new Error(`git summary ${res.status}`);
 	const s = (await res.json()) as Partial<Summary>;
 
 	const today = Math.floor(Date.now() / MS_DAY);
