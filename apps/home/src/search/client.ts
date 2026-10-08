@@ -1,21 +1,16 @@
 /**
- * Search island. One shared index for both panels; each panel filters by its
- * kind. Lazy: the engine + index load on first keystroke and warm on focus.
- * Until loaded, a naive title/description/tag filter stands in so typing
- * works immediately.
+ * Search for the Projects and Writing panels. Both share one index and filter
+ * by kind. MiniSearch and the index load on first keystroke (and warm on
+ * focus); until then a plain title/description/tag filter stands in.
  *
- * Chip grammar, two sigils sharing one mechanism:
- *   `#rust`    a tag.     Many per query; a document must carry all of them.
- *   `@basalt`  a project. Writing only, and at most one: a post belongs to a
- *              single project, so a second `@` replaces the first rather than
- *              producing the empty set.
- * Both open the same autocomplete and become chips styled like what they
- * filter: a tag chip is outlined like a tag, a project chip is filled like a
- * project mark.
+ * `#rust` is a tag: any number per query, and a result must carry all of them.
+ * `@basalt` is a project, Writing only, at most one: a post belongs to a
+ * single project, so a second `@` replaces the first. Both autocomplete and
+ * become chips styled like what they filter.
  *
- * Editing: single backspace in an empty input deletes the whole last chip;
- * ArrowLeft at the input's start pops the last chip back into the input, sigil
- * and all. Date tokens (Writing only) become visible chips on space/enter.
+ * Backspace in an empty input deletes the last chip; ArrowLeft at the start
+ * pops it back into the input, sigil and all. In Writing, date tokens become a
+ * range chip after a space or Enter.
  */
 
 import type MiniSearch from "minisearch";
@@ -50,12 +45,12 @@ function warm(): NonNullable<typeof enginePromise> {
 }
 
 export interface SearchHooks {
-	/** subtle sim coupling: fired on keystrokes (weak) and chip changes (stronger) */
+	/** called on keystrokes (weakly) and chip changes (more strongly) */
 	pulse?: (strength: number) => void;
 }
 
 export interface SearchHandle {
-	/** filter this panel by a tag from outside it (the Index panel's latest post) */
+	/** filter by a tag from outside the panel (the Index panel's latest post) */
 	addTag: (tag: string) => void;
 	/** filter this panel by a project from outside it (a Projects entry) */
 	addProject: (slug: string) => void;
@@ -75,7 +70,7 @@ export function initSearch(
 	const list = panel.querySelector<HTMLElement>("[data-scroll]");
 	if (!(input && chipBox && list)) return noop;
 
-	// `@` only means something among posts, not in the Projects panel
+	// `@` only applies to posts
 	const projects = kind === "post";
 	const chips = new Set<string>();
 	let projectChip: string | null = null;
@@ -185,7 +180,7 @@ export function initSearch(
 
 	const openAuto = (sigil: Sigil, frag: string): void => {
 		const n = counts(sigil);
-		const all = n ? Object.keys(n).sort() : domValues(sigil);
+		const all = n ? Object.keys(n).sort((a, b) => a.localeCompare(b)) : domValues(sigil);
 		const taken = (v: string): boolean => (sigil === "#" ? chips.has(v) : projectChip === v);
 		autoItems = all.filter((v) => !taken(v) && v.startsWith(frag.toLowerCase()));
 		autoSigil = sigil;
@@ -212,10 +207,10 @@ export function initSearch(
 		auto.hidden = false;
 	};
 
-	/** Commit one autocomplete value as a chip. The only place chips are created. */
+	/** Turn an autocomplete value into a chip. Every chip is created here. */
 	const complete = (sigil: Sigil, value: string): void => {
 		if (sigil === "#") chips.add(value);
-		else projectChip = value; // single-valued: a post has one project
+		else projectChip = value; // at most one
 		input.value = input.value.replace(/[#@]\S*$/, "").trimEnd();
 		closeAuto();
 		renderChips();
@@ -249,7 +244,7 @@ export function initSearch(
 		hooks.pulse?.(0.3);
 	};
 
-	/** Newest chip first: the order backspace and ArrowLeft both walk. */
+	/** Newest chip first, the order backspace and ArrowLeft walk. */
 	const lastChip = (): { sigil: Sigil; value: string } | null => {
 		if (projectChip) return { sigil: "@", value: projectChip };
 		const t = [...chips].at(-1);

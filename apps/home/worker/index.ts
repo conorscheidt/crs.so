@@ -34,7 +34,7 @@ async function record(req: Request, env: Env, origin: string): Promise<Response>
 	} catch {
 		return new Response(null, { status: 400 });
 	}
-	const event = payload["event"];
+	const { event } = payload;
 	if (typeof event !== "string") return new Response(null, { status: 400 });
 
 	env.EVENTS.writeDataPoint({

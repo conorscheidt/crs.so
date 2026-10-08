@@ -1,17 +1,15 @@
 ---
 /**
- * Editable, runnable code block: CodeMirror with vim on by default, runs only
- * on an explicit ▶, real stdio. The output area is a terminal: stdout streams
- * in, and a blocked stdin read parks the program on an inline prompt
- * (SharedArrayBuffer). Static blocks mount the same editor read-only so every
- * block renders identically.
+ * Editable, runnable code block: CodeMirror with vim on by default, run with
+ * ▶. The output is a terminal: stdout streams in, and a blocking stdin read
+ * waits on an inline prompt (SharedArrayBuffer). Static blocks mount the same
+ * editor read-only so all blocks render alike.
  */
 type Props = {
 	lang: string;
 	code: string;
 	runnable?: boolean;
 };
-// biome-ignore lint/correctness/noUnusedVariables: `code` renders in the template pre (template-usage false positive)
 const { lang, code, runnable = false } = Astro.props;
 ---
 
