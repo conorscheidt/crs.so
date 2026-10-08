@@ -68,6 +68,20 @@
 	transform-origin: top;
 }
 
+/* Tracks reading progress on the compositor, in step with the scroll. */
+@supports (animation-timeline: scroll()) {
+	.atoc-fill {
+		animation: toc-fill linear both;
+		animation-timeline: scroll(root);
+	}
+}
+
+@keyframes toc-fill {
+	to {
+		transform: scaleY(1);
+	}
+}
+
 .atoc-links {
 	display: flex;
 	flex-direction: column;
@@ -100,6 +114,7 @@
 }
 
 .ahead h1 {
+	text-wrap: balance;
 	font-family: var(--font-display);
 	font-weight: 260;
 	font-variation-settings: "opsz" 144;
@@ -169,10 +184,12 @@
 }
 
 .prose p {
+	text-wrap: pretty;
 	margin-bottom: var(--s2);
 }
 
 .prose h2 {
+	text-wrap: balance;
 	font-family: var(--font-display);
 	font-weight: 260;
 	font-variation-settings: "opsz" 60;
@@ -403,7 +420,7 @@
 }
 
 /* narrow: marginal notes fall inline as quiet asides */
-@media (max-width: 1079px) {
+@media (width < 1080px) {
 	.arail-r {
 		display: none;
 	}
@@ -838,9 +855,10 @@
 }
 
 /* rails collapse on narrow viewports; prose stands alone */
-@media (max-width: 899px) {
+@media (width < 900px) {
 	.apage {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
+		padding-inline: var(--gutter);
 	}
 
 	.arail-l {
@@ -849,7 +867,7 @@
 		flex-direction: row;
 		align-items: baseline;
 		gap: var(--s3);
-		padding-bottom: 0;
+		padding: max(var(--s4), env(safe-area-inset-top)) 0 0;
 	}
 
 	.atoc {

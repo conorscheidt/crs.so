@@ -14,6 +14,7 @@
 	--s3: 21px;
 	--s4: 34px;
 	--s5: 55px;
+	--gutter: max(var(--s3), env(safe-area-inset-left), env(safe-area-inset-right));
 	/* --font-display, --font-text, --font-mark come from the fonts config */
 	--font-mono: var(--font-mark);
 
@@ -556,6 +557,7 @@ html.no-native-cursor *::after {
 }
 
 .entry-title {
+	text-wrap: balance;
 	--opsz: 48;
 	font-family: var(--font-display);
 	font-weight: 260;
@@ -572,6 +574,7 @@ html.no-native-cursor *::after {
 }
 
 .entry-desc {
+	text-wrap: pretty;
 	font-size: 13px;
 	color: var(--ink-70);
 	margin-top: 5px;
@@ -798,6 +801,7 @@ html.no-native-cursor *::after {
 
 /* Index panel. */
 .latest-title {
+	text-wrap: balance;
 	--opsz: 60;
 	font-family: var(--font-display);
 	font-weight: 260;
@@ -958,6 +962,7 @@ html.no-native-cursor *::after {
 
 /* About panel. */
 .blurb {
+	text-wrap: pretty;
 	font-size: 13.5px;
 	line-height: 1.62;
 	color: var(--ink-70);
@@ -1058,7 +1063,6 @@ html.no-native-cursor *::after {
 	}
 
 	.hub {
-		--gutter: max(var(--s3), env(safe-area-inset-left), env(safe-area-inset-right));
 		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: auto auto 46svh auto 1fr auto auto;
 		grid-template-areas: "plate" "role" "window" "nav" "panel" "links" "foot";

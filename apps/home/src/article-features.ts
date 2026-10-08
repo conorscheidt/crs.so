@@ -15,7 +15,11 @@ const FIGURES = { oscillator, geometry, graph, distribution };
 
 export function initToc(): () => void {
 	const toc = document.querySelector<HTMLElement>("[data-toc]");
-	const fill = document.querySelector<HTMLElement>("[data-toc-progress]");
+	// The progress fill is a scroll-driven animation in article.css; this is
+	// only for browsers without scroll timelines.
+	const fill = CSS.supports("animation-timeline: scroll()")
+		? null
+		: document.querySelector<HTMLElement>("[data-toc-progress]");
 	if (!toc) return () => {};
 	const ac = new AbortController();
 	const { signal } = ac;
@@ -24,8 +28,7 @@ export function initToc(): () => void {
 		.map((a) => document.getElementById(a.dataset.head ?? ""))
 		.filter((h): h is HTMLElement => h !== null);
 
-	// Geometry is cached so the scroll handler never forces layout (per-
-	// frame getBoundingClientRect on every heading was the article's jank).
+	// Heading offsets are cached so the scroll handler never forces layout.
 	let tops: number[] = [];
 	let max = 0;
 	const measure = (): void => {
@@ -45,7 +48,7 @@ export function initToc(): () => void {
 		for (const [i, top] of tops.entries()) {
 			if (top < line) active = i;
 		}
-		// short last sections never cross the threshold — the page bottom wins
+		// A short last section never crosses the line, so the page bottom wins.
 		if (scrollY + innerHeight >= max + innerHeight - 4) active = heads.length - 1;
 		for (const [i, a] of links.entries()) {
 			a.classList.toggle("on", i === active);
