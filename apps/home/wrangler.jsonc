@@ -5,7 +5,7 @@
 	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "crs-so",
 	"compatibility_date": "2026-08-01",
-	"main": "./worker.ts",
+	"main": "./worker/index.ts",
 	// Stack traces in the observability logs point at worker.ts, not the bundle.
 	"upload_source_maps": true,
 

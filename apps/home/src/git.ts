@@ -1,15 +1,10 @@
-/**
- * git.crs.so block: client-side fetch against basalt, the git server and
- * frontend written for this domain. The API is built for this panel: one
- * request returning exactly what is drawn, summarised server-side. The
- * contract is documented on `Summary` below; basalt implements it.
- *
- * No fallback: if the server does not answer, the panel says so. A sample
- * year for working on the populated layout is in data/mocks.ts.
- */
+// The git.crs.so block on the index: a year of commit activity, the busiest
+// repositories, and the latest commits, all from basalt. It fetches /api/git on
+// this origin, which the Worker proxies and caches. If basalt doesn't answer
+// the block stays hidden.
+// data/mocks.ts has a sample year for working on the layout.
 import { GIT_HOST } from "./data/projects";
 
-const API = `${GIT_HOST}/api`;
 const DAYS = 364; // 52 whole weeks
 const WEEKS = 52;
 const MS_DAY = 86_400_000;
@@ -27,7 +22,7 @@ interface Repo {
 	commits: number;
 	updated: number;
 	url: string;
-	/** [language, share 0–1] descending, at most three */
+	/** [language, share 0–1], descending, at most three. */
 	langs: [string, number][];
 }
 
@@ -36,7 +31,6 @@ interface GitData {
 	commits: number;
 	repos: number;
 	recent: FeedItem[];
-	/** the busiest repositories, busiest first */
 	popular: Repo[];
 }
 
@@ -44,7 +38,7 @@ interface GitData {
 function streak(heat: Map<number, number>): number {
 	const today = Math.floor(Date.now() / MS_DAY);
 	let n = 0;
-	// today may still be empty early in the day, so start at yesterday
+	// An empty "today" early in the day shouldn't break the streak.
 	const from = (heat.get(today) ?? 0) > 0 ? today : today - 1;
 	for (let d = from; d > from - DAYS; d--) {
 		if ((heat.get(d) ?? 0) === 0) break;
@@ -53,7 +47,7 @@ function streak(heat: Map<number, number>): number {
 	return n;
 }
 
-/** Weekly buckets, oldest → newest, aligned so the last bucket ends today. */
+/** Weekly totals, oldest first, with the last week ending today. */
 function weekly(heat: Map<number, number>): number[] {
 	const today = Math.floor(Date.now() / MS_DAY);
 	return Array.from({ length: WEEKS }, (_, w) => {
@@ -64,29 +58,9 @@ function weekly(heat: Map<number, number>): number[] {
 }
 
 /**
- * Response contract with basalt. One request, already summarised: the server
- * has its own object store and can answer far faster than the browser could
- * reassemble this from generic endpoints. The response holds only what the
- * block draws.
- *
- *   GET https://git.crs.so/api/summary
- *
- *   {
- *     "days":    [[epochDay, commits], …],   // last 364 days; omit empty days
- *     "commits": 1204,                        // all time, all repos
- *     "repos":   11,
- *     "popular": [{ name, description, commits, updated, langs }],  // ≤3
- *     "recent":  [{ repo, message, when }]                          // ≤3
- *   }
- *
- *   epochDay  floor(unix_ms / 86400000), UTC
- *   updated,
- *   when      unix ms
- *   langs     [[language, share 0–1], …] descending, ≤3, shares sum to ≤1
- *   message   the commit subject only: one line, already trimmed
- *
- * URLs are derived client-side rather than sent: a repo lives at
- * ${GIT_HOST}/{name} and its log at ${GIT_HOST}/{name}/commits.
+ * What basalt serves at GET /api/summary. Timestamps are unix ms; `days` holds
+ * [floor(ms / 86_400_000), commits] pairs for the last 364 UTC days, empty days
+ * omitted. URLs are derived here, never taken from the response.
  */
 interface Summary {
 	days: [number, number][];
@@ -103,9 +77,9 @@ interface Summary {
 }
 
 async function fetchData(): Promise<GitData> {
-	const res = await fetch(`${API}/summary`, { signal: AbortSignal.timeout(4000) });
-	if (!res.ok) throw new Error(`git api ${res.status}`);
-	const s = (await res.json()) as Summary;
+	const res = await fetch("/api/git", { signal: AbortSignal.timeout(4000) });
+	if (!res.ok) throw new Error(`git summary ${res.status}`);
+	const s = (await res.json()) as Partial<Summary>;
 
 	const today = Math.floor(Date.now() / MS_DAY);
 	const heat = new Map<number, number>();
@@ -141,30 +115,13 @@ function age(ts: number): string {
 	return `${Math.round(s / 86_400)}d`;
 }
 
-/**
- * The server is not up yet (Basalt is still being written), and once it is up
- * it can still be unreachable. Either way the panel says so.
- */
-function renderUnreachable(root: HTMLElement): void {
-	root.querySelector("[data-git-detail]")?.remove();
-	root.querySelector("[data-git-heat]")?.replaceChildren();
-	const line = root.querySelector<HTMLElement>("[data-git-totals]");
-	if (line) {
-		line.className = "hollow-lead";
-		line.textContent = "Couldn’t fetch git stats.";
-	}
-	root.hidden = false;
-}
-
 export async function initGitBlock(root: HTMLElement): Promise<void> {
 	let data: GitData;
 	try {
 		data = await fetchData();
 	} catch {
-		renderUnreachable(root);
 		return;
 	}
-
 	const weeks = weekly(data.heat);
 	renderYear(root, weeks);
 	renderTotals(root, data, weeks);

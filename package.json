@@ -11,7 +11,7 @@
 		"build": "bun run --filter '*' build",
 		"deploy": "bun run --filter '*' deploy",
 		"test": "bun test",
-		"check": "biome check . && astro check --root apps/home --minimumSeverity error",
+		"check": "cd apps/home && wrangler types worker/worker-configuration.d.ts >/dev/null && tsc -p worker && cd ../.. && biome check . && astro check --root apps/home --minimumSeverity error",
 		"fix": "biome check --write ."
 	},
 	"dependencies": {
