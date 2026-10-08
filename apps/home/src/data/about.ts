@@ -1,10 +1,8 @@
-/**
- * About panel content, mirroring the résumé. The résumé PDF stays the
- * complete record (coursework, bullets, awards); this panel is the short
- * version. Don't add anything the résumé doesn't support.
- */
+// About panel content. Keep it consistent with the résumé, which stays the
+// complete record; this is the ten-second version.
+
 export const blurb =
-	"Applied mathematics and computer science at Northwestern. I work on systems focused on performance and correctness — distributed systems, trading infrastructure, compilers and runtimes, and the numerical methods underneath them.";
+	"I study applied mathematics and computer science at Northwestern. Most of my work is on systems where performance and correctness both matter: distributed systems, trading infrastructure, compilers, and numerical methods.";
 
 export interface SchoolEntry {
 	school: string;
@@ -36,40 +34,36 @@ export interface ExperienceEntry {
 	detail: string;
 }
 
-// Each entry says what the work was and what came out of it: the research or
-// the responsibility first, the thing built second. Not a second project list.
 export const experience: ExperienceEntry[] = [
 	{
 		role: "Quantitative Developer",
 		org: "Northwestern Financial Technologies",
-		span: "Sept 2025 —",
+		span: "since Sept 2025",
 		detail:
-			"Study event-futures microstructure and exchange design with the trading group, and take that work into production: the live Kalshi bot, and the limit-order-book simulator it is tested against.",
+			"Event-futures microstructure and exchange design with the trading group. Built the live Kalshi trading bot and the limit order book simulator it's tested against.",
 	},
 	{
 		role: "Undergraduate Researcher",
 		org: "Gingrich Group",
-		span: "2024 — 2025",
+		span: "2024–2025",
 		detail:
-			"Research in non-equilibrium statistical mechanics — reaction–diffusion and tensor-network stochastic chemistry — and the tooling it needed: browser simulators now used in coursework, and develop pipelines to run ~five times faster on the university clusters.",
+			"Non-equilibrium statistical mechanics: reaction–diffusion and tensor-network models of stochastic chemistry. Wrote browser simulators now used in coursework and made the group's cluster pipelines about five times faster.",
 	},
 	{
 		role: "Undergraduate Researcher",
 		org: "AquaLab",
-		span: "2023 — 2024",
+		span: "2023–2024",
 		detail:
-			"Internet measurement research on privacy and data-protection practice across the web. Designed the study's telemetry model and built Plankton, the distributed crawler behind the datasets later measurement work drew on.",
+			"Internet measurement research on privacy and data-protection practices across the web. Designed the study's telemetry model and built Plankton, the distributed crawler behind its datasets.",
 	},
 ];
 
 export const resumeHref = "/Conor_Scheidt_Resume.pdf";
 
-/** Bottom-left contact rail. */
 export const contact = {
 	email: "c@crs.so",
 	github: "https://github.com/conorscheidt",
 	linkedin: "https://linkedin.com/in/conorscheidt",
 };
 
-/** Bottom-right corner meta (city + live local time). */
 export const place = { city: "Evanston, IL", tz: "America/Chicago" };

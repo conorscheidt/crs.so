@@ -17,11 +17,6 @@ const year = new Date().getUTCFullYear();
  *  frontmatter reference doesn't render a mark that filters to nothing. */
 const known = (slug?: string): string | undefined => (slug && projectBySlug(slug) ? slug : undefined);
 
-/*
- * The colophon page is disabled until it is written. To restore it, rename
- * pages/_colophon.astro and put this back in the corner:
- *     <span>© {year} · <a href="/colophon">colophon</a></span>
- */
 
 
 // Restore alongside the git block once git.crs.so resolves:

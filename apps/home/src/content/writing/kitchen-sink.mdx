@@ -1,0 +1,168 @@
+---
+title: "Kitchen sink"
+description: "Every article component on one page, for checking layout and behaviour. Not published."
+date: 2026-07-31
+minutes: 4
+tags: [meta]
+project: crs-so
+draft: true
+---
+
+import Code from "../../components/article/Code.astro";
+import Fig from "../../components/article/Fig.astro";
+import Figure from "../../components/article/Figure.astro";
+import Marginal from "../../components/article/Marginal.astro";
+import trefoilPlate from "../../assets/trefoil-plate.png";
+
+A fixture, not a post. Each section below exercises one part of the article
+system: bound values, live plates, runnable code, marginal notes, footnotes[^1]
+and raster figures.
+
+## Bound values
+
+A damped oscillator with damping ratio <Marginal note="Q = 1/(2ζ).">$\zeta$</Marginal>
+of <b data-bind="zeta" data-fig="osc">0.12</b> and natural frequency
+$\omega =$ <b data-bind="omega" data-fig="osc">2.40</b>:
+
+$$
+\ddot{x} + 2\htmlClass{vbind vbind-osc-zeta}{\zeta}\htmlClass{vbind vbind-osc-omega}{\omega}\,\dot{x} + \htmlClass{vbind vbind-osc-omega}{\omega}^2 x = 0
+$$
+
+Dragging either handle in the plate updates the values above and the
+equation's variables[^2].
+
+<Fig kind="oscillator" id="osc" n={1} caption="the s-plane (drag the pole) and the step response (drag the first peak). Both handles move both panels." />
+
+## Runnable code
+
+C and C++ compile in a worker with clang and lld. Programs that read stdin
+pause and wait for input.
+
+<Code lang="c" runnable code={`#include <stdio.h>
+
+int main(void) {
+    printf("steps? ");
+    fflush(stdout);
+    int steps;
+    if (scanf("%d", &steps) != 1) steps = 100;
+    double x = 1.0, v = 0.0, dt = 0.05;
+    for (int i = 0; i < steps; i++) {
+        v -= (2 * 0.12 * v + x) * dt;
+        x += v * dt;
+    }
+    printf("after %d steps: x = %f\\n", steps, x);
+    return 0;
+}`} />
+
+<Code lang="cpp" runnable code={`#include <array>
+#include <cstdio>
+
+template <int Steps>
+auto simulate(double zeta, double omega) {
+    std::array<double, Steps> xs{};
+    double x = 1.0, v = 0.0;
+    for (auto& out : xs) {
+        v -= (2 * zeta * omega * v + omega * omega * x) * 0.01;
+        out = x += v * 0.01;
+    }
+    return xs;
+}
+
+int main() {
+    std::printf("zeta? ");
+    std::fflush(stdout);
+    double zeta;
+    if (std::scanf("%lf", &zeta) != 1) zeta = 0.12;
+    double peak = 0;
+    for (double x : simulate<600>(zeta, 2.4))
+        peak = x < peak ? x : peak;
+    std::printf("zeta = %.2f -> first overshoot: %.4f\\n", zeta, peak);
+}`} />
+
+
+JavaScript and TypeScript run in a sandboxed worker; TypeScript is
+type-stripped first.
+
+<Code lang="js" runnable code={`const zeta = 0.12, omega = 2.4, dt = 1e-4, T = 3;
+let x = 1, v = 0;
+for (let t = 0; t < T; t += dt) {
+  v -= (2 * zeta * omega * v + omega * omega * x) * dt;
+  x += v * dt;
+}
+const wd = omega * Math.sqrt(1 - zeta * zeta);
+const exact = Math.exp(-zeta * omega * T) *
+  (Math.cos(wd * T) + (zeta * omega / wd) * Math.sin(wd * T));
+console.log("simulated", x.toFixed(6));
+console.log("exact    ", exact.toFixed(6));`} />
+
+<Code lang="ts" runnable code={`type Regime =
+  | { kind: "underdamped"; ringsAt: number }
+  | { kind: "critical" }
+  | { kind: "overdamped"; slowPole: number };
+
+function classify(zeta: number, omega: number): Regime {
+  if (zeta < 1)
+    return { kind: "underdamped", ringsAt: omega * Math.sqrt(1 - zeta * zeta) };
+  if (zeta === 1) return { kind: "critical" };
+  return { kind: "overdamped", slowPole: -omega * (zeta - Math.sqrt(zeta * zeta - 1)) };
+}
+
+console.log(classify(0.12, 2.4));
+console.log(classify(2.0, 2.4));`} />
+
+
+WebAssembly text is assembled with wabt and instantiated directly, with
+<Marginal note="2ζω = 0.576 and ω² = 5.76.">constants folded by hand</Marginal>.
+
+<Code lang="wat" runnable code={`(module
+  (import "env" "print_f64" (func $print (param f64)))
+  (func (export "main")
+    (local $x f64) (local $v f64) (local $i i32)
+    (local.set $x (f64.const 1))
+    (loop $steps
+      (local.set $v (f64.sub (local.get $v)
+        (f64.mul (f64.add (f64.mul (f64.const 0.576) (local.get $v))
+                          (f64.mul (f64.const 5.76) (local.get $x)))
+                 (f64.const 0.05))))
+      (local.set $x (f64.add (local.get $x)
+        (f64.mul (local.get $v) (f64.const 0.05))))
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (br_if $steps (i32.lt_s (local.get $i) (i32.const 100))))
+    (call $print (local.get $x))))`} />
+
+
+## Plates
+
+<Fig kind="geometry" id="geo" n={2} caption="triangle ABC with its perpendicular bisectors and circumcircle. Drag any vertex." />
+
+The graph's temperature $\alpha$ is <b data-bind="alpha" data-fig="net">1.00</b>.
+
+<Fig kind="graph" id="net" n={3} caption="a force layout. Dragging a node reheats it; hovering highlights its neighbours." />
+
+The fit's $\mu =$ <b data-bind="mu" data-fig="dist">0.50</b> and
+$\sigma =$ <b data-bind="sigma" data-fig="dist">0.11</b>, over a fixed sample[^3].
+
+<Fig kind="distribution" id="dist" n={4} caption="a normal fit. Drag the peak for μ and the inflection handle for σ." />
+
+## Read-only code
+
+Languages without a runner render read-only.
+
+<Code lang="rust" code={`#[derive(Clone, Copy)]
+struct State { x: f64, v: f64 }
+
+fn step(s: State, zeta: f64, omega: f64, dt: f64) -> State {
+    let a = -(2.0 * zeta * omega * s.v + omega * omega * s.x);
+    State { x: s.x + s.v * dt, v: s.v + a * dt }
+}`} />
+
+
+## Raster figure
+
+<Figure src={trefoilPlate} n={5} alt="The trefoil knot drawn as pale dots on dark paper." caption="the trefoil as a still image, through Astro's image pipeline." />
+
+[^1]: Footnotes show a hover card and link back to their reference.
+
+[^2]: Hovering a bound value highlights its part of the plate, and the reverse.
+
+[^3]: The sample is generated from a fixed hash, so it is identical on every load.
