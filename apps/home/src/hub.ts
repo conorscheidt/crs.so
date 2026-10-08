@@ -30,9 +30,19 @@ export function bootHub(clock: Clock): () => void {
 		panels.set(el.dataset.panel as Section, el);
 	}
 
-	// Lenis: one persistent instance per scrollable list; touch stays native.
+	// Lenis smooths the panel lists, which only scroll internally in the desktop
+	// layout. Below the breakpoint the page scrolls instead, and a Lenis left
+	// on a list would swallow trackpad wheel events.
+	const desktop = matchMedia("(width >= 900px)");
 	const lenises = new Map<Section, Lenis>();
-	if (!reducedMotion) {
+	const syncLenis = (): void => {
+		const want = desktop.matches && !reducedMotion;
+		if (!want) {
+			for (const l of lenises.values()) l.destroy();
+			lenises.clear();
+			return;
+		}
+		if (lenises.size > 0) return;
 		for (const [name, panel] of panels) {
 			const wrapper = panel.querySelector<HTMLElement>("[data-scroll]");
 			if (!wrapper?.firstElementChild) continue;
@@ -48,17 +58,19 @@ export function bootHub(clock: Clock): () => void {
 				}),
 			);
 		}
-		unsubs.push(
-			clock.subscribe((t) => {
-				let v = 0;
-				for (const l of lenises.values()) {
-					l.raf(t);
-					v = Math.max(v, Math.abs(l.velocity));
-				}
-				if (v > 2) sim?.excite(Math.min(0.35, v * 0.004));
-			}),
-		);
-	}
+	};
+	syncLenis();
+	desktop.addEventListener("change", syncLenis, { signal });
+	unsubs.push(
+		clock.subscribe((t) => {
+			let v = 0;
+			for (const l of lenises.values()) {
+				l.raf(t);
+				v = Math.max(v, Math.abs(l.velocity));
+			}
+			if (v > 2) sim?.excite(Math.min(0.35, v * 0.004));
+		}),
+	);
 
 	const offsets = new Map<Section, number>();
 
@@ -196,6 +208,13 @@ export function bootHub(clock: Clock): () => void {
 		}
 		if (focus)
 			panel?.querySelector<HTMLElement>("[data-panel-head]")?.focus({ preventScroll: true });
+		// On the sheet layout, a switch made far down a long list should land at
+		// the top of the new section rather than somewhere inside it.
+		const nav = hub.querySelector("nav");
+		if (!desktop.matches && nav) {
+			const top = nav.getBoundingClientRect().top + scrollY;
+			if (scrollY > top) scrollTo({ top, behavior: reducedMotion ? "instant" : "smooth" });
+		}
 		sim?.setSection(to);
 	};
 

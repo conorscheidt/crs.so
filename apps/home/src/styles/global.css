@@ -1042,3 +1042,181 @@ html.no-native-cursor *::after {
 :root[data-theme="night"] .ecl .disc {
 	transform: translateX(0);
 }
+
+/* ---------- Narrow screens: the object fills the screen and the content sits
+   on a sheet over it. The page itself scrolls, so the sheet moves with native
+   scrolling; both hub columns collapse into one grid. */
+
+@media (width < 900px) {
+	html:has(.hub) {
+		scroll-snap-type: y proximity;
+	}
+
+	body:not(.scrollable) {
+		overflow: visible;
+		overscroll-behavior: auto;
+	}
+
+	.hub {
+		--gutter: max(var(--s3), env(safe-area-inset-left), env(safe-area-inset-right));
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto auto 46svh auto 1fr auto auto;
+		grid-template-areas: "plate" "role" "window" "nav" "panel" "links" "foot";
+		height: auto;
+		min-height: 100svh;
+	}
+
+	.col-l,
+	.col-r {
+		display: contents;
+	}
+
+	/* the sheet's surface, from the tabs to the footer */
+	.hub::before {
+		content: "";
+		grid-area: nav-start / 1 / foot-end / 2;
+		position: relative;
+		z-index: 1;
+		background: var(--paper);
+		border-top: 1px solid var(--rule);
+		border-radius: 18px 18px 0 0;
+	}
+
+	.namewrap {
+		grid-area: plate;
+		position: relative;
+		z-index: 2;
+		padding: max(var(--s4), env(safe-area-inset-top)) var(--gutter) 0;
+		scroll-snap-align: start;
+	}
+
+	.role {
+		grid-area: role;
+		position: relative;
+		z-index: 2;
+		padding-inline: var(--gutter);
+	}
+
+	.col-c {
+		position: fixed;
+		inset: 0 0 auto;
+		height: 78svh;
+		z-index: 0;
+		/* vertical swipes raise the sheet; horizontal ones spin the object */
+		touch-action: pan-y;
+	}
+
+	@supports (animation-timeline: scroll()) {
+		@media (prefers-reduced-motion: no-preference) {
+			.col-c {
+				animation: sink linear both;
+				animation-timeline: scroll(root);
+				animation-range: 0 55svh;
+			}
+		}
+	}
+
+	.col-l nav {
+		grid-area: nav;
+		position: sticky;
+		top: 0;
+		z-index: 3;
+		flex-direction: row;
+		gap: var(--s3);
+		margin: 0;
+		padding: var(--s3) var(--gutter) var(--s2) calc(var(--gutter) + 12px);
+		background: var(--paper);
+		border-radius: 18px 18px 0 0;
+		scroll-snap-align: start;
+	}
+
+	/* grab handle */
+	.col-l nav::before {
+		content: "";
+		position: absolute;
+		top: 7px;
+		left: 50%;
+		width: 30px;
+		height: 3px;
+		border-radius: 2px;
+		background: var(--rule);
+		translate: -50% 0;
+	}
+
+	.col-l nav a {
+		font-size: 14px;
+	}
+
+	.col-l nav a[aria-current="page"]::before {
+		left: -11px;
+		width: 5px;
+		height: 5px;
+	}
+
+	.panel {
+		grid-area: panel;
+		position: relative;
+		inset: auto;
+		z-index: 2;
+		display: none;
+		min-height: 36svh;
+		padding: var(--s1) var(--gutter) var(--s4);
+		opacity: 1;
+		visibility: visible;
+		transition:
+			opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
+			display 240ms allow-discrete;
+	}
+
+	.hub[data-section="index"] .panel[data-panel="index"],
+	.hub[data-section="projects"] .panel[data-panel="projects"],
+	.hub[data-section="writing"] .panel[data-panel="writing"],
+	.hub[data-section="about"] .panel[data-panel="about"] {
+		display: flex;
+	}
+
+	@starting-style {
+		.hub[data-section="index"] .panel[data-panel="index"],
+		.hub[data-section="projects"] .panel[data-panel="projects"],
+		.hub[data-section="writing"] .panel[data-panel="writing"],
+		.hub[data-section="about"] .panel[data-panel="about"] {
+			opacity: 0;
+		}
+	}
+
+	.list {
+		flex: none;
+		overflow: visible;
+		padding-right: 0;
+	}
+
+	.meta {
+		grid-area: links;
+		position: relative;
+		z-index: 2;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: var(--s1) var(--s3);
+		margin: 0;
+		padding: var(--s3) var(--gutter);
+		border-top: 1px solid var(--rule);
+	}
+
+	.corner {
+		grid-area: foot;
+		position: relative;
+		inset: auto;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: baseline;
+		padding: 0 var(--gutter) max(var(--s3), env(safe-area-inset-bottom));
+		pointer-events: auto;
+	}
+}
+
+@keyframes sink {
+	to {
+		opacity: 0.25;
+		scale: 0.92;
+	}
+}

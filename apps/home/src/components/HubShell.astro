@@ -23,6 +23,9 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
  *     <span>© {year} · <a href="/colophon">colophon</a></span>
  */
 
+
+// Restore alongside the git block once git.crs.so resolves:
+//   <a href="https://git.crs.so" rel="me">git.crs.so ↗</a>  (in .meta)
 ---
 
 <div class="hub" data-section={section}>
@@ -31,7 +34,6 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 			<a class="name press inkable" href="/">Conor<br />Scheidt</a>
 		</h1>
 		<p class="role">software · mathematics</p>
-		<p>WEBSITE STILL UNDER CONSTRUCTION - NO POSTS OR PROJECTS YET!</p>
 		<nav aria-label="Sections">
 			<a href="/" aria-current={section === "index" ? "page" : undefined}>Index</a>
 			<a href="/projects" aria-current={section === "projects" ? "page" : undefined}>Projects</a>
@@ -40,7 +42,6 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 		</nav>
 		<div class="meta">
 			<a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a>
-			<a href="https://git.crs.so" rel="me">git.crs.so ↗</a>
 			<button type="button" data-theme-toggle aria-label="Toggle day and night">
 				<svg class="ecl" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
 					<circle class="ring" cx="8" cy="8" r="5.5"></circle>
