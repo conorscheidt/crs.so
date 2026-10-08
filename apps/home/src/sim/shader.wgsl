@@ -1,7 +1,5 @@
-// Instanced ink dots, stateless.
-// Every formula here mirrors sim/shapes.ts + sim/camera.ts
-// (shapes, morph + stagger, rotation, weak-perspective projection, screen-space
-// dimple, front/back shading). The TS side is the tested reference.
+// Instanced ink dots, stateless. Mirrors sim/shapes.ts and sim/camera.ts:
+// shapes, morph stagger, rotation, projection, dimple and depth shading.
 
 struct U {
 	res: vec2f,
@@ -38,7 +36,7 @@ const ICO_VERTS = array<vec3f, 12>(
 	vec3f(0.8506508, 0.0, -0.5257311), vec3f(-0.8506508, 0.0, -0.5257311),
 );
 
-// 30 edges as vertex-index pairs (generated from the same <1.2 rule as TS).
+// The 30 edges as vertex-index pairs (same < 1.2 distance rule as the TS).
 const ICO_EDGES = array<vec2u, 30>(
 	vec2u(0u, 2u), vec2u(0u, 4u), vec2u(0u, 6u), vec2u(0u, 8u), vec2u(0u, 9u),
 	vec2u(1u, 3u), vec2u(1u, 4u), vec2u(1u, 6u), vec2u(1u, 10u), vec2u(1u, 11u),
@@ -133,7 +131,7 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 	var p: vec4f;
 	var size_mul = 1.0;
 	if (ii >= u32(N)) {
-		// Icosahedron vertex accents — visible only while the ico has weight.
+		// Icosahedron vertex accents, visible only while the icosahedron has weight.
 		p = vec4f(ICO_VERTS[ii - u32(N)], 0.85 * u.accent_w);
 		size_mul = 1.9;
 	} else if (u.morph_t >= 1.0 || u.from_obj == u.to_obj) {
@@ -144,7 +142,7 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 		p = mix(a, b, staggered_t(u.morph_t, i));
 	}
 
-	// Rotation: yaw (Y), tiltX (X), tiltZ (Z) — parity with sim/camera.ts.
+	// Rotation: yaw (Y), tiltX (X), tiltZ (Z), as in sim/camera.ts.
 	let cy = cos(u.yaw); let sy = sin(u.yaw);
 	let cx = cos(u.tilt_x); let sx = sin(u.tilt_x);
 	let cz = cos(u.tilt_z); let sz = sin(u.tilt_z);
@@ -167,13 +165,13 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 		px += (dv / (sqrt(r2) + 1e-4)) * push;
 	}
 
-	// Continuous depth shading, no front/back pop (parity with camera.ts shade()).
+	// Depth shading, as in camera.ts shade().
 	let pl = max(length(vec3f(x3, y3, z2)), 1e-4);
 	let lit = max(0.0, dot(vec3f(x3, y3, z2) / pl, LIGHT));
 	let dc = clamp((z2 + 1.1) / 2.2, 0.0, 1.0);
 	let dt = dc * dc * (3.0 - 2.0 * dc);
-	// Dark ink over light paper reads washed-out at the same alpha as light ink
-	// over dark paper, so boost density as ink luminance falls (day ≈ ×1.35).
+	// Dark ink on light paper reads thinner than light on dark at the same
+	// alpha, so density rises as ink luminance falls.
 	let lum = dot(u.ink, vec3f(0.2126, 0.7152, 0.0722));
 	let gain = 1.0 + 0.62 * (1.0 - lum);
 	let alpha = min(0.92, p.w * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain);

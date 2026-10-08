@@ -1,7 +1,4 @@
-/**
- * Atom-style RSS 2.0 feed: a dated, canonical list of every post, for feed
- * readers and crawlers.
- */
+/** RSS 2.0 feed of every published post. */
 
 import rss from "@astrojs/rss";
 import type { APIRoute } from "astro";

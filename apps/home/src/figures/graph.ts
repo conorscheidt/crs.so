@@ -1,8 +1,7 @@
 /**
- * Graph plate: a d3-force embedding. Nodes are sized by degree and draggable
- * (dragging reheats the simulation); hovering a node highlights its
- * neighbourhood and fades the rest. onParams reports the simulation
- * temperature α as it anneals.
+ * A d3-force graph. Nodes are sized by degree and draggable (dragging reheats
+ * the simulation); hovering a node highlights its neighbours. onParams reports
+ * the simulation's α as it cools.
  */
 import { drag } from "d3-drag";
 import {
@@ -91,7 +90,7 @@ export const graph: FigureFactory = (mount, hooks): FigureImpl => {
 			.attr("class", "node")
 			.attr("r", (d) => 2.6 + d.deg * 0.9);
 
-		// hover a node: highlight its neighbourhood, fade the rest
+		// hovering a node highlights its neighbours and fades the rest
 		nodeSel
 			.on("pointerenter", (_ev, d) => {
 				const near = new Set<N>([d]);
@@ -146,7 +145,7 @@ export const graph: FigureFactory = (mount, hooks): FigureImpl => {
 		update();
 	}
 
-	// anneal only while visible to save battery
+	// only simulate while visible
 	const io = new IntersectionObserver(([entry]) => {
 		if (entry?.isIntersecting) sim.restart();
 		else sim.stop();

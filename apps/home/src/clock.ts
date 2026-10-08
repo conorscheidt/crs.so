@@ -1,11 +1,9 @@
 /**
- * One persistent rAF loop for the whole page. Frame subscribers (lenis
- * instances, uniform springs, cursor lerp, sim render) tick every frame, and
- * the loop keeps running while any subscriber exists; panel scrolling depends
- * on it. Finite jobs (morphs, crossfades) layer on top with latest-wins
- * queueing: a request during an active job accelerates it by
- * MOTION.interruptAccel and runs the latest request when it completes, so
- * nothing snaps.
+ * One rAF loop for the whole page. Frame subscribers (Lenis, uniform springs,
+ * cursor, sim) tick every frame, and the loop never stops while any exist:
+ * panel scrolling depends on it. Finite jobs (morphs, crossfades) run on top,
+ * latest wins: a request during a job speeds the job up by
+ * MOTION.interruptAccel and runs once it finishes.
  */
 import { MOTION } from "./motion";
 
@@ -53,7 +51,7 @@ export class Clock {
 
 	/**
 	 * Queue an action that starts a job. Idle: runs now. Busy: the active job
-	 * accelerates and only the latest queued action survives to run after it.
+	 * speeds up and only the latest queued action runs after it.
 	 */
 	request(action: () => void): void {
 		if (!this.job) {
@@ -64,7 +62,7 @@ export class Clock {
 		this.pending = action;
 	}
 
-	/** bfcache restore / tab resume: forget the stale timestamp (dt clamp aside). */
+	/** After a bfcache restore or tab resume, drop the stale timestamp. */
 	epochReset(): void {
 		this.last = 0;
 	}
@@ -95,8 +93,8 @@ export class Clock {
 			}
 		}
 		if (this.subs.size === 0 && !this.job) {
-			// Fully quiescent pages (no lenis, no sim, no cursor) may sleep; any
-			// subscribe/run restarts the loop. Hub pages never reach this state.
+			// Pages with no subscribers may sleep; subscribe() or run() restarts the
+			// loop. The hub always has subscribers.
 			this.running = false;
 			return;
 		}

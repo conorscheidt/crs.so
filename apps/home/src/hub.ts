@@ -1,10 +1,8 @@
 /**
- * Hub controller. One layout, four URLs. Section changes are client-side:
- * pushState + title/aria swap + panel crossfade + object morph. All four
- * panels stay mounted, so lenis instances persist for the hub's lifetime.
- * Booted and torn down by app.ts: hub ⇄ article navigation is a same-document
- * swap, so everything here must be reversible (listeners on an
- * AbortController, sim and lenis owned here).
+ * The hub: one page at four URLs. Section changes are client-side (pushState,
+ * title, panel crossfade, object morph) and every panel stays mounted. app.ts
+ * boots and tears this down on hub ⇄ article travel, so everything here is
+ * reversible: listeners hang off one AbortController.
  */
 import Lenis from "lenis";
 import { track } from "./analytics";
@@ -74,7 +72,7 @@ export function bootHub(clock: Clock): () => void {
 
 	const offsets = new Map<Section, number>();
 
-	// The sim boots async; its API is safe to call before it is ready.
+	// The sim boots async; until it resolves, calls through `sim?` are no-ops.
 	let sim: Sim | null = null;
 	const canvas = hub.querySelector<HTMLCanvasElement>("#sim");
 	if (canvas) {
@@ -111,19 +109,18 @@ export function bootHub(clock: Clock): () => void {
 		});
 	}
 
-	// Search islands: shared index, per-panel kind; the sim pulses on
-	// keystrokes and chip changes.
+	// The search islands share one index; typing and chip changes nudge the sim.
 	const pulse = (strength: number): void => sim?.excite(strength);
 	const projPanel = panels.get("projects");
 	if (projPanel) initSearch(projPanel, "project", { pulse });
 	const writPanel = panels.get("writing");
 	const writSearch = writPanel ? initSearch(writPanel, "post", { pulse }) : null;
 
-	// Index git block: real data, or a "not reporting yet" note.
+	// Stays hidden unless basalt's summary loads.
 	const gitb = hub.querySelector<HTMLElement>("[data-git]");
 	if (gitb) void initGitBlock(gitb);
 
-	// Corner meta: the local time where the work happens, ticking.
+	// Local time in the corner.
 	const clockEl = hub.querySelector<HTMLElement>("[data-clock]");
 	if (clockEl) {
 		const tz = clockEl.dataset.tz ?? "America/Chicago";
@@ -142,7 +139,7 @@ export function bootHub(clock: Clock): () => void {
 		unsubs.push(() => clearInterval(id));
 	}
 
-	// Hovering an entry or the latest-post title quickens the sim.
+	// Hovering an entry quickens the object.
 	hub.querySelector(".col-r")?.addEventListener(
 		"pointerover",
 		(ev) => {
@@ -151,17 +148,15 @@ export function bootHub(clock: Clock): () => void {
 		{ passive: true },
 	);
 
-	// Track project opens from repository and live links.
+	// Count outbound repository and live links.
 	panels.get("projects")?.addEventListener("click", (ev) => {
 		const entry = (ev.target as HTMLElement).closest<HTMLElement>(".entry");
 		const xref = (ev.target as HTMLElement).closest(".xref");
 		if (entry && xref) track("project-open", { slug: entry.dataset.id ?? "" });
 	});
 
-	// Travel: a tag on the Index panel's latest post, or a project mark
-	// anywhere, opens Writing with that chip applied, as tags inside an
-	// article do. One listener on the hub so a mark behaves the same in
-	// every panel it can appear in.
+	// A project mark anywhere, or a tag on the Index panel, opens Writing with
+	// that filter applied.
 	const travel = (fn: () => void): void => {
 		if (section !== "writing") {
 			history.pushState({ section: "writing" }, "", PATHS.writing);
@@ -177,8 +172,7 @@ export function bootHub(clock: Clock): () => void {
 			travel(() => writSearch?.addProject(slug));
 			return;
 		}
-		// tags inside a panel with search are handled by that island;
-		// only the Index panel's tags are handled here
+		// Tags inside Projects and Writing belong to that panel's search island.
 		if (!el.closest("[data-panel='index']")) return;
 		const tag = el.closest<HTMLElement>(".tag")?.dataset.tag;
 		if (tag) {
@@ -255,8 +249,8 @@ export function bootHub(clock: Clock): () => void {
 		{ signal },
 	);
 
-	// Eclipse toggle: instant, synchronous inversion; the disc slide and
-	// a pulse through the cloud are the only things that animate.
+	// The theme flips synchronously; only the toggle's disc and a pulse through
+	// the sim animate.
 	const toggle = hub.querySelector<HTMLElement>("[data-theme-toggle]");
 	const themeLabel = hub.querySelector<HTMLElement>("[data-theme-label]");
 	const syncLabel = (): void => {

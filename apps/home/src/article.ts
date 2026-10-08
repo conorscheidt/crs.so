@@ -1,7 +1,6 @@
 /**
- * Article-page runtime: lenis on the page scroll, in-page anchor jumps, and
- * the article features. Booted and torn down by app.ts; hub/article travel is
- * a same-document swap, so everything here is reversible.
+ * Article runtime: Lenis on the page scroll, in-page anchor jumps and the
+ * article features. Booted and torn down by app.ts, like the hub.
  */
 import Lenis from "lenis";
 import { track, trackReadDepth } from "./analytics";
@@ -10,10 +9,9 @@ import type { Clock } from "./clock";
 import { MOTION } from "./motion";
 
 /**
- * One handler for every in-page anchor: the ToC, footnote references, and the
- * ↩ backrefs. Each gets a lenis glide (a native jump fights the smooth
- * scroller and lands wrong), pushes the hash so Back retraces the path, and
- * moves focus to the target for keyboard users.
+ * In-page anchors (ToC, footnote references, ↩ backrefs) glide with Lenis,
+ * since a native jump would fight the smooth scroller and land wrong. The hash
+ * is pushed so Back retraces the reading path, and focus moves with it.
  */
 // biome-ignore lint/security/noSecrets: a CSS attribute selector, not a secret
 const IN_PAGE = 'a[href^="#"]';
@@ -50,10 +48,9 @@ export function bootArticle(clock: Clock): () => void {
 		});
 		lenis = l;
 		cleanups.push(clock.subscribe((t) => l.raf(t)));
-		// Lenis's own ResizeObserver watches html/body, whose boxes are locked
-		// to the viewport by `height: 100%`, so content growth (idle-mounted
-		// editors, font swaps) never fires it and the scroll limit goes stale,
-		// cutting off the end of the page. Watch the actual page grid instead.
+		// Lenis observes html/body, whose height is pinned to the viewport, so
+		// content growth never fires it and the scroll limit goes stale. Observe
+		// the page grid instead.
 		const page = document.querySelector(".apage");
 		if (page) {
 			const ro = new ResizeObserver(() => l.resize());

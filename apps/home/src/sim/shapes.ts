@@ -1,12 +1,11 @@
 /**
- * Closed-form point clouds, one per section. Every function maps
- * (instance i, total n, phase) → a point in object space ~[-1.1, 1.1]³ plus a
- * base alpha. `phase` is the CPU-integrated time accumulator, not raw
- * time × speed (speed changes would teleport the cloud).
+ * The four objects as closed-form point clouds. Each maps (instance i, total n,
+ * phase) to a point in roughly [-1.1, 1.1]³ plus a base alpha. `phase` is
+ * integrated on the CPU; raw time × speed would teleport the cloud whenever
+ * the speed changed.
  *
- * sim/shader.wgsl mirrors every formula here (shapes, morph + stagger,
- * rotation, projection, dimple, lighting); change both together. The TS side
- * is what the tests cover, and it doubles as the Canvas2D fallback.
+ * sim/shader.wgsl mirrors every formula here. Change one, change the other;
+ * this side is tested and also drives the Canvas2D fallback.
  */
 export type Section = "index" | "projects" | "writing" | "about";
 
@@ -17,7 +16,7 @@ export const OBJECT_INDEX: Record<Section, number> = {
 	about: 3,
 };
 
-/** Per-object base camera pitch (radians) — lerped through morphs. */
+/** Base camera pitch per object (radians), interpolated during morphs. */
 export const BASE_PITCH = [0.16, 0.16, 0.38, 0.32] as const;
 
 export const N = 4600;
@@ -26,7 +25,7 @@ export const N_ACCENT = 12;
 
 const TAU = Math.PI * 2;
 
-/** Deterministic per-instance hash in [0,1) — mirrored in WGSL. */
+/** Deterministic per-instance hash in [0, 1), mirrored in WGSL. */
 export function hash(i: number, salt: number): number {
 	const x = Math.sin(i * 127.1 + salt * 311.7) * 43_758.5453;
 	return x - Math.floor(x);
@@ -39,7 +38,7 @@ export interface Pt {
 	a: number;
 }
 
-/** 0 · Index — trefoil knot, points streaming along the curve. */
+/** 0 · Index: trefoil knot, points streaming along the curve. */
 export function trefoil(i: number, n: number, phase: number, out: Pt): void {
 	const u = (i / n) * TAU + phase * 0.26;
 	const w = 2 + Math.cos(3 * u);
@@ -49,7 +48,7 @@ export function trefoil(i: number, n: number, phase: number, out: Pt): void {
 	out.a = 0.62;
 }
 
-/** Icosahedron geometry — 12 verts, 30 edges (computed once, both sides). */
+/** Icosahedron: 12 vertices, 30 edges. */
 const PHI = (1 + Math.sqrt(5)) / 2;
 const VNORM = Math.hypot(1, PHI);
 const RAW_VERTS: [number, number, number][] = [
@@ -82,7 +81,7 @@ export const ICO_EDGES: readonly (readonly [number, number])[] = (() => {
 	return edges;
 })();
 
-/** 1 · Projects — ink streaming along all 30 icosahedron edges. */
+/** 1 · Projects: points streaming along the 30 icosahedron edges. */
 export function icosahedron(i: number, _n: number, phase: number, out: Pt): void {
 	const e = ICO_EDGES[i % 30] as readonly [number, number];
 	const a = ICO_VERTS[e[0]] as readonly [number, number, number];
@@ -96,8 +95,8 @@ export function icosahedron(i: number, _n: number, phase: number, out: Pt): void
 }
 
 /**
- * 2 · Writing — loxodrome sphere: four interleaved rhumb lines spiralling
- * pole to pole around a solid globe, points streaming along each spiral.
+ * 2 · Writing: a loxodrome sphere, four interleaved rhumb lines spiralling pole
+ * to pole, points streaming along each.
  */
 export function loxodrome(i: number, _n: number, phase: number, out: Pt): void {
 	const STRANDS = 4;
@@ -117,8 +116,8 @@ export function loxodrome(i: number, _n: number, phase: number, out: Pt): void {
 }
 
 /**
- * 3 · About — Borromean rings: three mutually orthogonal ellipses, each pair
- * unlinked, the three inseparable. Points stream along each ring.
+ * 3 · About: Borromean rings, three mutually orthogonal ellipses. No two are
+ * linked, but the three can't be separated.
  */
 export function borromean(i: number, n: number, phase: number, out: Pt): void {
 	const ring = i % 3;
@@ -148,14 +147,14 @@ export function borromean(i: number, n: number, phase: number, out: Pt): void {
 
 export const SHAPES = [trefoil, icosahedron, loxodrome, borromean] as const;
 
-/** Morph stagger — per-particle cascade so the cloud doesn't move in lockstep. */
+/** Per-particle morph delay, so the cloud doesn't move in lockstep. */
 export function staggeredT(morphT: number, i: number): number {
 	const raw = morphT * 1.3 - hash(i, 9) * 0.3;
 	const c = Math.min(1, Math.max(0, raw));
 	return c * c * (3 - 2 * c);
 }
 
-/** Evaluate the blended object for instance i (the fallback + test path). */
+/** The blended object for instance i (used by the fallback and tests). */
 export function evalPoint(
 	i: number,
 	fromObj: number,

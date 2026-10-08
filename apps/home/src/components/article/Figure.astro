@@ -1,11 +1,10 @@
 ---
 /**
- * Raster figure. Wraps Astro's <Image> so every post image is transformed at
- * build time (AVIF with a WebP fallback, responsive widths, hashed filenames
- * under /_astro → immutable cache headers) and framed like a live plate: no
- * border by default, same caption style, numbered in the same sequence.
+ * Raster figure. Wraps Astro's <Image>, so post images are transformed at build
+ * time (AVIF with WebP fallback, responsive widths, hashed immutable files),
+ * and frames them like a live plate: same caption, same numbering.
  *
- * Usage in MDX:
+ * In MDX:
  *   import cover from "./my-shot.png";
  *   <Figure src={cover} alt="…" n={5} caption="…" />
  */
@@ -13,16 +12,16 @@ import { Image } from "astro:assets";
 import type { ImageMetadata } from "astro";
 
 type Props = {
-	/** imported image (ImageMetadata), not a bare string path */
+	/** an imported image (ImageMetadata), not a string path */
 	src: ImageMetadata;
 	/** required: this is content, not decoration */
 	alt: string;
 	caption?: string;
 	/** figure number in the post's sequence (shared with <Fig>) */
 	n?: number;
-	/** opt into a hairline frame; plates are naked by default */
+	/** add a hairline frame */
 	border?: boolean;
-	/** first image on the page? then it is eager + high priority (LCP) */
+	/** load eagerly at high priority (the LCP image) */
 	priority?: boolean;
 };
 const { src, alt, caption, n, border = false, priority = false } = Astro.props;

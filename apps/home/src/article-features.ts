@@ -1,8 +1,7 @@
 /**
- * Article feature runtime: live ToC + hairline progress, footnote hover
- * cards, marginal-note placement + hover sync, figure hydration + prose
- * bindings, and the editable/runnable code blocks (CodeMirror + vim, clang
- * worker, real stdio). Loaded only on article pages.
+ * Article features: the table of contents, footnote hover cards, marginal note
+ * placement, figure hydration and prose bindings, and the code blocks. Loaded
+ * only on article pages.
  */
 import { track } from "./analytics";
 import { distribution } from "./figures/distribution";
@@ -93,8 +92,7 @@ export function initFootnotes(): void {
 	}
 }
 
-/** Classical note symbols — mirrors the `notemarks` @counter-style exactly
- *  (symbolic system: the sequence doubles after six — **, ††, …). */
+/** Note symbols, matching the `notemarks` @counter-style (doubles after six). */
 const NOTE_SYMS = ["*", "†", "‡", "§", "‖", "¶"];
 const noteSym = (i: number): string => (NOTE_SYMS[i % 6] ?? "*").repeat(Math.floor(i / 6) + 1);
 
@@ -111,7 +109,7 @@ export function initMarginals(): () => void {
 		note.dataset.sym = noteSym(i);
 		note.hidden = false;
 		if (!wide) {
-			// narrow: quiet inline aside directly after the anchored phrase
+			// narrow screens: an inline aside right after the phrase
 			note.classList.add("mnote-inline");
 			continue;
 		}
@@ -172,9 +170,8 @@ export function initFigures(): () => void {
 }
 
 /**
- * Code blocks are the heavy dependency (CodeMirror + vim + languages): the
- * article text must paint instantly, so the editor machinery loads at idle
- * as its own chunk and enhances in place.
+ * The code block machinery (CodeMirror, vim, language support) is heavy, so it
+ * loads at idle as its own chunk and enhances the blocks in place.
  */
 export function initCode(): () => void {
 	const blocks = [...document.querySelectorAll<HTMLElement>("[data-code]")];
@@ -189,7 +186,7 @@ export function initCode(): () => void {
 	else globalThis.setTimeout(load, 300);
 	return () => {
 		cancelled = true;
-		// the chunk is a singleton — if it ever mounted, tear its editors down
+		// the chunk is a singleton; tear down whatever it mounted
 		void import("./article-code").then((m) => m.destroyEditors());
 	};
 }

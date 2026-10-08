@@ -1,8 +1,7 @@
 /**
- * Distribution plate: a normal fit over a fixed deterministic sample, with
- * handles on the curve. The peak handle drags μ, the inflection handle drags
- * σ. The ±σ band is shaded, μ is a dashed drop-line, σ an annotated bracket.
- * onParams reports μ and σ.
+ * A normal fit over a fixed sample, with its parameters on the curve: the peak
+ * handle drags μ and the inflection handle drags σ. The ±σ band is shaded, μ is
+ * a dashed drop line and σ an annotated bracket. onParams reports μ and σ.
  */
 import { drag } from "d3-drag";
 import { scaleLinear } from "d3-scale";
@@ -18,7 +17,7 @@ export const distribution: FigureFactory = (mount, hooks): FigureImpl => {
 	let sigma = 0.11;
 	let update: () => void = () => {};
 
-	// fixed sample: sum of three hashes ≈ bell curve, deterministic
+	// a fixed sample: the sum of three hashes is roughly normal
 	const sample = Array.from(
 		{ length: SAMPLES },
 		(_, i) => (hash(i, 21) + hash(i, 22) + hash(i, 23)) / 3,

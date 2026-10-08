@@ -1,8 +1,6 @@
 /**
- * Generates the article's demo raster (src/assets/trefoil-plate.png): a still
- * of the trefoil in the site's night ink. It's a real raster so the post
- * exercises the image pipeline: Astro's <Image> emitting AVIF/WebP at hashed,
- * immutably-cached URLs.
+ * Renders src/assets/trefoil-plate.png, a still of the hub's trefoil in night
+ * ink, so the kitchen-sink post exercises the real image pipeline.
  *
  *   bun scripts/gen-demo-image.ts
  */
@@ -46,7 +44,7 @@ for (let i = 0; i < N; i++) {
 	const sxp = W / 2 + x1 * K * persp;
 	const syp = H / 2 + y2 * K * persp;
 
-	// depth shading, parity with camera.ts shade()
+	// depth shading, as in camera.ts shade()
 	const c = Math.min(1, Math.max(0, (z2 + 1.1) / 2.2));
 	const dt = c * c * (3 - 2 * c);
 	const a = Math.min(0.95, 0.62 * (0.28 + 0.72 * dt) * 1.35);

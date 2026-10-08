@@ -1,9 +1,7 @@
-/* Article layout: rails mirroring the hub, 60ch prose, live ToC with hairline
-   progress, footnotes and margin notes, plates, code. Shares the hub's
-   styling: night by default, instant theme switch, one Fraunces weight. */
+/* Articles: rails mirroring the hub, a 60ch measure, a live table of contents,
+   footnotes and marginal notes, figures and code. */
 
-/* Rails are equal width so the prose column is centred on the viewport
-   (210/230 rails pushed it 10px left). */
+/* Equal rails keep the prose centred on the viewport. */
 .apage {
 	display: grid;
 	grid-template-columns: 220px minmax(0, 640px) 220px;
@@ -222,8 +220,8 @@
 	font-size: 0.86em;
 }
 
-/* marginal-note phrases get the ink halo, as .inklink does; the wash +
-   underline is reserved for figure/equation ties */
+/* Marginal-note phrases get the ink halo; the wash and underline are kept for
+   figure and equation ties. */
 .prose .manchor {
 	transition: text-shadow 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -244,10 +242,9 @@
 	overflow-y: hidden;
 }
 
-/* live-bound terms (prose readouts and single equation variables): dotted
-   underline at rest, solid + wash when the figure responds, exponential ease
-   both ways. A real underline rather than border-bottom keeps it on the
-   baseline instead of hanging below the line box. */
+/* Live-bound terms, in prose or as equation variables: dotted at rest, solid
+   with a wash when the figure responds. text-decoration rather than a border
+   keeps the line on the baseline. */
 .prose [data-bind],
 .prose [class*="vbind-"] {
 	font-weight: 400;
@@ -275,7 +272,7 @@
 	position: relative;
 }
 
-/* footnote references hover like other text links: colour rises + ink halo */
+/* footnote references behave like any text link */
 .fnref a {
 	text-decoration: none;
 	color: var(--ink-70);
@@ -368,8 +365,8 @@
 		border-color 160ms ease;
 }
 
-/* print convention: footnotes get numerals, marginal notes get the classical
-   symbol sequence in document order, doubling after six (**, ††, …) */
+/* Footnotes are numbered; marginal notes take the classical symbol sequence
+   (*, †, ‡, …), doubling after six. */
 @counter-style notemarks {
 	system: symbolic;
 	symbols: "*" "\2020" "\2021" "\00A7" "\2016" "\00B6";
@@ -397,7 +394,7 @@
 	color: var(--ink);
 }
 
-/* the rail note repeats the same symbol (data-sym set at placement) */
+/* the rail note repeats its symbol (data-sym is set at placement) */
 .mnote::before {
 	content: attr(data-sym) "\2002";
 	font-style: normal;
@@ -432,8 +429,7 @@
 
 /* ---- figures (plates) ---- */
 
-/* plates are borderless by default; the caption and reset disc are the only
-   frame. The `border` prop opts back in for figures that need an edge. */
+/* Plates have no frame by default; the `border` prop adds one. */
 .afig {
 	margin: var(--s3) 0;
 	position: relative;
@@ -450,7 +446,7 @@
 	touch-action: none;
 }
 
-/* each plate is sized to its own content */
+/* each plate is sized by its content */
 .afig[data-kind="oscillator"] .figmount {
 	height: 264px;
 }
@@ -467,15 +463,14 @@
 	height: 190px;
 }
 
-/* plates clip: constructions may run off to infinity (bisectors, circles),
-   so the plate frame is a window onto them */
+/* Plates clip, since constructions can run off to infinity. */
 .figmount svg {
 	display: block;
 	overflow: hidden;
 }
 
-/* ---- plate strokes: one ink, hierarchy by alpha + dash + weight ----
-   Every stroke eases on the site curve; .lit (prose hover) emphasises it. */
+/* ---- plate strokes: one ink, hierarchy by alpha, dash and weight. .lit
+   (hover from the prose) strengthens them. */
 .figmount .axis-line,
 .figmount .axis path,
 .figmount .axis line {
@@ -569,7 +564,7 @@
 	stroke-width: 1.4;
 }
 
-/* handles: fat invisible hit ring, visible dot, halo blooms on hover */
+/* handles: large invisible hit ring, visible dot, halo on hover */
 .figmount .handle .hit {
 	fill: transparent;
 	stroke: none;
@@ -646,8 +641,8 @@
 	color: var(--ink-70);
 }
 
-/* shared disc: the plate's reset and the code block's run button are the
-   same control with the same stroke; only the glyph differs */
+/* The plate's reset and the code block's run button are the same disc with a
+   different glyph. */
 .disc {
 	width: 22px;
 	height: 22px;
@@ -687,15 +682,14 @@
 
 /* ---- code blocks ---- */
 
-/* code blocks: a slab of deeper paper with no border; the background alone
-   marks them as a separate, editable surface */
+/* code blocks sit on slightly deeper paper, no border */
 .codeblk {
 	margin: var(--s3) 0;
 	background: var(--paper-deep);
 	position: relative;
 }
 
-/* static blocks: no chrome, just a corner watermark with the language */
+/* static blocks: no chrome, just the language in the corner */
 .codeblk.static .langmark {
 	position: absolute;
 	top: 6px;
@@ -758,8 +752,7 @@
 	color: var(--ink-70);
 }
 
-/* terminal stdin: the program waits on an inline prompt where the output
-   cursor sits; the blinking caret is the only affordance */
+/* stdin: the program waits on an inline prompt with a blinking caret */
 .termin input {
 	background: none;
 	border: 0;

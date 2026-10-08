@@ -22,10 +22,9 @@
 		"enabled": true,
 		"rules": {
 			"preset": "all",
-			// Disabled: framework rules that misread .astro
-			// templates, resolver rules blind to astro: virtuals / bun hoisting,
-			// and taste rules that contradict the codebase idiom (hex design
-			// tokens, sim math constants, terse ternaries).
+			// Off: framework rules that misread .astro templates, resolver rules that
+			// can't see astro: virtual modules or Bun's hoisting, and style rules that
+			// fight the codebase (hex design tokens, math constants, terse ternaries).
 			"correctness": {
 				"noNodejsModules": "off",
 				"useImportExtensions": "off",
@@ -98,20 +97,8 @@
 	},
 	"overrides": [
 		{
-			// The analytics Worker is a separate runtime (Cloudflare, not the
-			// browser) and is deployed on its own cadence.
-			"includes": ["workers/**"],
-			"linter": {
-				"rules": {
-					"preset": "recommended"
-				}
-			}
-		},
-		{
-			// driver.ts is a faithful port of binji/wasm-clang's WASI core. Its
-			// pointer-walking idioms (parameter reassignment, parameter
-			// properties, class-per-concern) mirror the upstream so the two stay
-			// diffable; restyling them risks breaking a working toolchain.
+			// A port of binji/wasm-clang's WASI core. It keeps upstream's idioms
+			// (parameter reassignment, parameter properties) so the two stay diffable.
 			"includes": ["apps/home/src/playground/clang/driver.ts"],
 			"linter": {
 				"rules": {

@@ -1,16 +1,15 @@
 /**
- * Geometry plate: a labeled, draggable construction. Triangle ABC (each
- * vertex a handle), the perpendicular bisectors as dashed construction lines
- * with right-angle ticks at the midpoints, the circumcentre O, the
- * circumcircle, and the radius O–A labeled r. Dragging a vertex updates the
- * construction. onParams reports r (fraction of the plate's short side).
+ * Circumcircle construction: triangle ABC with draggable vertices, the dashed
+ * perpendicular bisectors with right-angle ticks, the circumcentre O, the
+ * circumcircle, and radius OA labelled r. onParams reports r as a fraction of
+ * the plate's short side.
  */
 import { drag } from "d3-drag";
 import { type G, handle, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
-// coordinates live in a square centred in the plate (an anisotropic space
-// would distort the circle); chosen acute so the circumcircle fits
+// Coordinates live in a square centred in the plate, since an anisotropic
+// space would distort the circle. The initial triangle is acute so it fits.
 const START: [number, number][] = [
 	[0.24, 0.74],
 	[0.5, 0.14],

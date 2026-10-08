@@ -1,24 +1,21 @@
 /// <reference lib="webworker" />
 /**
- * C/C++ compile worker. Vite-bundled module worker → runs the lean ClangDriver
- * entirely off the main thread. Binaries are gzipped static assets under /clang;
- * we fetch (Cache-API persisted), decode with the browser-native
- * DecompressionStream, and stream straight into WebAssembly.compileStreaming,
- * so no decoder ships and decode overlaps compile.
+ * C/C++ compile worker running ClangDriver off the main thread. The binaries
+ * are gzipped static assets under /clang: fetched through the Cache API,
+ * decoded with DecompressionStream and streamed into
+ * WebAssembly.compileStreaming, so decode and compile overlap.
  */
 import { ClangDriver } from "./driver";
 
-// The toolchain path carries its own version: the binaries are not content-
-// hashed by the bundler (they are static assets), so versioning the directory
-// is what lets them be served `immutable` for a year. Bump both on any
-// toolchain change: the new path misses cache, the old one ages out.
+// The bundler doesn't hash these assets, so the version lives in the
+// directory name and they can be served immutable. Bump both on any toolchain
+// change.
 const BASE = (import.meta.env.PUBLIC_CLANG_BASE_URL as string | undefined) || "/clang/v1";
 const CACHE = "crsche-clang-v1";
 
-// ── compiled-module cache ──────────────────────────────────────────────────
-// The Cache API persists the gzipped *bytes*; this persists the compiled
-// WebAssembly.Module (structured-cloneable) in IndexedDB, so repeat visits skip
-// the heavy ~30 MB clang.wasm recompile entirely → near-instant first Run.
+// ── compiled-module cache ─────────────────────────────────────────────
+// The Cache API keeps the gzipped bytes; IndexedDB keeps the compiled
+// WebAssembly.Module, so repeat visits skip recompiling the ~30 MB clang.wasm.
 const MOD_DB = "crsche-clang-mods";
 const MOD_STORE = "modules";
 
@@ -124,9 +121,9 @@ interface Req {
 	stdinSab?: SharedArrayBuffer;
 }
 
-// One driver, one MemFS, one hostWrite hook: concurrent requests would
-// interleave at the awaits and corrupt each other's state (observed: a C run
-// exiting 1 while a C++ compile was in flight). Serialize strictly.
+// The driver, its MemFS and the hostWrite hook are shared, so concurrent
+// requests would interleave at the awaits and corrupt each other. Run one at a
+// time.
 let queue: Promise<void> = Promise.resolve();
 
 globalThis.onmessage = (e: MessageEvent<Req>): void => {
@@ -146,8 +143,8 @@ async function handle({ id, src, cpp, warm, stdin, stdinSab }: Req): Promise<voi
 		return;
 	}
 
-	// stdout streams to the page as the program writes it (terminal semantics);
-	// the final message carries only status. Compile diagnostics stream too.
+	// stdout and compile diagnostics stream to the page as they're written; the
+	// final message carries only the status.
 	currentWrite = (s) => globalThis.postMessage({ id, out: s });
 	let ok = true;
 	let errMsg = "";

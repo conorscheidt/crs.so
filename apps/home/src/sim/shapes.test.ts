@@ -20,8 +20,7 @@ test("every object stays finite and inside the ~unit stage for all i", () => {
 });
 
 test("positions are continuous in phase (speed steps cannot teleport the cloud)", () => {
-	// Positions depend only on phase: a speed change alters dphase/dt, never
-	// position. Continuity in phase ⇒ continuity under any speed profile.
+	// Position depends only on phase, so a speed change can't make it jump.
 	const a = mk();
 	const b = mk();
 	const eps = 1e-3;

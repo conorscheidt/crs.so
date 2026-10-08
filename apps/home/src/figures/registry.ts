@@ -1,8 +1,7 @@
 /**
- * Figure registry contract. A figure factory owns a mount element, renders an
- * SVG plate into it (d3), and reports live parameters to the prose through
- * hooks.onParams. Emphasis is a CSS class ("lit" on the svg root) so strokes
- * ease on the site's transition curve. Plates are monochrome ink.
+ * A figure factory owns a mount element, renders an SVG plate into it with d3
+ * and reports live parameters through hooks.onParams. Emphasis is the `lit`
+ * class on the svg root, so strokes ease with the site's CSS.
  */
 export interface FigureImpl {
 	reset: () => void;

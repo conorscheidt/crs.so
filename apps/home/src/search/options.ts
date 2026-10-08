@@ -1,7 +1,6 @@
 /**
- * MiniSearch options, imported by both the build-time index endpoint and the
- * client. loadJSON silently breaks if the two sides diverge, so don't inline
- * these anywhere.
+ * MiniSearch options, shared by the build-time index endpoint and the client.
+ * loadJSON breaks silently if the two ever differ, so don't inline these.
  */
 export const SEARCH_FIELDS = {
 	idField: "id",
@@ -14,7 +13,7 @@ export interface SearchDoc {
 	title: string;
 	content: string;
 	tags: string[];
-	/** the project this belongs to: a post's project slug, or a project's own */
+	/** a post's project slug, or a project's own */
 	project: string;
 	kind: "post" | "project";
 	/** epoch ms of the post date / project year */

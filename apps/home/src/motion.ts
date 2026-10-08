@@ -1,22 +1,20 @@
 /**
- * Single source of truth for every duration, easing, and motion token on the
- * site. The clock, sim, cursor, lenis setup, and CSS custom properties all
- * derive from this module, so there are no hand-typed duplicates.
+ * Every duration, easing and motion token on the site. The clock, sim, cursor,
+ * Lenis and the CSS custom properties all read from here.
  */
 export const MOTION = {
-	/** Section morph duration (s); object and panel travel together. */
+	/** Section morph duration (s); the object and panel move together. */
 	morph: 0.85,
 	/** Panel crossfade (ms). */
 	panel: 240,
-	/** Interrupted jobs accelerate by this factor instead of snapping. */
+	/** Interrupted jobs speed up by this factor instead of snapping. */
 	interruptAccel: 3,
 	/**
-	 * Cursor ring radius == sim dimple radius, in CSS px.
-	 * The GPU uniform receives cursorR × devicePixelRatio.
+	 * Cursor ring radius, which is also the sim's dimple radius (CSS px). The GPU
+	 * uniform gets cursorR × devicePixelRatio.
 	 */
 	cursorR: 7,
-	/** Lenis wheel smoothing: lower = longer, smoother glide (0.18 felt
-	 *  stiff). */
+	/** Lenis wheel smoothing; lower is a longer glide (0.18 felt stiff). */
 	scrollLerp: 0.13,
 	/** Breathing room above an anchor target after an in-page jump, in px. */
 	anchorInset: 28,

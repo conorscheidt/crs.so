@@ -13,7 +13,7 @@ const projects = await projectsWithPosts();
 const latest = posts[0];
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
 const year = new Date().getUTCFullYear();
-/** A post's project slug, only if that project still exists, so a stale
+/** A post's project slug, if that project still exists, so a stale
  *  frontmatter reference doesn't render a mark that filters to nothing. */
 const known = (slug?: string): string | undefined => (slug && projectBySlug(slug) ? slug : undefined);
 

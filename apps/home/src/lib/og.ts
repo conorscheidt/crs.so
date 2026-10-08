@@ -1,9 +1,8 @@
 /**
- * Build-time social cards. No headless browser and no satori: titles are set
- * in the site's own fonts (Fraunces at the nameplate's light weight), laid out
- * by fontkit with variable-axis instancing and kerning, converted to outline
- * paths, composed as SVG on the night tile, and rasterised by sharp.
- * Runs only during `astro build`; nothing here ships to the browser.
+ * Build-time social cards. Titles are set in Fraunces at the nameplate weight,
+ * laid out with fontkit (variable-axis instancing, kerning), converted to
+ * outlines, composed as SVG on the night tile and rasterised by sharp. No
+ * headless browser, and nothing here ships to the client.
  */
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -23,10 +22,9 @@ const DIM = "rgba(232,228,217,0.5)";
 // createRequire, not import.meta.resolve: Vite's dev module runner rewrites
 // the latter into an internal specifier that fails at runtime
 const resolve = createRequire(import.meta.url).resolve;
-// Fraunces is a local asset (instanced by scripts/gen-fonts.ts), so it is addressed
-// from the app root. Neither a package-relative specifier nor import.meta.url
-// works here: at build time this module is a bundled chunk under
-// dist/.prerender, and both resolve against that copy instead of src/.
+// Fraunces is instanced into src/assets by scripts/gen-fonts.ts, so resolve it
+// from the app root: at build time this module is a chunk under dist/.prerender,
+// and package-relative specifiers and import.meta.url resolve against that.
 const FRAUNCES = join(process.cwd(), "src/assets/fonts/fraunces-display.woff2");
 const SPECTRAL = "@fontsource/spectral/files/spectral-latin-300-normal.woff2";
 
@@ -42,9 +40,8 @@ async function load(specifier: string): Promise<Face> {
 }
 
 async function fonts(): Promise<{ display: Face; text: Face }> {
-	// The nameplate instance. WONK is left unset: the axis is baked to 1 in the
-	// instanced file, which is what every page renders. Setting it to 0 here
-	// draws the social cards in different letterforms than the site.
+	// WONK is baked to 1 in the instanced file. Don't set it here, or the cards
+	// get different letterforms from the site.
 	display ??= (await load(FRAUNCES)).getVariation({ wght: 300, opsz: 144, SOFT: 0 });
 	text ??= await load(SPECTRAL);
 	return { display, text };
@@ -70,7 +67,7 @@ function textPath(font: Face, s: string, x: number, y: number, size: number): st
 	return d;
 }
 
-/** Greedy line wrap on measured advance widths. */
+/** Greedy wrap on measured advance widths. */
 function wrap(font: Face, words: string[], size: number, max: number): string[] {
 	const lines: string[] = [];
 	let line = "";
@@ -92,7 +89,7 @@ const hash = (i: number, s: number): number => {
 	return x - Math.floor(x);
 };
 
-/** The hub's trefoil, bled off the right edge; the card's only ornament. */
+/** The hub's trefoil, bleeding off the right edge. */
 function ornament(): string {
 	let dots = "";
 	const CX = OG_W - 140;

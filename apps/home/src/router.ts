@@ -1,9 +1,6 @@
 /**
- * Section router, the pure part: route tables plus the click guards as
- * testable functions. The DOM wiring lives in hub.ts / app.ts.
- * Hub ⇄ article travel is same-document: app.ts fetches and swaps with
- * document.startViewTransition, since a cross-document navigation would
- * flash the browser's own cursor, which CSS cannot reach.
+ * Route tables and click guards for the hub, kept pure so they can be tested.
+ * The DOM wiring lives in hub.ts and app.ts.
  */
 export type Section = "index" | "projects" | "writing" | "about";
 

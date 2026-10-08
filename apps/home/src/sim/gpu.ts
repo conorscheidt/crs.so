@@ -1,7 +1,7 @@
 /**
  * WebGPU renderer: one pipeline, one ~80-byte uniform buffer and no vertex
- * buffers, just draw(4, N + accents) instanced quads. Init is re-entrant:
- * device loss (including bfcache restore) just runs init again.
+ * buffers (draw(4, N + accents) instanced quads). init is re-entrant, so device
+ * loss, including after a bfcache restore, just runs it again.
  */
 import shaderSrc from "./shader.wgsl?raw";
 import { N, N_ACCENT } from "./shapes";
@@ -42,7 +42,7 @@ export async function createGpuRenderer(
 	onLost: () => void,
 ): Promise<Renderer | null> {
 	if (!navigator.gpu) return null;
-	// Compat-then-plain adapter probe (never UA sniffing).
+	// Try a compatibility-mode adapter first, then a plain one.
 	let adapter: GPUAdapter | null = null;
 	try {
 		adapter = await navigator.gpu.requestAdapter({

@@ -1,12 +1,9 @@
 ---
 /**
- * Marginal note: wraps the exact phrase it remarks on. As in print, footnotes
- * carry numerals and marginal notes carry the symbol sequence (* † ‡ § ‖ ¶),
- * assigned in document order by a CSS @counter-style so no per-use props are
- * needed. No underline: the dotted tie is reserved for prose bindings to
- * figures and equations. Hovering either side shows the ink halo. The note
- * sits in the right rail on the phrase's line; narrow viewports render it as
- * an inline aside instead.
+ * Marginal note. Wraps the phrase it comments on. Notes take the symbol
+ * sequence (* † ‡ § ‖ ¶) in document order from a CSS @counter-style, while
+ * footnotes keep numerals. Hovering either side lights the other. The note
+ * sits in the right rail beside its line, or inline on narrow screens.
  */
 type Props = { note: string };
 const { note } = Astro.props;

@@ -1,17 +1,18 @@
 /// <reference lib="webworker" />
 /**
- * Execution worker: keeps all compilation/running off the main thread.
+ * Runs the light languages off the main thread:
  *
- *   js / ts  → run in-worker (ts stripped by sucrase)         [instant, offline]
- *   wat      → wabt assembles → WebAssembly.instantiate        [instant, offline]
- *   (c / cpp run in the dedicated clang.worker; see runner.ts)
+ *   js / ts  in the worker, TypeScript stripped by sucrase
+ *   wat      assembled by wabt, then WebAssembly.instantiate
+ *
+ * C and C++ have their own worker; see runner.ts.
  */
 
 interface Req {
 	id: number;
 	lang: string;
 	code: string;
-	/** idle pre-warm: load + init wabt so the first real wat run is instant */
+	/** load wabt at idle so the first wat run doesn't wait on it */
 	warm?: boolean;
 }
 interface Res {
@@ -82,18 +83,16 @@ async function runWat(src: string): Promise<{ stdout: string; stderr: string; ok
 	}
 }
 
-// C/C++ are handled by the dedicated clang.worker; this worker covers the
-// light, instant, offline langs only.
 globalThis.onmessage = async (e: MessageEvent<Req>) => {
 	const { id, lang, code, warm } = e.data;
-	// idle pre-warm: pull + init wabt so the first real wat run has no import delay
+	// load wabt now so the first wat run doesn't wait on the import
 	if (warm) {
 		try {
 			const mod = await import("wabt");
 			if (!wabtPromise) wabtPromise = mod.default();
 			await wabtPromise;
 		} catch {
-			/* ignore; the real run will surface any error */
+			/* the real run will report it */
 		}
 		globalThis.postMessage({ id, warmed: true });
 		return;

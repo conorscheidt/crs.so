@@ -118,10 +118,9 @@ export default defineConfig({
 		},
 	},
 
-	// Opt-in: only links that cross into an article are worth fetching early.
-	// Hub sections are already in the document. clientPrerender stays off — it
-	// would boot a second WebGPU context per target, and app.ts swaps <main>
-	// in place, so a prerendered page would never be activated anyway.
+	// Only links into articles opt in; hub sections are already in the document.
+	// clientPrerender stays off: app.ts swaps <main> in place, so a prerendered
+	// page would never be activated, and each would boot its own WebGPU context.
 	prefetch: {
 		prefetchAll: false,
 		defaultStrategy: "viewport",

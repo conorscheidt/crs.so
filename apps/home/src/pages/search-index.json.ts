@@ -1,7 +1,6 @@
 /**
- * Build-time search index, emitted as a static asset and fetched by the
- * client on first search intent. Options come from the shared module; don't
- * inline them here.
+ * Build-time search index, emitted as a static asset and fetched the first time
+ * someone searches. Options come from search/options.ts.
  */
 import MiniSearch from "minisearch";
 import { projects, repoUrl } from "../data/projects";
@@ -49,7 +48,7 @@ export async function GET(): Promise<Response> {
 	const projectCounts: Record<string, number> = {};
 	for (const d of docs) {
 		for (const t of d.tags) tags[t] = (tags[t] ?? 0) + 1;
-		// only posts count: `@basalt` asks "what have you written about basalt"
+		// count posts only: `@basalt` filters writing
 		if (d.kind === "post" && d.project) {
 			projectCounts[d.project] = (projectCounts[d.project] ?? 0) + 1;
 		}

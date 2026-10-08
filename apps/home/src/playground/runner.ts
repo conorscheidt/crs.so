@@ -1,6 +1,5 @@
-/** Main-thread bridge: every language runs in a Web Worker so a compile/run never
- *  touches the main thread. Light langs (js/ts/wat) → run.worker; C/C++ → a
- *  dedicated clang.worker running our lean clang+lld driver off-main-thread. */
+/** Main-thread side of the playground. js/ts/wat run in run.worker, C and C++
+ *  in clang.worker; nothing compiles or runs on the main thread. */
 
 import { track } from "../analytics";
 
@@ -15,8 +14,8 @@ export interface RunHooks {
 	/** live stdout/diagnostic chunk (terminal semantics). Without this hook,
 	 *  chunks accumulate and arrive in the final result's stdout. */
 	onOut?: (s: string) => void;
-	/** the program is blocked reading stdin: call the writer with a line
-	 *  (newline appended) to resume it, or with null for EOF */
+	/** the program is blocked on stdin: call with a line (newline appended) to
+	 *  resume it, or with null for EOF */
 	onStdinReq?: (write: (line: string | null) => void) => void;
 }
 
@@ -50,8 +49,8 @@ function onMessage(e: MessageEvent): void {
 		return;
 	}
 	if (d.stdinReq) {
-		// the program is parked on Atomics.wait; pause the run timeout while
-		// the user types
+		// the program is waiting on Atomics.wait; pause the timeout while the
+		// reader types
 		globalThis.clearTimeout(p.timer);
 		if (p.writeStdin && p.hooks.onStdinReq) p.hooks.onStdinReq(p.writeStdin);
 		else p.writeStdin?.(null); // no UI to answer → EOF
@@ -67,9 +66,8 @@ function onMessage(e: MessageEvent): void {
 	});
 }
 
-// a worker that dies (load error, OOM, crash) would otherwise leave every pending
-// run spinning forever; fail them loudly and drop the dead worker so the next run
-// re-spawns it.
+// A worker that dies (load error, OOM, crash) would leave pending runs
+// hanging, so fail them and drop the worker; the next run respawns it.
 function failAll(msg: string, dead: Worker): void {
 	for (const [id, p] of pending) {
 		pending.delete(id);
@@ -89,9 +87,8 @@ function ensureWorker(): Worker {
 	return w;
 }
 
-// dedicated C/C++ worker: our lean clang+lld driver runs here, off the main
-// thread, so a compile leaves the page + WebGPU field responsive. Vite-bundled
-// module worker; gzipped binaries stream in from the /clang static assets.
+// C/C++ worker. Compiles run here so the page and the WebGPU sim stay
+// responsive.
 function ensureCpp(): Worker {
 	if (cpp) return cpp;
 	const w = new Worker(new URL("./clang/clang.worker.ts", import.meta.url), { type: "module" });
@@ -101,18 +98,16 @@ function ensureCpp(): Worker {
 	return w;
 }
 
-// surface hangs: if a run never reports back, reject it with a message instead of
-// spinning forever. C/C++ may legitimately take a while on the cold first compile.
+// Reject a run that never reports back. C/C++ get longer, since the first
+// compile is cold.
 const TIMEOUT_MS: Record<string, number> = { c: 120_000, cpp: 120_000, "c++": 120_000 };
 
-/** Eagerly boot the clang toolchain in its worker (idle, after page load) so the
- *  first Run is near-instant. Fetches /tools once; the browser caches it hard. */
+/** Boot clang in its worker at idle so the first Run is fast. */
 export function warmCpp(): void {
 	ensureCpp().postMessage({ id: ++seq, warm: true });
 }
 
-/** Pre-load the light worker's wabt at idle so the first wat/wasm run is instant
- *  (no dynamic-import delay on the first click). Cheap; safe to call eagerly. */
+/** Load wabt in the light worker at idle so the first wat run is fast. */
 export function warmLight(): void {
 	ensureWorker().postMessage({ id: ++seq, warm: true });
 }

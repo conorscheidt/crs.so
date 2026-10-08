@@ -1,7 +1,7 @@
 import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
-// astro:content's `z` re-export is deprecated in Astro 7; take zod from the
-// astro/zod entrypoint so the version always matches the content pipeline
+// astro:content's `z` re-export is deprecated in Astro 7; astro/zod matches
+// the version the content pipeline uses.
 import { z } from "astro/zod";
 
 const writing = defineCollection({
@@ -13,22 +13,15 @@ const writing = defineCollection({
 			date: z.coerce.date(),
 			minutes: z.number().int().positive(),
 			tags: z.array(z.string()).default([]),
-			/** Sample content is visibly marked as such in the UI. */
-			sample: z.boolean().default(false),
-			/**
-			 * Drafts render in `bun dev` and are dropped from the production build:
-			 * no page, listing, feed, search index entry, or card. Keeps the
-			 * article-system demo available in development.
-			 */
+			/** Drafts are left out everywhere: pages, listings, feed, search, cards. */
 			draft: z.boolean().default(false),
 			/**
-			 * The project this post belongs to (a slug from data/projects.ts).
-			 * The post links to the project and its repository, and the project
-			 * lists the post.
+			 * The project this post belongs to (a slug from data/projects.ts). The post
+			 * links to the project and the project lists the post.
 			 */
 			project: z.string().optional(),
-			/** Social card + article lede image. Relative to the post file;
-			 *  `image()` validates it exists and hands the build real dimensions. */
+			/** Social card and lede image, relative to the post. `image()` checks that
+			 *  it exists and provides its dimensions. */
 			cover: image().optional(),
 			coverAlt: z.string().optional(),
 		}),

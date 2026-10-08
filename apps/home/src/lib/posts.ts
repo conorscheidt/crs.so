@@ -1,11 +1,8 @@
 /**
- * Decides which posts exist. Every surface (listings, pages, feed, sitemap,
- * search index, social cards) goes through here so they agree on what is
- * published.
- *
- * Drafts are never published and no build flag overrides that; `draft: true`
- * is how a post stays out. To work on the article system itself, flip the
- * flag on the bench post under content/writing, then flip it back.
+ * Which posts are published. Listings, pages, the feed, sitemap, search index
+ * and social cards all go through here, so they always agree. Drafts are never
+ * published, in dev or production; to work on the article system, flip `draft`
+ * on the kitchen-sink post in content/writing.
  */
 
 import type { CollectionEntry } from "astro:content";

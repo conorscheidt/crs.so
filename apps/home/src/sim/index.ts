@@ -1,8 +1,7 @@
 /**
- * Sim boot and per-frame state. Detect order: reduced-motion → WebGPU →
- * Canvas2D. CPU state is a handful of springs (phase accumulator, cursor,
- * tilt, excite) uploaded as one uniform block per frame. Morphs run as clock
- * jobs, inheriting latest-wins + interrupt acceleration.
+ * Boots the sim (reduced motion, then WebGPU, then Canvas2D) and owns its
+ * per-frame state: a few springs (phase, cursor, tilt, excite) uploaded as one
+ * uniform block. Morphs run as clock jobs.
  */
 import type { Clock } from "../clock";
 import { MOTION } from "../motion";
@@ -23,7 +22,7 @@ export interface Sim {
 	readonly kind: "gpu" | "cpu" | "static";
 }
 
-/** Drag feel: radians of spin per css pixel, and the release cap. */
+/** Radians of spin per CSS pixel dragged, and the cap on release speed. */
 const DRAG_YAW = 0.0062;
 const DRAG_PITCH = 0.005;
 const SPIN_MAX = 2.2;
@@ -76,8 +75,7 @@ export async function bootSim(
 	[u.inkR, u.inkG, u.inkB] = readInk();
 
 	const pointer = { x: 0, y: 0, active: false };
-	// drag to spin: the visitor grabs the object.
-	// Yaw offset accumulates freely; pitch offset is clamped and eases home.
+	// Drag to spin: yaw accumulates freely; pitch is clamped and eases home.
 	let dragging = false;
 	let yawOff = 0;
 	let pitchOff = 0;
@@ -157,8 +155,7 @@ export async function bootSim(
 		speed += (speedTarget - speed) * Math.min(1, dt * 8);
 		u.phase += speed * dt;
 
-		// inertia: released spins coast, then hand the object back to its own
-		// slow rotation; pitch drifts home so the composition always recovers
+		// Released spins coast down to the idle rotation; pitch drifts back.
 		if (!dragging) {
 			vYaw *= Math.exp(-dt / 1.1);
 			vPitch *= Math.exp(-dt / 1.1);
@@ -225,12 +222,11 @@ export async function bootSim(
 			const now = performance.now();
 			const step = Math.max(8, Math.min(64, now - lastDragAt)) / 1000;
 			lastDragAt = now;
-			// dragging down tips the object's top toward the viewer, so the
-			// vertical delta subtracts from pitch and the grab follows the hand
+			// Dragging down tips the top toward the viewer, so dy subtracts from pitch.
 			yawOff += dx * DRAG_YAW;
 			pitchOff = Math.max(-0.7, Math.min(0.7, pitchOff - dy * DRAG_PITCH));
-			// rad/s from the real pointer rate, smoothed, then capped so a hard
-			// flick spins the object without launching it
+			// Release speed comes from the smoothed pointer rate, capped so a hard
+			// flick doesn't launch the object.
 			const clamp = (v: number): number => Math.max(-SPIN_MAX, Math.min(SPIN_MAX, v));
 			vYaw = clamp(vYaw * 0.55 + ((dx * DRAG_YAW) / step) * 0.45);
 			vPitch = clamp(vPitch * 0.55 - ((dy * DRAG_PITCH) / step) * 0.45);

@@ -1,5 +1,5 @@
-/* Tokens: day values are the base; night inverts paper and ink. Theme
-   switches are instant, so nothing transitions on themed properties. */
+/* Day paper is the ground truth; night is its ink inversion. Themed
+   properties never transition, so a theme flip is instant. */
 :root {
 	--paper: #f2f0ea;
 	--paper-deep: #e9e6df;
@@ -18,9 +18,8 @@
 	/* --font-display, --font-text, --font-mark come from the fonts config */
 	--font-mono: var(--font-mark);
 
-	/* Code: high-contrast near-grayscale, hierarchy by luminance + weight + slant
-	   rather than hue. Keywords sit at the ink extreme, strings/types two steps
-	   lighter, comments faintest. Day values; night overrides below. */
+	/* Code is near-grayscale: hierarchy comes from luminance, weight and slant,
+	   never hue. Day values; night overrides below. */
 	--cm-var: #2b2822;
 	--cm-keyword: #000;
 	--cm-func: #14110d;
@@ -54,14 +53,12 @@
 	--cm-sel: rgba(232, 228, 217, 0.18);
 }
 
-/* Article ⇄ hub: native cross-document view transitions.
-   Per-slug names live inline on list titles and article h1. */
+/* Per-slug view-transition names live inline on list titles and article h1. */
 @view-transition {
 	navigation: auto;
 }
 
-/* Page transition: outgoing content lifts off, incoming content settles in
-   with a small rise; exponential ease, no bounce, no morphs. */
+/* Outgoing ink lifts off; incoming ink settles in with a small rise. */
 ::view-transition-old(root) {
 	animation: vt-lift 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -126,8 +123,8 @@ main {
 	color: var(--paper);
 }
 
-/* code blocks keep their syntax colours under selection, with only a light
-   wash (the global invert would flatten the highlighting) */
+/* Code keeps its syntax colours under selection, which the global inversion
+   would flatten. */
 .codeblk ::selection {
 	background-color: var(--cm-sel);
 	color: currentColor;
@@ -138,19 +135,12 @@ main {
 	outline-offset: 3px;
 }
 
-/* Hide the native cursor everywhere; the ring replaces it. `html` itself has
-   to carry this: the ::view-transition overlay inherits `cursor` from the
-   root, so without it every navigation flashes the native arrow.
+/* `html` carries the cursor too: ::view-transition inherits it from the root,
+   and without it every navigation flashes the native arrow.
 
-   Uses a transparent image rather than `cursor: none`, which Chromium fails to
-   re-apply when the pointer returns from the browser's own chrome, leaving the
-   native arrow on top of the ring. The 32×32 all-zero image draws nothing;
-   `none` stays as the fallback. The hotspot is centred (16 16) so the image
-   cannot shift where the click lands relative to the ring.
-
-   The selector is written out rather than wrapped in `:where()`, whose zero
-   specificity would lose to any `cursor` rule a dependency adds. No other rule
-   sets `cursor` today, so `!important` isn't needed. */
+   A transparent image rather than `none`, because Chromium doesn't re-hide the
+   pointer when it comes back from browser chrome. The hotspot is centred so the
+   image can't offset where clicks land; `none` is the fallback. */
 html.no-native-cursor,
 html.no-native-cursor *,
 html.no-native-cursor *::before,
@@ -186,13 +176,12 @@ html.no-native-cursor *::after {
 	opacity: 0.6;
 }
 
-/* Over a target the ring tightens (in cursor.ts, where the lerp lives) and
-   lifts slightly off the paper. Kept small. */
+/* On a target the ring tightens (see cursor.ts) and lifts slightly. */
 #cursor.on.over {
 	opacity: 0.82;
 }
 
-/* the only other state: a press. Everything else is physics + magnetism. */
+/* pressed */
 #cursor.press {
 	scale: 0.78;
 }
@@ -203,9 +192,8 @@ html.no-native-cursor *::after {
 		0 1px 0 var(--press-light);
 }
 
-/* Ink-burn: on hover, display type softens (SOFT axis), gains a little
-   weight and blooms, then settles while the hover persists. Used wherever
-   Fraunces is interactive. */
+/* Hovering display type softens the letterform (SOFT axis), adds a little
+   weight and blooms, then settles while the hover lasts. */
 .inkable {
 	font-variation-settings:
 		"opsz" var(--opsz, 144),
@@ -222,7 +210,7 @@ html.no-native-cursor *::after {
 	text-shadow: 0 0 3px color-mix(in srgb, var(--ink) 32%, transparent);
 }
 
-/* Spectral (text face, static weight): a quieter hover for links */
+/* Spectral is a static weight, so its links get a quieter answer. */
 .inklink {
 	transition:
 		color 200ms ease,
@@ -243,7 +231,7 @@ html.no-native-cursor *::after {
 	white-space: nowrap;
 }
 
-/* ---------- Hub layout: left menu / central object / right panel */
+/* ---------- Hub: left menu, central object, right panel */
 
 .hub {
 	display: grid;
@@ -259,9 +247,8 @@ html.no-native-cursor *::after {
 	z-index: 2;
 }
 
-/* h1 wrapper around the name, so hub routes have a top-level heading (the
-   section headings are h2). It inherits everything so the UA heading size,
-   weight and line-height don't affect the anchor inside. */
+/* The h1 wraps the name link and inherits everything, so UA heading styles
+   can't move it. */
 .namewrap {
 	font-size: inherit;
 	font-weight: inherit;
@@ -286,7 +273,7 @@ html.no-native-cursor *::after {
 	color: var(--ink-45);
 }
 
-/* bottom-right corner meta: place · local time · copyright */
+/* bottom-right: place, local time, copyright */
 .corner {
 	position: absolute;
 	right: var(--s4);
@@ -449,8 +436,8 @@ html.no-native-cursor *::after {
 	display: block;
 }
 
-/* Right column: all four panels stay mounted; the active one is visible.
-   Crossfade is CSS-driven off data-section, so one lenis instance persists. */
+/* Right column: all four panels stay mounted and data-section picks the
+   visible one, so each keeps its scroll position. */
 .col-r {
 	position: relative;
 	z-index: 2;
@@ -581,7 +568,7 @@ html.no-native-cursor *::after {
 	line-height: 1.5;
 }
 
-/* cross-references: repository ←→ project ←→ posts, all styled alike */
+/* cross-references between repositories, projects and posts */
 .xrefs {
 	display: flex;
 	flex-wrap: wrap;
@@ -634,9 +621,9 @@ html.no-native-cursor *::after {
 	border-color: var(--ink-45);
 }
 
-/* Project mark. A post has many tags and exactly one project, so the two need
-   to be told apart at a glance: same pill and metrics, inverted value (a
-   project is filled, a tag is not). The `@` matches the search prefix. */
+/* Project mark. A post has many tags but one project, so the two share the
+   pill's metrics with inverted fill: tags are outlined, projects filled. The
+   `@` is what you type in search to filter by project. */
 .tags .tag.proj,
 .atags a.proj {
 	color: var(--paper);
@@ -650,8 +637,7 @@ html.no-native-cursor *::after {
 	border-color: transparent;
 }
 
-/* Button form in a project row, e.g. "@basalt 3": the project mark plus its
-   post count. Sits in .xrefs beside `live ↗`. */
+/* Button form in a project row ("@basalt 3"): the mark plus a post count. */
 .xref.xproj {
 	display: inline-flex;
 	align-items: baseline;
@@ -720,8 +706,7 @@ html.no-native-cursor *::after {
 	color: var(--ink);
 }
 
-/* The project chip is filled too, so in a query like `@basalt  rust` the
-   project token is distinct from the tag. */
+/* The project chip is filled like the mark, so `@basalt rust` reads clearly. */
 .chips .chip.proj {
 	color: var(--paper);
 	background: var(--ink-70);
@@ -815,8 +800,7 @@ html.no-native-cursor *::after {
 	margin-top: var(--s3);
 }
 
-/* The year as one brush stroke, weighted by activity. The viewBox matches the
-   column exactly, so it always lines up with the panel. */
+/* The year's activity as one stroke; the viewBox matches the column width. */
 .hm {
 	margin: var(--s1) 0 2px;
 }
@@ -834,7 +818,7 @@ html.no-native-cursor *::after {
 	transition: opacity 160ms ease;
 }
 
-/* isolate on hover: the hovered week goes full, the year recedes */
+/* hovering a week dims the rest */
 .isolating .gitbrush {
 	opacity: 0.1;
 }
@@ -1001,8 +985,7 @@ html.no-native-cursor *::after {
 	line-height: 1.5;
 }
 
-/* contact links sit directly under the blurb so they are visible without
-   scrolling, however long the CV below gets */
+/* contact links sit under the blurb so they're visible without scrolling */
 .links {
 	display: flex;
 	flex-wrap: wrap;
@@ -1026,8 +1009,8 @@ html.no-native-cursor *::after {
 	text-shadow: 0 0 4px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
-/* Eclipse toggle: the disc slides across the ring, total eclipse in night and
-   partial in day. Transform only; the theme swap itself stays instant. */
+/* The disc slides across the ring: total eclipse at night, partial by day.
+   Transform only; the theme swap itself is instant. */
 .ecl {
 	overflow: visible;
 }
@@ -1048,9 +1031,9 @@ html.no-native-cursor *::after {
 	transform: translateX(0);
 }
 
-/* ---------- Narrow screens: the object fills the screen and the content sits
-   on a sheet over it. The page itself scrolls, so the sheet moves with native
-   scrolling; both hub columns collapse into one grid. */
+/* ---------- Below 900px the object fills the screen and the content rides a
+   sheet over it. The page scrolls, so the sheet gets native scroll physics;
+   both hub columns collapse into one grid. */
 
 @media (width < 900px) {
 	html:has(.hub) {

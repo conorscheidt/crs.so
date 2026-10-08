@@ -1,8 +1,6 @@
 /**
- * The project ↔ posts relation, derived in one place.
- *
- * A post declares its project in frontmatter; this module inverts that so a
- * project can list its writing without either side maintaining a second list.
+ * Inverts the post → project relation so a project can list its posts without
+ * either side keeping a second list.
  */
 import { type Project, projectBySlug, projects } from "../data/projects";
 import { type Post, publishedPosts } from "./posts";

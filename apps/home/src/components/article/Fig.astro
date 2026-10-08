@@ -1,16 +1,16 @@
 ---
 /**
- * Interactive figure: a live canvas owned by a registered figure
- * implementation (src/figures/<kind>.ts). Direct manipulation happens in the
- * figure; prose binds via <b data-bind="param" data-fig="<id>"> spans for live
- * readouts and hover sync. No inline scrubbing.
+ * Interactive figure: a canvas driven by a registered implementation
+ * (src/figures/<kind>.ts). Manipulation happens in the figure; prose binds to
+ * it with <b data-bind="param" data-fig="<id>"> for live readouts and hover
+ * sync.
  */
 type Props = {
 	kind: string;
 	id: string;
 	caption: string;
 	n?: number;
-	/** plates are naked by default; opt back into a hairline frame */
+	/** add a hairline frame */
 	border?: boolean;
 };
 const { kind, id, caption, n = 1, border = false } = Astro.props;

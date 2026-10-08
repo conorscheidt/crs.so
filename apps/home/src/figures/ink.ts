@@ -1,8 +1,7 @@
 /**
- * Shared plate helpers. Every figure is an SVG drawn in the site's ink.
- * Styling lives in article.css (classes below); this file only builds
- * structure. Classes: axis · grid · hair (construction) · curve · wash (area
- * fill) · handle · halo · vlabel (Spectral italic) · tlabel (mono ticks).
+ * Shared SVG helpers for the figures. Styling lives in article.css; this only
+ * builds structure. Classes: axis, grid, hair (construction lines), curve, wash
+ * (area fill), handle, halo, vlabel (Spectral italic), tlabel (mono ticks).
  */
 import { type Axis, type AxisDomain, axisBottom, axisLeft } from "d3-axis";
 import { type Selection, select } from "d3-selection";
@@ -10,7 +9,7 @@ import { type Selection, select } from "d3-selection";
 export type Svg = Selection<SVGSVGElement, unknown, null, undefined>;
 export type G = Selection<SVGGElement, unknown, null, undefined>;
 
-/** Fresh svg filling the mount; kills any previous plate (resize re-entry). */
+/** A fresh svg filling the mount, replacing any previous one (on resize). */
 export function plate(mount: HTMLElement): { svg: Svg; w: number; h: number } {
 	select(mount).select("svg").remove();
 	const w = mount.clientWidth;
@@ -33,13 +32,13 @@ export function axis<D extends AxisDomain>(g: G, ax: Axis<D>): G {
 export const bottomAxis = axisBottom;
 export const leftAxis = axisLeft;
 
-/** Italic serif variable label, LaTeX-style. */
+/** Italic serif label for variables. */
 export function varLabel(g: G | Svg, x: number, y: number, text: string): void {
 	g.append("text").attr("class", "vlabel").attr("x", x).attr("y", y).text(text);
 }
 
-/** A draggable handle: invisible fat hit ring + visible dot + hover halo.
- *  Returns the group; callers attach d3-drag to it. */
+/** A draggable handle: a large invisible hit ring, a visible dot and a hover
+ *  halo. Callers attach d3-drag to the returned group. */
 export function handle(g: G, cls = ""): G {
 	const grp = g.append("g").attr("class", `handle ${cls}`.trim());
 	grp.append("circle").attr("class", "hit").attr("r", 14);
@@ -48,7 +47,7 @@ export function handle(g: G, cls = ""): G {
 	return grp;
 }
 
-/** Deterministic hash for stable sample and layout seeds. */
+/** Deterministic hash, for stable samples and layouts. */
 export function hash(i: number, salt: number): number {
 	const x = Math.sin(i * 127.1 + salt * 311.7) * 43_758.5453;
 	return x - Math.floor(x);

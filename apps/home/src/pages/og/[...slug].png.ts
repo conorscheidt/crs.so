@@ -1,7 +1,6 @@
 /**
- * Per-page social cards, rendered at build time (one PNG per article plus the
- * four hub routes). Static output → they land in dist as plain files and are
- * served with the immutable-ish asset headers.
+ * Social cards rendered at build time: one PNG per article plus the four hub
+ * routes, emitted as static files.
  */
 import type { APIRoute, GetStaticPaths } from "astro";
 import { renderOg } from "../../lib/og";

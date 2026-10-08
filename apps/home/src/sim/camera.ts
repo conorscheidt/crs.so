@@ -1,7 +1,7 @@
 /**
- * Rotation, projection and cursor dimple, mirrored in sim/shader.wgsl.
- * Weak-perspective camera at a fixed distance; the screen-space cursor
- * dimple is applied after projection.
+ * Rotation, projection and the cursor dimple, mirrored in sim/shader.wgsl.
+ * Weak-perspective camera at a fixed distance; the dimple is applied in screen
+ * space after projection.
  */
 import type { Pt } from "./shapes";
 
@@ -72,10 +72,8 @@ export function project(p: Pt, f: Frame, out: Projected): void {
 }
 
 /**
- * Continuous depth shading (parity with WGSL): alpha and size fall off
- * smoothly with depth, so there is no front/back pop. `gain` is the
- * ink-luminance density boost (dark ink over light paper needs more alpha
- * to read).
+ * Depth shading, mirrored in WGSL: alpha and size fall off smoothly with depth
+ * so nothing pops. `gain` boosts density for dark ink on light paper.
  */
 export function shade(
 	baseAlpha: number,
@@ -91,7 +89,7 @@ export function shade(
 	};
 }
 
-/** Ink-luminance alpha gain (parity with WGSL): day ≈ ×1.55, night ≈ ×1.08. */
+/** Alpha gain by ink luminance, mirrored in WGSL: ≈1.55 by day, ≈1.08 at night. */
 export function inkGain(r: number, g: number, b: number): number {
 	return 1 + 0.62 * (1 - (0.2126 * r + 0.7152 * g + 0.0722 * b));
 }

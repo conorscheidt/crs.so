@@ -1,10 +1,9 @@
 /**
- * Damped-oscillator plate with two linked panels. Left: the s-plane, with the
- * upper pole of s² + 2ζωs + ω² draggable on equal scales (the dashed arc is
- * the |s| = ω locus, θ = arccos ζ). Right: the response x(t) with envelope;
- * its first-overshoot handle is also draggable (the peak inverts to ζ
- * analytically). Dragging either side updates both panels and the bound
- * terms in the prose.
+ * Damped oscillator in two linked panels. Left: the s-plane, where the upper
+ * pole of s² + 2ζωs + ω² can be dragged on equal scales (the dashed arc is
+ * |s| = ω, θ = arccos ζ). Right: the response x(t) with its envelope; the first
+ * overshoot is draggable too, inverted to ζ analytically. Either side updates
+ * the other and the bound terms in the prose.
  */
 import { drag } from "d3-drag";
 import { format } from "d3-format";

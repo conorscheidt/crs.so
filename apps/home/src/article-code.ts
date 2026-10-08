@@ -1,16 +1,14 @@
 /**
- * The heavy half of the article code blocks — CodeMirror (+vim) and the
- * clang/wasm runner. Loaded at idle by article-features.initCode so article
- * text never waits on it. The output area is a terminal: stdout streams in,
- * and a blocked stdin read parks the program on an inline prompt right where
- * the output cursor sits (SharedArrayBuffer + Atomics under the hood).
+ * The heavy half of the code blocks: CodeMirror, vim and the runner, loaded at
+ * idle by article-features. stdout streams into the output area and a blocking
+ * stdin read waits on an inline prompt (SharedArrayBuffer + Atomics).
  */
 import { mountEditor } from "./playground/editor";
 import { RUNNABLE, run, warmCpp, warmLight } from "./playground/runner";
 
 const live: { destroy: () => void }[] = [];
 
-/** Same-document navigation support: drop every mounted editor. */
+/** Destroy every mounted editor (for same-document navigation). */
 export function destroyEditors(): void {
 	for (const e of live) e.destroy();
 	live.length = 0;

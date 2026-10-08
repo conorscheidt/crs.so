@@ -1,11 +1,11 @@
 /**
- * Canvas2D fallback: the same TS math as the shader (shapes + camera), with a
- * reduced pool. Used when WebGPU is unavailable and, as a single frame, under
- * prefers-reduced-motion.
+ * Canvas2D fallback for browsers without WebGPU, and the single static frame
+ * shown under prefers-reduced-motion. Same TS math as the shader on a smaller
+ * pool.
  */
 import { type Frame, inkGain, type Projected, project, shade } from "./camera";
 import type { Renderer, Uniforms } from "./gpu";
-import { evalPoint, ICO_VERTS, N, type Pt, staggeredT } from "./shapes";
+import { evalPoint, ICO_VERTS, N, type Pt } from "./shapes";
 
 const CPU_N = 900;
 
@@ -74,6 +74,3 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 		destroy(): void {},
 	};
 }
-
-/** Referenced so the stagger stays part of the tested parity surface. */
-export const _parity = staggeredT;

@@ -1,5 +1,5 @@
-/** Mount a CodeMirror 6 editor (editable or read-only) with the paper-ink theme.
- *  Both runnable and static blocks use this, so they render identically. */
+/** Mount a CodeMirror 6 editor, editable or read-only. Runnable and static
+ *  blocks both use it, so they render identically. */
 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { cpp } from "@codemirror/lang-cpp";
@@ -49,7 +49,7 @@ export function mountEditor(
 	if (!opts.readOnly && opts.vim !== false) extensions.push(vim());
 	extensions.push(
 		history(),
-		// custom selection/caret drawing → correct caret over ligatures (no glitch)
+		// draw selection and caret ourselves so the caret sits right over ligatures
 		drawSelection(),
 		dropCursor(),
 		keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),

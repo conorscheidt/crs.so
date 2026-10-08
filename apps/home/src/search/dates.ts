@@ -1,7 +1,7 @@
 /**
- * Date-token parser for the Writing search: years, month names, seasons,
- * "last <season>". Matched tokens are stripped from the query and shown as a
- * range chip, so a misparse is always visible.
+ * Date tokens for the Writing search: years, month names, seasons and
+ * "last <season>". Matched tokens leave the query and show up as a range chip,
+ * so a misparse is always visible.
  */
 export interface DateFilter {
 	from: number;

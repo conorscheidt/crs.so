@@ -1,28 +1,10 @@
-/**
- * Analytics, in two halves, both cookieless.
- *
- *   pageviews  → Cloudflare Web Analytics (the beacon in Shell.astro). Nothing
- *                to write here: it is measured for us, respects Do Not Track,
- *                and needs no consent banner.
- *
- *   behaviour  → the events below, POSTed to this site's own `/api/e`, which
- *                the site's Worker writes to Analytics Engine. This half covers
- *                what people do: which posts get read to the end, which code
- *                blocks get run, which figures get dragged, what people search
- *                for.
- *
- * The endpoint is a same-origin path, not a configured URL: nothing to set, no
- * CORS, and no third-party hostname for a blocker to recognise. It is the same
- * in every environment.
- *
- * Rules: never throw into the page, never block a frame (sendBeacon), never
- * send anything identifying. Events are coarse names plus small numeric or
- * enum fields; the only free text from the visitor is their own search terms,
- * which are the point of the search event.
- */
+// Pageviews come from Cloudflare Web Analytics (see Shell.astro). This module
+// sends behaviour events — post reads, code runs, figure drags, searches — to
+// /api/e, which the Worker writes to Analytics Engine. It never throws, never
+// blocks a frame, and never sends anything that identifies a visitor.
 const ENDPOINT = "/api/e";
 
-/** The site's whole event vocabulary. Adding one means adding it here. */
+/** Every event the site sends. */
 export type Event =
 	| "post-open" // an article was opened
 	| "post-read" // scrolled past 90% of an article
@@ -39,10 +21,7 @@ export function track(event: Event, fields: Record<string, string | number> = {}
 	try {
 		const body = JSON.stringify({ event, path: location.pathname, ...fields });
 		if (navigator.sendBeacon) {
-			// text/plain is a CORS-safelisted content type, so the beacon is a
-			// single request. `application/json` would earn a preflight OPTIONS
-			// on every event, doubling the requests. The body
-			// is JSON either way; the sink parses text.
+			// text/plain is CORS-safelisted, so this avoids a preflight per event.
 			navigator.sendBeacon(ENDPOINT, new Blob([body], { type: "text/plain;charset=UTF-8" }));
 		} else {
 			void fetch(ENDPOINT, {
@@ -53,14 +32,11 @@ export function track(event: Event, fields: Record<string, string | number> = {}
 			});
 		}
 	} catch {
-		/* analytics is best-effort — swallow everything */
+		// best effort
 	}
 }
 
-/**
- * Fire once when the reader passes `ratio` of the page. Returns a teardown so
- * the same-document navigator can drop it with the rest of the article.
- */
+/** Fire once when the reader passes `ratio` of the page; returns a teardown. */
 export function trackReadDepth(event: Event, ratio = 0.9): () => void {
 	let fired = false;
 	const onScroll = (): void => {

@@ -2,7 +2,6 @@
 // repositories, and the latest commits, all from basalt. It fetches /api/git on
 // this origin, which the Worker proxies and caches. If basalt doesn't answer
 // the block stays hidden.
-// data/mocks.ts has a sample year for working on the layout.
 import { GIT_HOST } from "./data/projects";
 
 const DAYS = 364; // 52 whole weeks
@@ -133,9 +132,9 @@ export async function initGitBlock(root: HTMLElement): Promise<void> {
 const NS = "http://www.w3.org/2000/svg";
 
 /**
- * The year as a single stroke whose width tracks weekly commits. It spans the
- * column exactly (uniform viewBox, width 100%). Hovering a week isolates it
- * and the line beneath reports that week's activity.
+ * The year as a single stroke whose width follows weekly commits, spanning the
+ * column exactly. Hovering a week highlights it and the line below describes
+ * it.
  */
 function renderYear(root: HTMLElement, weeks: number[]): void {
 	const host = root.querySelector<HTMLElement>("[data-git-heat]");
@@ -184,7 +183,7 @@ function renderYear(root: HTMLElement, weeks: number[]): void {
 		svg.appendChild(mark);
 	});
 
-	// quarter marks, so the stroke reads as a year
+	// quarter marks
 	const months = Array.from({ length: 4 }, (_, q) => {
 		const d = new Date((today - (3 - q) * 91) * MS_DAY);
 		return { x: (q * W) / 4, label: d.toLocaleDateString("en-US", { month: "short" }) };

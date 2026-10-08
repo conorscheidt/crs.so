@@ -1,11 +1,7 @@
-/**
- * Shared page runtime: one clock, one cursor, and the same-document navigator
- * that carries hub ⇄ article travel. Internal links never navigate across
- * documents: the browser's own navigation cursor cannot be suppressed by CSS,
- * so the only way the ring survives a click is to never leave the document.
- * Articles stay real prerendered URLs (direct hits, SEO, external links all
- * untouched).
- */
+// One clock, one cursor, and the navigator for hub ⇄ article travel. Internal
+// links swap <main> in place instead of navigating, because a real navigation
+// flashes the system cursor and CSS can't prevent it. Every article is still a
+// prerendered page at its own URL.
 import { bootArticle } from "./article";
 import { Clock } from "./clock";
 import { initCursor } from "./cursor";
@@ -23,20 +19,10 @@ function boot(): () => void {
 	return currentKind === "hub" ? bootHub(clock) : bootArticle(clock);
 }
 
-/**
- * Warm pages, parsed. Astro's viewport prefetch puts the bytes in the HTTP
- * cache; this keeps the built Document, so a swap costs a clone instead of a
- * fetch and a parse.
- *
- * Speculation-rules prerender would run the whole target page in a hidden
- * context (a second WebGPU device, a second clock, a second Lenis) and then
- * throw it away, because every internal click here is intercepted for a
- * same-document swap and never becomes the cross-document navigation a
- * prerender could activate.
- *
- * The promise is cached, not the result, so two warms of one URL share a
- * single fetch, and a click during a warm awaits it rather than racing it.
- */
+// Pages are cached parsed, so a swap clones a Document instead of fetching and
+// parsing on click. The promise is cached so concurrent warms share one fetch.
+// This is not speculation-rules prerender: that would boot a second WebGPU
+// context per target, and a swapped page is never activated anyway.
 const cache = new Map<string, Promise<Document | null>>();
 
 function warm(url: string): Promise<Document | null> {
@@ -51,12 +37,8 @@ function warm(url: string): Promise<Document | null> {
 	return hit;
 }
 
-/**
- * Only links this navigator will swap are worth warming; this is the same test
- * the click handler applies. Section-to-section travel belongs to the hub
- * router and never fetches anything (all four panels are already mounted), so
- * warming a nav link would waste three round trips.
- */
+// Only links this navigator swaps are worth warming. Hub sections are
+// already mounted and never fetch.
 function warmable(a: HTMLAnchorElement): string | null {
 	if (a.origin !== location.origin || a.target !== "") return null;
 	if (a.pathname === location.pathname) return null;
@@ -65,11 +47,7 @@ function warmable(a: HTMLAnchorElement): string | null {
 	return a.pathname + a.search;
 }
 
-/**
- * Warm on intent. A pointer resting on a link, or focus landing on it, comes
- * ~200ms before the click, enough to have fetched and parsed by the time it
- * lands. Keyboard focus is treated the same as the mouse.
- */
+// Hover or focus lands ~200 ms before a click: enough to fetch and parse.
 for (const type of ["pointerover", "focusin"] as const) {
 	document.addEventListener(
 		type,
@@ -89,15 +67,9 @@ interface ViewTransitionLike {
 }
 type WithVT = Document & { startViewTransition?: (cb: () => void) => ViewTransitionLike };
 
-/**
- * Run the swap, animated when the browser can and unanimated when it can't.
- * The transition is cosmetic and must not own correctness. A transition can
- * abort before it ever calls back ("Transition was aborted because of invalid
- * state": a hidden document, a transition already running, a resize
- * mid-flight), which would leave the swap unrun and the click dead. So every
- * promise is caught, and if the callback did not fire we apply the swap
- * ourselves.
- */
+// View transitions are decoration. One can abort before its callback runs
+// (hidden tab, a transition already running), so if the callback never fired
+// the swap is applied directly.
 async function swap(apply: () => void): Promise<void> {
 	const doc = document as WithVT;
 	if (
@@ -118,7 +90,7 @@ async function swap(apply: () => void): Promise<void> {
 		vt.updateCallbackDone.catch(() => {});
 		await vt.finished.catch(() => {});
 	} catch {
-		/* the API refused outright — fall through to the plain swap */
+		// startViewTransition threw; fall through to the plain swap
 	}
 	if (!ran) apply();
 }
@@ -134,8 +106,7 @@ async function goto(url: string, push: boolean): Promise<void> {
 			location.href = url; // graceful: let the browser do it
 			return;
 		}
-		// Clone: the cached Document must survive being navigated to twice, and
-		// replaceChildren would otherwise adopt its nodes straight out of it.
+		// Clone so the cached Document survives being visited again.
 		const incoming = newMain.cloneNode(true) as HTMLElement;
 		await swap(() => {
 			teardown();
@@ -153,9 +124,8 @@ async function goto(url: string, push: boolean): Promise<void> {
 	}
 }
 
-// Registered before bootHub's own click handler (module evaluation order), so
-// the hub's section router still owns section-to-section travel while this
-// owns every kind-crossing link.
+// Registered before bootHub's handler: the hub router keeps section travel,
+// this handles links that cross between hub and article.
 document.addEventListener(
 	"click",
 	(ev) => {
@@ -167,11 +137,8 @@ document.addEventListener(
 		if (!kind) return;
 		if (kind === "hub" && currentKind === "hub") return; // hub router's job
 		if (a.pathname === location.pathname) {
-			// Leave in-page anchors to the page:
-			// the ToC, every footnote reference and every footnote backref all
-			// point at the path they are already on. Swallowing them here would
-			// break all three. Only a link to the page you are already
-			// standing on is inert.
+			// In-page anchors (ToC, footnotes and their backrefs) are left alone;
+			// only a link to the current page is a no-op.
 			if (!a.hash) ev.preventDefault();
 			return;
 		}
@@ -185,7 +152,7 @@ let lastPath = location.pathname;
 addEventListener("popstate", () => {
 	const kind = pageKind(location.pathname);
 	if (!kind) return;
-	// hub→hub is the hub router's popstate; hash-only moves are nobody's
+	// Hub-to-hub popstate belongs to the hub router; hash-only changes to no one.
 	const pathChanged = location.pathname !== lastPath;
 	lastPath = location.pathname;
 	if (kind === "hub" && currentKind === "hub") return;

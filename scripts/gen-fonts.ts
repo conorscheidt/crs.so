@@ -1,29 +1,19 @@
 /**
- * Fraunces, instanced down to the axes the site uses.
+ * Instances Fraunces down to the axes the site uses. No Fontsource cut has
+ * both `opsz` (display sizes) and `SOFT` (the hover), so the only stock option
+ * is the 120 KB full file.
  *
- * Fontsource's smaller Fraunces cuts each drop an axis we need: `soft` drops
- * `opsz`, while `opsz` and `standard` drop `SOFT`. The site uses `opsz` for
- * display sizes and `SOFT` for the ink-burn hover, so the only stock option is
- * `full` at 120 KB, and getting smaller means instancing it here.
+ * WONK is pinned to 1 rather than dropped: it defaults to 1 and the CSS never
+ * sets it, so dropping it would switch the alternate letterforms off.
  *
- * WONK is pinned at 1. Its default is 1 and the CSS never sets it, so pages
- * already render with the wonky alternates. Dropping the axis without pinning
- * it would reset those glyphs to WONK=0; pinned, rendering is unchanged.
+ *   full                120.0 KB
+ *   WONK=1              117.5 KB
+ *   + wght 100–300       98.6 KB
+ *   + opsz 40–144        98.2 KB
+ *   + SOFT 0–64          93.7 KB
  *
- * Most of the saving is the weight range: the site uses 130 (the 404 numeral)
- * and 260 (everything else), out of a 100–900 axis.
- *
- *   full, as shipped                120.0 KB
- *   WONK=1                          117.5 KB
- *   + wght 100–300                   98.6 KB
- *   + opsz 40–144                    98.2 KB
- *   + SOFT 0–64                      93.7 KB
- *
- * Character coverage is unchanged (245 glyphs, latin). Post titles are
- * arbitrary text, so subsetting glyphs would eventually drop one.
- *
- * Requires fontTools (`python3 -m fontTools`). The output is committed, so a
- * normal build never runs this, same as gen-favicon.ts.
+ * Glyph coverage is untouched, since post titles are arbitrary text. Needs
+ * fontTools (`python3 -m fontTools`); the output is committed.
  *
  *   bun scripts/gen-fonts.ts
  */

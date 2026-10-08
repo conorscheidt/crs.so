@@ -1,6 +1,5 @@
-/** CodeMirror 6 "paper-pastel" theme. All colours are CSS variables (--cm-*)
- *  defined per light/dark in global.css, so the editor re-themes with the site
- *  toggle for free; pastels are tuned per background. */
+/** CodeMirror theme. Every colour is a --cm-* variable defined per theme in
+ *  global.css, so editors follow the site's day/night toggle. */
 
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";

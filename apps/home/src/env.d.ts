@@ -2,9 +2,8 @@
 declare module "@fontsource-variable/*";
 
 /**
- * Build-only font toolkit (social cards + favicon). fontkit ships no types;
- * this declares only what we use: variable-axis instancing, shaping, and
- * outline paths.
+ * fontkit, used at build time for social cards and the favicon. It ships no
+ * types; this declares the part we use.
  */
 declare module "fontkit" {
 	export interface FkPath {

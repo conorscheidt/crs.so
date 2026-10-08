@@ -1,11 +1,11 @@
 /**
- * Lean in-browser C/C++ driver: a TypeScript port of the WASI + memfs +
- * compile→link→run core of binji/wasm-clang (Apache-2.0). Stripped of the canvas
- * API, 6502/d8 paths, and timing logs. Runs clang -cc1 + wasm-ld + the program
- * entirely inside whatever thread it's constructed on (we use a Worker).
+ * In-browser C/C++ driver: a TypeScript port of the WASI, memfs and
+ * compile/link/run core of binji/wasm-clang (Apache-2.0), without the canvas
+ * API, the 6502 and d8 paths, or timing logs. Runs clang -cc1, wasm-ld and the
+ * program on whatever thread constructs it (here, a worker).
  *
- * Provide `compileStreaming(url) → Promise<Module>` and `readBuffer(url) →
- * Promise<ArrayBuffer>` (these own decompression + caching) plus `hostWrite(str)`.
+ * The caller provides `compileStreaming(url)` and `readBuffer(url)`, which own
+ * decompression and caching, plus `hostWrite(str)`.
  */
 
 const ESUCCESS = 0;
@@ -102,8 +102,8 @@ class MemFS {
 	hostWrite: (s: string) => void;
 	stdinStr = "";
 	stdinStrPos = 0;
-	/** Blocking refill for terminal-style stdin: returns more input, or null
-	 *  for EOF. Runs on the worker thread (Atomics.wait), never the main one. */
+	/** Blocking stdin refill: more input, or null for EOF. Uses Atomics.wait, so
+	 *  it only runs on a worker. */
 	stdinWaiter: (() => string | null) | null = null;
 
 	setStdin(text: string): void {
@@ -198,8 +198,7 @@ class MemFS {
 			iovs += 4;
 			let n = Math.min(len, this.stdinStr.length - this.stdinStrPos);
 			if (n === 0 && this.stdinWaiter) {
-				// terminal semantics: the program blocks here until the reader
-				// side delivers a line (or EOF)
+				// blocks until the page delivers a line (or EOF)
 				const more = this.stdinWaiter();
 				if (more !== null) {
 					this.stdinStr += more;
@@ -235,8 +234,8 @@ class MemFS {
 	}
 }
 
-// no canvas/env imports needed: we never link -lcanvas, so neither the tools nor
-// the compiled program import from `env`. A Proxy guards any surprise import.
+// Nothing links -lcanvas, so neither the tools nor the compiled program import
+// from `env`. The Proxy catches anything unexpected.
 const EMPTY_ENV = new Proxy(
 	{},
 	{
