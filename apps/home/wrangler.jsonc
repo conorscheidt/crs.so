@@ -1,55 +1,42 @@
 {
-	// Cloudflare Workers Static Assets. One Worker, one deploy: `bun run deploy`.
-	// The script exists only to answer /api/e; assets are served from the edge
-	// without invoking it, so page loads are unaffected.
 	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "crs-so",
-	"compatibility_date": "2026-08-01",
+	"compatibility_date": "2026-10-06",
 	"main": "./worker/index.ts",
-	// Stack traces in the observability logs point at worker.ts, not the bundle.
 	"upload_source_maps": true,
 
-	// No Smart Placement. Placement moves the Worker closer to a
-	// backend (a database, an origin API) at the cost of moving it away from
-	// the visitor. This Worker has no backend: assets are served by the edge
-	// without invoking it at all, and an Analytics Engine write is local
-	// wherever it runs. Turning it on could only make /api/e slower.
+	// No Smart Placement: it moves a Worker toward its backend, and this one has
+	// none. Assets never reach it and Analytics Engine writes are local.
 
-	// The apex is the only address this site answers on. Without this, the deploy
-	// is also reachable at crs-so.<subdomain>.workers.dev, a second crawlable
-	// copy of every page. The canonical tags point home, but the cheaper fix is
-	// for the duplicate not to exist. `custom_domain: true` has Wrangler create
-	// and own the DNS record, so the binding lives in this file rather than in
-	// dashboard state nobody can diff.
-	// www is not here: it is a proxied placeholder record plus a Redirect Rule,
-	// handled at the edge before any Worker runs. Routing it through this script
-	// would mean the Worker ran on every request just to answer a redirect.
+	// The apex is the only hostname. www is a proxied placeholder record with a
+	// redirect at the edge, so the Worker never runs for it.
 	"routes": [{ "pattern": "crs.so", "custom_domain": true }],
 	"workers_dev": false,
-	// Defaults to workers_dev; stated anyway, because a preview URL is a public URL.
 	"preview_urls": false,
 
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS",
-		// Everything else is served as an asset without the script running. Only
-		// this prefix is routed to the Worker first.
 		"run_worker_first": ["/api/*"],
-		// matches astro's `trailingSlash: "never"`: one URL per page
+		// matches Astro's trailingSlash: "never"
 		"html_handling": "drop-trailing-slash",
 		"not_found_handling": "404-page"
 	},
 
-	// Behaviour events. Created on first deploy; no dashboard, query it with the
-	// SQL API.
+	// Cache in front of the Worker, keyed by version and driven by the
+	// responses' Cache-Control. /api/git is served from it; POSTs pass through.
+	"cache": { "enabled": true },
+
 	"analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "crs_so_events" }],
 
-	// Sample everything. The script runs only for /api/e and for paths that
-	// matched no asset, so invocations are already rare and sampling would
-	// only make a small number smaller.
+	// The Worker only runs for /api/* and unmatched paths, so sample everything.
 	"observability": {
 		"enabled": true,
 		"head_sampling_rate": 1,
-		"logs": { "enabled": true, "invocation_logs": true }
-	}
+		"logs": { "enabled": true, "invocation_logs": true },
+		"traces": { "enabled": true },
+		"issues": { "enabled": true }
+	},
+
+	"send_metrics": false
 }
