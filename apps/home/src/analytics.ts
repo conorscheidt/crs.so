@@ -1,7 +1,7 @@
 // Pageviews come from Cloudflare Web Analytics (see Shell.astro). This module
 // sends behaviour events — post reads, code runs, figure drags, searches — to
-// /api/e, which the Worker writes to Analytics Engine. It never throws, never
-// blocks a frame, and never sends anything that identifies a visitor.
+// /api/e, which the Worker writes to Analytics Engine. Fire-and-forget,
+// and nothing sent identifies a visitor.
 const ENDPOINT = "/api/e";
 
 /** Every event the site sends. */

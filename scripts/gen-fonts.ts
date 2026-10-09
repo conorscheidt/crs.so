@@ -24,7 +24,7 @@ const SRC = "node_modules/@fontsource-variable/fraunces/files/fraunces-latin-ful
 const OUT = "apps/home/src/assets/fonts/fraunces-display.woff2";
 const TMP = "/tmp/crs-fraunces";
 
-/** Every axis limit, with the reason it is that number. */
+/** Axis limits, with the values the site uses. */
 const AXES = [
 	"WONK=1", // pinned at its default
 	"wght=100:300", // used: 130 and 260

@@ -1,9 +1,9 @@
-# Vanity handles — one place, so changing a handle is one edit here.
+# Vanity handles.
 /github    https://github.com/conorscheidt       301
 /linkedin  https://linkedin.com/in/conorscheidt  301
 /git       https://git.crs.so                    301
 
-# Legacy /blog paths; writing is a section of this site.
+# Old paths.
 /blog      /writing         301
 /blog/*    /writing/:splat  301
 /work      /projects        301

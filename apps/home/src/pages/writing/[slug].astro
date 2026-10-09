@@ -60,9 +60,7 @@ const date = post.data.date.toLocaleDateString("en-US", {
 				{
 					(project || post.data.tags.length > 0) && (
 						<div class="atags">
-							{/* the project comes first and is styled apart from tags: a post has
-							    many tags but one project. Same `@` mark as the search bar and
-							    the hub lists. */}
+							{/* project first: a post has one, marked with the same `@` as search */}
 							{project && (
 								<a class="proj" href={`/writing?project=${project.slug}`}>
 									@{project.slug}

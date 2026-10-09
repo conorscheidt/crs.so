@@ -34,7 +34,7 @@ function fmt(a: unknown): string {
 
 function runJs(src: string): { stdout: string; stderr: string; ok: boolean } {
 	const logs: string[] = [];
-	// biome-ignore lint/suspicious/noConsole: the shim captures the snippet's console output
+	// biome-ignore lint/suspicious/noConsole: the shim captures the snippet's console
 	const orig = console.log;
 	// biome-ignore lint/suspicious/noExplicitAny: console shim
 	console.log = (...a: any[]) => logs.push(a.map(fmt).join(" "));

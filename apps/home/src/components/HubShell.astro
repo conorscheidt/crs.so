@@ -134,8 +134,7 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 								data-tags={p.tags.join(" ")}
 								data-project={p.slug}
 							>
-								{/* the title links to the repository; every project has one, so
-								    every row gets the same treatment */}
+								{/* every project has a repository; the title links to it */}
 								<a class="entry-title inkable" href={repoUrl(p.repo)} rel="noopener">
 									{p.name}
 								</a>

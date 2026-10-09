@@ -8,8 +8,7 @@ export const GET: APIRoute = async (context) => {
 	const posts = await publishedPosts();
 	return rss({
 		title: "Conor Scheidt — Writing",
-		description:
-			"Writing by Conor Scheidt.",
+		description: "Writing by Conor Scheidt.",
 		site: context.site ?? "https://crs.so",
 		trailingSlash: false,
 		items: posts.map((p) => ({

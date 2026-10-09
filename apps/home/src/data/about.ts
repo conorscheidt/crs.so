@@ -1,5 +1,4 @@
-// About panel content. Keep it consistent with the résumé, which stays the
-// complete record; this is the ten-second version.
+// About panel content; keep it in step with the résumé.
 
 export const blurb =
 	"I study applied mathematics and computer science at Northwestern. Most of my work is on systems where performance and correctness both matter: distributed systems, trading infrastructure, compilers, and numerical methods.";
