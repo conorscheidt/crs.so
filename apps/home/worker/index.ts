@@ -18,6 +18,28 @@ const GIT_SUMMARY = "https://git.crs.so/-/api/summary";
 // basalt caps the summary at 32 KB; anything much larger isn't it.
 const SUMMARY_MAX = 64 * 1024;
 
+/** An event's label and two measures, in the row layout described above. */
+function columns(e: SiteEvent): [string, number, number] {
+	switch (e.event) {
+		case "code-run":
+			return [e.lang, e.ms, Number(e.ok)];
+		case "search":
+			return [e.kind, e.len, e.hits];
+		case "figure-touch":
+			return [e.kind, 0, 0];
+		case "tag-filter":
+			return [e.tag, 0, 0];
+		case "project-filter":
+		case "project-open":
+			return [e.slug, 0, 0];
+		case "theme-flip":
+			return [e.to, 0, 0];
+		case "post-open":
+		case "post-read":
+			return ["", 0, 0];
+	}
+}
+
 async function record(req: Request, env: Env, origin: string): Promise<Response> {
 	if (req.method !== "POST") return new Response(null, { status: 405 });
 	// A cross-site POST can't read the response, but it would still be written.
@@ -32,26 +54,11 @@ async function record(req: Request, env: Env, origin: string): Promise<Response>
 		return new Response(null, { status: 400 });
 	}
 
-	const label =
-		"lang" in e
-			? e.lang
-			: "tag" in e
-				? e.tag
-				: "slug" in e
-					? e.slug
-					: "kind" in e
-						? e.kind
-						: "to" in e
-							? e.to
-							: "";
+	const [label, a, b] = columns(e);
 	env.EVENTS.writeDataPoint({
 		indexes: [e.event],
 		blobs: [e.event, e.path, label, (req.headers.get("referer") ?? "").slice(0, 256)],
-		doubles: [
-			1,
-			"len" in e ? e.len : "ms" in e ? e.ms : 0,
-			"hits" in e ? e.hits : "ok" in e ? Number(e.ok) : 0,
-		],
+		doubles: [1, a, b],
 	});
 	return new Response(null, { status: 204 });
 }

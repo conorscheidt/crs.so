@@ -32,11 +32,13 @@ const phi = (1 + Math.sqrt(5)) / 2;
 const verts: V3[] = [];
 for (const a of [-1, 1]) for (const b of [-phi, phi]) verts.push([0, a, b], [a, b, 0], [b, 0, a]);
 const isEdge = (i: number, j: number): boolean =>
-	Math.abs(Math.hypot(...(verts[i] as V3).map((c, k) => c - ((verts[j] as V3)[k] ?? 0))) - 2) < 1e-9;
+	Math.abs(Math.hypot(...(verts[i] as V3).map((c, k) => c - ((verts[j] as V3)[k] ?? 0))) - 2) <
+	1e-9;
 const faces: [number, number, number][] = [];
 for (let i = 0; i < 12; i++)
 	for (let j = i + 1; j < 12; j++)
-		for (let k = j + 1; k < 12; k++) if (isEdge(i, j) && isEdge(j, k) && isEdge(i, k)) faces.push([i, j, k]);
+		for (let k = j + 1; k < 12; k++)
+			if (isEdge(i, j) && isEdge(j, k) && isEdge(i, k)) faces.push([i, j, k]);
 
 // Look straight down a face normal (a three-fold axis), with a vertex at the
 // top so the outline is a symmetric hexagon with vertical sides.
@@ -64,7 +66,16 @@ const xs = flat.map((p) => p[0]);
 const span = Math.max(...xs) - Math.min(...xs);
 
 const centroid = (f: [number, number, number]): V3 =>
-	unit(f.reduce<V3>((s, i) => [s[0] + (verts[i] as V3)[0], s[1] + (verts[i] as V3)[1], s[2] + (verts[i] as V3)[2]], [0, 0, 0]));
+	unit(
+		f.reduce<V3>(
+			(s, i) => [
+				s[0] + (verts[i] as V3)[0],
+				s[1] + (verts[i] as V3)[1],
+				s[2] + (verts[i] as V3)[2],
+			],
+			[0, 0, 0],
+		),
+	);
 const light = unit([-0.45, 0.62, 0.65]);
 const lightWorld: V3 = [
 	light[0] * cam.x[0] + light[1] * cam.y[0] + light[2] * view[0],
@@ -72,9 +83,16 @@ const lightWorld: V3 = [
 	light[0] * cam.x[2] + light[1] * cam.y[2] + light[2] * view[2],
 ];
 const visible = faces.filter((f) => dot(centroid(f), view) > 1e-6);
-const shade = (f: [number, number, number]): number => 0.28 + 0.72 * Math.max(0, dot(centroid(f), lightWorld));
+const shade = (f: [number, number, number]): number =>
+	0.28 + 0.72 * Math.max(0, dot(centroid(f), lightWorld));
 const edges = new Set<string>();
-for (const [a, b, c] of visible) for (const [i, j] of [[a, b], [b, c], [a, c]] as const) edges.add(`${Math.min(i, j)}-${Math.max(i, j)}`);
+for (const [a, b, c] of visible)
+	for (const [i, j] of [
+		[a, b],
+		[b, c],
+		[a, c],
+	] as const)
+		edges.add(`${Math.min(i, j)}-${Math.max(i, j)}`);
 
 /**
  * The mark at a given silhouette width (in the 32-unit box), centred. A width
@@ -148,7 +166,10 @@ const home = mark(HOME, "m", INK);
 await Bun.write(`${PUBLIC}/apple-touch-icon.png`, await png(180, tile(home, false)));
 await Bun.write(`${PUBLIC}/icon-192.png`, await png(192, tile(home, true)));
 await Bun.write(`${PUBLIC}/icon-512.png`, await png(512, tile(home, true)));
-await Bun.write(`${PUBLIC}/icon-maskable-512.png`, await png(512, tile(mark(MASKABLE, "m", INK), false)));
+await Bun.write(
+	`${PUBLIC}/icon-maskable-512.png`,
+	await png(512, tile(mark(MASKABLE, "m", INK), false)),
+);
 
 // biome-ignore lint/suspicious/noConsole: CLI output
 console.log(`icons written to ${PUBLIC}`);

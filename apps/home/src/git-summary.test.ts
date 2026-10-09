@@ -48,6 +48,7 @@ const fixture = {
 	recent: [
 		{
 			repo: "basalt",
+			// biome-ignore lint/security/noSecrets: a commit hash
 			sha: "3f9a2264c1e0",
 			message: "pack: stream thin packs",
 			when: NOW,

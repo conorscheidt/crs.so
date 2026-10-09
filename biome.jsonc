@@ -49,6 +49,8 @@
 				"noReactSpecificProps": "off"
 			},
 			"performance": {
+				// valibot is written as `import * as v`, which Rolldown tree-shakes
+				"noNamespaceImport": "off",
 				"useSolidForComponent": "off",
 				"useTopLevelRegex": "off"
 			},

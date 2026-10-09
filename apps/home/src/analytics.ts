@@ -7,8 +7,9 @@ import type { EventFields, EventName } from "./events";
 const ENDPOINT = "/api/e";
 
 // Events without fields take no second argument; the rest require theirs.
-type Args<E extends EventName> =
-	{} extends EventFields<E> ? [fields?: EventFields<E>] : [fields: EventFields<E>];
+type Args<E extends EventName> = keyof EventFields<E> extends never
+	? [fields?: EventFields<E>]
+	: [fields: EventFields<E>];
 
 export function track<E extends EventName>(event: E, ...[fields]: Args<E>): void {
 	if (typeof navigator === "undefined") return;
