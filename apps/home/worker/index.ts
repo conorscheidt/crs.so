@@ -27,13 +27,16 @@ async function record(req: Request, env: Env, origin: string): Promise<Response>
 	// A cross-site POST can't read the response, but it would still be written.
 	if (req.headers.get("origin") !== origin) return new Response(null, { status: 403 });
 
-	let payload: Record<string, unknown>;
+	if (Number(req.headers.get("content-length")) > 4096) return new Response(null, { status: 413 });
+	let body: unknown;
 	try {
 		// sendBeacon sends text/plain and the fetch fallback sends JSON; both are JSON text.
-		payload = JSON.parse(await req.text()) as Record<string, unknown>;
+		body = JSON.parse(await req.text());
 	} catch {
 		return new Response(null, { status: 400 });
 	}
+	if (typeof body !== "object" || body === null) return new Response(null, { status: 400 });
+	const payload = body as Record<string, unknown>;
 	const { event } = payload;
 	if (typeof event !== "string") return new Response(null, { status: 400 });
 
