@@ -44,14 +44,15 @@ export default defineConfig({
 
 	// All three faces come from files already in the repo or node_modules, so a
 	// build never touches the network. Fraunces is instanced by
-	// scripts/gen-fonts.ts; no published cut has both opsz and SOFT.
+	// scripts/gen-fonts.ts; no published cut has both opsz and SOFT. The text faces
+	// block for ~100 ms, then show the metric-matched fallback until they arrive.
 	fonts: [
 		{
 			provider: fontProviders.local(),
 			name: "Fraunces",
 			cssVariable: "--font-display",
 			fallbacks: serif,
-			display: "block",
+			display: "fallback",
 			options: {
 				variants: [
 					{
@@ -67,7 +68,7 @@ export default defineConfig({
 			name: "Spectral",
 			cssVariable: "--font-text",
 			fallbacks: serif,
-			display: "block",
+			display: "fallback",
 			options: {
 				variants: [
 					{

@@ -21,6 +21,6 @@ export const MOTION = {
 	/** Micro-interaction tokens (ms). */
 	hover: { ms: 120 },
 	press: { ms: 90 },
-	/** Budgets (ms): sim dot fade-in after init, font-gate cap. */
-	budget: { simFade: 300, fontGate: 600 },
+	/** Sim dot fade-in after init (ms). */
+	budget: { simFade: 300 },
 } as const;
