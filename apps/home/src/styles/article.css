@@ -781,6 +781,13 @@
 	margin: 0;
 }
 
+/* the toolchain line a first run shows until the program's output arrives */
+.termstat {
+	display: block;
+	color: var(--ink-quiet);
+	font-variant-numeric: tabular-nums;
+}
+
 /* rails collapse on narrow viewports; prose stands alone */
 @media (width < 900px) {
 	.apage {

@@ -4,6 +4,7 @@
  * stdin read waits on an inline prompt (SharedArrayBuffer + Atomics).
  */
 import { mountEditor } from "./playground/editor";
+import { toolchainLine } from "./playground/progress";
 import { RUNNABLE, run, warmCpp, warmLight } from "./playground/runner";
 
 const live: { destroy: () => void }[] = [];
@@ -41,12 +42,29 @@ export function initCodeBlocks(blocks: HTMLElement[]): void {
 			runBtn.disabled = true;
 			outText.textContent = "";
 			let streamed = false;
+			// a first C/C++ run waits on the toolchain; this line stands in until
+			// the program says something
+			let status: HTMLElement | null = null;
+			const clearStatus = (): void => {
+				status?.remove();
+				status = null;
+			};
 			const append = (s: string): void => {
+				clearStatus();
 				streamed = true;
 				outText.append(s);
 			};
 			const r = await run(lang, editor.getValue(), "", {
 				onOut: append,
+				onFetch(loaded, total) {
+					if (streamed) return;
+					if (!status) {
+						status = document.createElement("span");
+						status.className = "termstat";
+						outText.append(status);
+					}
+					status.textContent = toolchainLine(loaded, total);
+				},
 				onStdinReq(write) {
 					const row = document.createElement("span");
 					row.className = "termin";
@@ -72,6 +90,7 @@ export function initCodeBlocks(blocks: HTMLElement[]): void {
 				},
 			});
 			runBtn.disabled = false;
+			clearStatus();
 			if (!streamed) {
 				const body = [r.stdout, r.stderr].filter(Boolean).join("\n");
 				if (body) outText.append(`${body}\n`);

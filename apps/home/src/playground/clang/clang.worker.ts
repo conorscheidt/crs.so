@@ -5,13 +5,29 @@
  * decoded with DecompressionStream and streamed into
  * WebAssembly.compileStreaming, so decode and compile overlap.
  */
+import { Downloads } from "../progress";
 import { ClangDriver } from "./driver";
 
 // The bundler doesn't hash these assets, so the version lives in the
 // directory name and they can be served immutable. Bump both on any toolchain
-// change.
+// change, along with the sizes below.
 const BASE = (import.meta.env.PUBLIC_CLANG_BASE_URL as string | undefined) || "/clang/v1";
 const CACHE = "crsche-clang-v1";
+
+// neutral .bin so no server applies Content-Encoding (which would make the
+// browser pre-decompress our gzip layer); we always decompress explicitly
+const CLANG = `${BASE}/clang.bin`;
+const LLD = `${BASE}/lld.bin`;
+const MEMFS = `${BASE}/memfs.bin`;
+const SYSROOT = `${BASE}/sysroot.bin`;
+
+// Gzipped bytes, for progress when a response has no Content-Length.
+const SIZES: Record<string, number> = {
+	[CLANG]: 10_529_117,
+	[LLD]: 6_712_815,
+	[MEMFS]: 18_848,
+	[SYSROOT]: 1_814_583,
+};
 
 // ── compiled-module cache ─────────────────────────────────────────────
 // The Cache API keeps the gzipped bytes; IndexedDB keeps the compiled
@@ -55,17 +71,73 @@ async function modPut(key: string, mod: WebAssembly.Module): Promise<void> {
 	}
 }
 
+// ── download progress ─────────────────────────────────────────────────
+// Network bytes are counted as the body streams; a run that is waiting on them
+// hears about it, throttled.
+const downloads = new Downloads();
+let watching: number | null = null;
+let reported = 0;
+
+function report(): void {
+	if (watching === null) return;
+	const now = performance.now();
+	if (downloads.active && now - reported < 80) return;
+	reported = now;
+	globalThis.postMessage({ id: watching, fetch: [downloads.loaded, downloads.total] });
+}
+
+function counted(resp: Response, url: string): Response {
+	const body = resp.body;
+	if (!body) return resp;
+	downloads.begin(url, Number(resp.headers.get("content-length")) || SIZES[url] || 0);
+	report();
+	const reader = body.getReader();
+	const stream = new ReadableStream<Uint8Array>({
+		async pull(ctl) {
+			try {
+				const { done, value } = await reader.read();
+				if (done) {
+					downloads.end(url);
+					report();
+					ctl.close();
+					return;
+				}
+				downloads.add(url, value.byteLength);
+				report();
+				ctl.enqueue(value);
+			} catch (err) {
+				downloads.end(url);
+				ctl.error(err);
+			}
+		},
+		cancel(reason) {
+			downloads.end(url);
+			return reader.cancel(reason);
+		},
+	});
+	return new Response(stream, {
+		status: resp.status,
+		statusText: resp.statusText,
+		headers: resp.headers,
+	});
+}
+
 async function cachedResponse(url: string): Promise<Response> {
+	let cache: Cache | null = null;
 	try {
-		const cache = await caches.open(CACHE);
+		cache = await caches.open(CACHE);
 		const hit = await cache.match(url);
 		if (hit) return hit;
-		const resp = await fetch(url);
-		if (resp.ok) await cache.put(url, resp.clone());
-		return resp;
 	} catch {
-		return fetch(url); // private mode / no CacheStorage → still works, just no persist
+		cache = null; // private mode / no CacheStorage → still works, just no persist
 	}
+	const resp = await fetch(url);
+	if (!resp.ok) return resp;
+	const live = counted(resp, url);
+	// The cache reads its own branch of the body, so decoding starts with the
+	// first bytes instead of after the whole file has been stored.
+	if (cache) void cache.put(url, live.clone()).catch(() => {});
+	return live;
 }
 
 function gunzip(resp: Response): ReadableStream<Uint8Array> {
@@ -74,7 +146,20 @@ function gunzip(resp: Response): ReadableStream<Uint8Array> {
 	return body.pipeThrough(new DecompressionStream("gzip"));
 }
 
-async function compileStreaming(url: string): Promise<WebAssembly.Module> {
+// One compile per module, shared by the prefetch and the driver.
+const modules = new Map<string, Promise<WebAssembly.Module>>();
+
+function compileStreaming(url: string): Promise<WebAssembly.Module> {
+	let mod = modules.get(url);
+	if (!mod) {
+		mod = compileFresh(url);
+		modules.set(url, mod);
+		mod.catch(() => modules.delete(url));
+	}
+	return mod;
+}
+
+async function compileFresh(url: string): Promise<WebAssembly.Module> {
 	const key = `${CACHE}:${url}`; // version-scoped → bumping CACHE busts stale modules
 	const cached = await modGet(key);
 	if (cached) return cached;
@@ -100,12 +185,10 @@ function ensureDriver(): ClangDriver {
 		compileStreaming,
 		readBuffer,
 		hostWrite: (s) => currentWrite(s),
-		// neutral .bin so no server applies Content-Encoding (which would make the
-		// browser pre-decompress our gzip layer); we always decompress explicitly
-		clangUrl: `${BASE}/clang.bin`,
-		lldUrl: `${BASE}/lld.bin`,
-		memfsUrl: `${BASE}/memfs.bin`,
-		sysrootUrl: `${BASE}/sysroot.bin`,
+		clangUrl: CLANG,
+		lldUrl: LLD,
+		memfsUrl: MEMFS,
+		sysrootUrl: SYSROOT,
 	});
 	return driver;
 }
@@ -153,8 +236,13 @@ async function handle({ id, src, cpp, warm, stdin, stdinSab }: Req): Promise<voi
 	let ok = true;
 	let errMsg = "";
 	let waited = 0; // time spent blocked on the reader, left out of the reported time
+	watching = id;
+	if (downloads.active) report();
 	try {
 		const d = ensureDriver();
+		// The driver would fetch lld only after clang has run; asking for both
+		// now overlaps the downloads and gives the progress line its full total.
+		for (const url of [CLANG, LLD]) void compileStreaming(url).catch(() => {});
 		d.setStdin(stdin ?? "");
 		if (stdinSab) {
 			const ctl = new Int32Array(stdinSab, 0, 2);
@@ -177,6 +265,7 @@ async function handle({ id, src, cpp, warm, stdin, stdinSab }: Req): Promise<voi
 		ok = false;
 		errMsg = err instanceof Error ? err.message : String(err);
 	}
+	watching = null;
 	currentWrite = () => {};
 	ensureDriver().setStdinWaiter(null);
 

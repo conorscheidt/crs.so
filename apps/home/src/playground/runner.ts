@@ -17,6 +17,9 @@ export interface RunHooks {
 	/** the program is blocked on stdin: call with a line (newline appended) to
 	 *  resume it, or with null for EOF */
 	onStdinReq?: (write: (line: string | null) => void) => void;
+	/** C/C++ only: the toolchain is still downloading for this run. Bytes so
+	 *  far and the total; the last call has loaded === total. */
+	onFetch?: (loaded: number, total: number) => void;
 }
 
 interface Pending {
@@ -40,12 +43,19 @@ function onMessage(e: MessageEvent): void {
 		out?: string;
 		stdinReq?: boolean;
 		started?: boolean;
+		fetch?: [number, number];
 	} & Partial<RunResult>;
 	if (d?.warmed) return;
 	const p = pending.get(d.id);
 	if (!p) return;
 	if (d.started) {
 		p.armTimer();
+		return;
+	}
+	if (d.fetch) {
+		// a slow connection is still a live run
+		p.armTimer();
+		p.hooks.onFetch?.(d.fetch[0], d.fetch[1]);
 		return;
 	}
 	if (d.out !== undefined) {
