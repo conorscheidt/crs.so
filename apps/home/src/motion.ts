@@ -3,7 +3,7 @@
  * Lenis and the CSS custom properties all read from here.
  */
 export const MOTION = {
-	/** Section morph duration (s); the object and panel move together. */
+	/** Section morph duration (s); the object and the nav mark move together. */
 	morph: 0.85,
 	/** Panel crossfade (ms). */
 	panel: 240,
@@ -24,3 +24,6 @@ export const MOTION = {
 	/** Sim dot fade-in after init (ms). */
 	budget: { simFade: 300 },
 } as const;
+
+/** The section morph's curve (cubic ease-out); anything riding the morph uses it. */
+export const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;

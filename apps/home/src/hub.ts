@@ -9,6 +9,7 @@ import { track } from "./analytics";
 import type { Clock } from "./clock";
 import { invalidateTargets, ring } from "./cursor";
 import { initGitBlock } from "./git";
+import { initNavDot } from "./nav-dot";
 import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
 import { smoothScroll } from "./scroll";
 import { initSearch } from "./search/client";
@@ -62,6 +63,8 @@ export function bootHub(clock: Clock): () => void {
 	);
 
 	const offsets = new Map<Section, number>();
+	const nav = hub.querySelector<HTMLElement>("nav");
+	const dot = nav ? initNavDot(nav, clock, reducedMotion) : null;
 
 	let sim: Sim | null = null;
 	const canvas = hub.querySelector<HTMLCanvasElement>("#sim");
@@ -70,7 +73,6 @@ export function bootHub(clock: Clock): () => void {
 		// On the sheet layout the object sits behind the page; once the sheet has
 		// scrolled over it entirely, stop drawing it.
 		const cover = (): void => {
-			const nav = hub.querySelector("nav");
 			const hidden = !desktop.matches && !!nav && nav.getBoundingClientRect().top <= 0;
 			sim?.setVisible(!hidden);
 		};
@@ -232,6 +234,7 @@ export function bootHub(clock: Clock): () => void {
 			if (a.getAttribute("href") === PATHS[to]) a.setAttribute("aria-current", "page");
 			else a.removeAttribute("aria-current");
 		}
+		dot?.move();
 		const panel = panels.get(to);
 		const remembered = offsets.get(to) ?? 0;
 		const wrapper = panel?.querySelector<HTMLElement>("[data-scroll]");
@@ -244,7 +247,6 @@ export function bootHub(clock: Clock): () => void {
 			panel?.querySelector<HTMLElement>("[data-panel-head]")?.focus({ preventScroll: true });
 		// On the sheet layout, a switch made far down a long list should land at
 		// the top of the new section rather than somewhere inside it.
-		const nav = hub.querySelector<HTMLElement>("nav");
 		if (!desktop.matches && nav && panel) {
 			// The nav is sticky, so measure from the panel row just below it.
 			const top = panel.getBoundingClientRect().top + scrollY - nav.offsetHeight;
@@ -326,6 +328,7 @@ export function bootHub(clock: Clock): () => void {
 	return () => {
 		ac.abort();
 		for (const u of unsubs) u();
+		dot?.destroy();
 		for (const l of lenises.values()) l.destroy();
 		sim?.detach();
 		sim = null;

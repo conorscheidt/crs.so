@@ -35,6 +35,7 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 			<a href="/projects" aria-current={section === "projects" ? "page" : undefined}>Projects</a>
 			<a href="/writing" aria-current={section === "writing" ? "page" : undefined}>Writing</a>
 			<a href="/about" aria-current={section === "about" ? "page" : undefined}>About</a>
+			<span class="nav-dot" data-dot aria-hidden="true"></span>
 		</nav>
 		<div class="meta">
 			<a href={resumeHref} target="_blank" rel="noopener">résumé<Out /></a>

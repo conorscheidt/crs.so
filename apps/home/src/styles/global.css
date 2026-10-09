@@ -388,6 +388,9 @@ html.no-native-cursor *::after {
 }
 
 .col-l nav {
+	--dot: 7px;
+	--dot-gap: 16px;
+	position: relative;
 	margin-top: var(--s5);
 	display: flex;
 	flex-direction: column;
@@ -415,16 +418,32 @@ html.no-native-cursor *::after {
 	text-shadow: 0 0 4px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
-.col-l nav a[aria-current="page"]::before {
-	content: "";
+/* The current-section dot. nav-dot.ts translates it onto the item's left edge,
+   52% down; until it has, the item draws the same dot itself. */
+.nav-dot,
+.col-l nav:not([data-dotted]) a[aria-current="page"]::before {
 	position: absolute;
-	left: -16px;
-	top: 52%;
-	width: 7px;
-	height: 7px;
+	left: calc(-1 * var(--dot-gap));
+	width: var(--dot);
+	height: var(--dot);
 	border-radius: 50%;
 	background: var(--ink);
-	transform: translateY(-50%);
+	pointer-events: none;
+}
+
+.nav-dot {
+	top: calc(-0.5 * var(--dot));
+	visibility: hidden;
+}
+
+.col-l nav[data-dotted] .nav-dot {
+	visibility: visible;
+}
+
+.col-l nav:not([data-dotted]) a[aria-current="page"]::before {
+	content: "";
+	top: 52%;
+	translate: 0 -50%;
 }
 
 .meta {
@@ -1153,6 +1172,8 @@ html.no-native-cursor *::after {
 	}
 
 	.col-l nav {
+		--dot: 5px;
+		--dot-gap: 11px;
 		grid-area: nav;
 		position: sticky;
 		top: 0;
@@ -1181,12 +1202,6 @@ html.no-native-cursor *::after {
 
 	.col-l nav a {
 		font-size: 14px;
-	}
-
-	.col-l nav a[aria-current="page"]::before {
-		left: -11px;
-		width: 5px;
-		height: 5px;
 	}
 
 	.panel {
