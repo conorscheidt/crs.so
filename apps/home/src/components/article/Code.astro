@@ -11,6 +11,8 @@ type Props = {
 	runnable?: boolean;
 };
 const { lang, code, runnable = false } = Astro.props;
+// the editor mounts at idle; until then the mount holds this many lines
+const lines = code.trim().split("\n").length;
 ---
 
 <div
@@ -34,7 +36,7 @@ const { lang, code, runnable = false } = Astro.props;
 			</span>
 		)
 	}
-	<div class="codemount" data-mount></div>
+	<div class="codemount" data-mount style={`--lines: ${lines}`}></div>
 	<pre class="codesrc" data-src hidden>{code}</pre>
 	{
 		runnable && (

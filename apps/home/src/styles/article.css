@@ -738,6 +738,13 @@
 	}
 }
 
+/* Hold the editor's height until CodeMirror mounts: 16px of padding above
+   and below, and 13px lines at 1.65 (playground/theme.ts). Only wrapping can
+   grow it after that. */
+.codemount:empty {
+	min-height: calc(32px + var(--lines, 1) * 13px * 1.65);
+}
+
 .codemount .cm-editor {
 	background: transparent;
 	font-size: 13px;
