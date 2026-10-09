@@ -9,10 +9,13 @@ export interface Frame {
 	/** canvas size in device px */
 	w: number;
 	h: number;
-	/** yaw already includes phase × rate */
-	yaw: number;
-	tiltX: number;
-	tiltZ: number;
+	/** rotation as cos/sin pairs, filled once per frame by pose() */
+	cosY: number;
+	sinY: number;
+	cosX: number;
+	sinX: number;
+	cosZ: number;
+	sinZ: number;
 	/** cursor in device px; active=0 disables the dimple */
 	cx: number;
 	cy: number;
@@ -33,13 +36,18 @@ export interface Projected {
 	lit: number;
 }
 
+/** yaw already includes phase × rate */
+export function pose(f: Frame, yaw: number, tiltX: number, tiltZ: number): void {
+	f.cosY = Math.cos(yaw);
+	f.sinY = Math.sin(yaw);
+	f.cosX = Math.cos(tiltX);
+	f.sinX = Math.sin(tiltX);
+	f.cosZ = Math.cos(tiltZ);
+	f.sinZ = Math.sin(tiltZ);
+}
+
 export function project(p: Pt, f: Frame, out: Projected): void {
-	const cy = Math.cos(f.yaw);
-	const sy = Math.sin(f.yaw);
-	const cx = Math.cos(f.tiltX);
-	const sx = Math.sin(f.tiltX);
-	const cz = Math.cos(f.tiltZ);
-	const sz = Math.sin(f.tiltZ);
+	const { cosY: cy, sinY: sy, cosX: cx, sinX: sx, cosZ: cz, sinZ: sz } = f;
 	const x1 = p.x * cy + p.z * sy;
 	const z1 = -p.x * sy + p.z * cy;
 	const y2 = p.y * cx - z1 * sx;
@@ -75,18 +83,23 @@ export function project(p: Pt, f: Frame, out: Projected): void {
  * Depth shading, mirrored in WGSL: alpha and size fall off smoothly with depth
  * so nothing pops. `gain` boosts density for dark ink on light paper.
  */
+export interface Shade {
+	a: number;
+	/** size multiplier on the base dot radius */
+	s: number;
+}
+
 export function shade(
 	baseAlpha: number,
 	depth: number,
 	lit: number,
-	gain = 1,
-): { a: number; s: number } {
+	gain: number,
+	out: Shade,
+): void {
 	const c = Math.min(1, Math.max(0, (depth + 1.1) / 2.2));
 	const dt = c * c * (3 - 2 * c);
-	return {
-		a: Math.min(0.92, baseAlpha * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain),
-		s: 0.62 + 0.38 * dt,
-	};
+	out.a = Math.min(0.92, baseAlpha * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain);
+	out.s = 0.62 + 0.38 * dt;
 }
 
 /** Alpha gain by ink luminance, mirrored in WGSL: ≈1.55 by day, ≈1.08 at night. */

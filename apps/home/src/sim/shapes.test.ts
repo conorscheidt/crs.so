@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type Frame, type Projected, project } from "./camera";
+import { type Frame, type Projected, pose, project, type Shade, shade } from "./camera";
 import { evalPoint, ICO_EDGES, N, type Pt, SHAPES, staggeredT } from "./shapes";
 
 const mk = (): Pt => ({ x: 0, y: 0, z: 0, a: 0 });
@@ -67,14 +67,18 @@ test("projection is centered, depth-shaded, and dimple pushes outward", () => {
 	const f: Frame = {
 		w: 1000,
 		h: 800,
-		yaw: 0,
-		tiltX: 0,
-		tiltZ: 0,
+		cosY: 0,
+		sinY: 0,
+		cosX: 0,
+		sinX: 0,
+		cosZ: 0,
+		sinZ: 0,
 		cx: 500,
 		cy: 400,
 		cursorActive: 1,
 		dimpleR: 26,
 	};
+	pose(f, 0, 0, 0);
 	const out: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
 	project({ x: 0, y: 0, z: 0, a: 1 }, f, out);
 	// The origin sits under the cursor: dimple pushes it off-center slightly.
@@ -85,4 +89,37 @@ test("projection is centered, depth-shaded, and dimple pushes outward", () => {
 	expect(near.depth).toBeGreaterThan(0);
 	project({ x: 0.5, y: 0, z: -0.5, a: 1 }, f, near);
 	expect(near.depth).toBeLessThan(0);
+});
+
+test("a half turn of yaw mirrors the cloud; back dots shade smaller and fainter", () => {
+	const f: Frame = {
+		w: 600,
+		h: 600,
+		cosY: 0,
+		sinY: 0,
+		cosX: 0,
+		sinX: 0,
+		cosZ: 0,
+		sinZ: 0,
+		cx: 0,
+		cy: 0,
+		cursorActive: 0,
+		dimpleR: 14,
+	};
+	const a: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
+	const b: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
+	const p = { x: 0.4, y: 0.2, z: 0, a: 1 };
+	pose(f, 0, 0, 0);
+	project(p, f, a);
+	pose(f, Math.PI, 0, 0);
+	project(p, f, b);
+	expect(a.sx - 300).toBeCloseTo(300 - b.sx, 6);
+	expect(a.sy).toBeCloseTo(b.sy, 6);
+
+	const front: Shade = { a: 0, s: 0 };
+	const back: Shade = { a: 0, s: 0 };
+	shade(0.6, 1, 0.5, 1, front);
+	shade(0.6, -1, 0.5, 1, back);
+	expect(back.a).toBeLessThan(front.a);
+	expect(back.s).toBeLessThan(front.s);
 });
