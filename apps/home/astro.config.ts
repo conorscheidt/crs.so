@@ -70,7 +70,7 @@ export default defineConfig({
 			name: "JetBrains Mono",
 			cssVariable: "--font-mark",
 			fallbacks: ["ui-monospace", "monospace"],
-			display: "block",
+			display: "swap",
 			options: {
 				variants: [
 					{
