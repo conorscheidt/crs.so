@@ -37,6 +37,8 @@ function columns(e: SiteEvent): [string, number, number] {
 		case "post-open":
 		case "post-read":
 			return ["", 0, 0];
+		default:
+			return e satisfies never;
 	}
 }
 

@@ -1227,3 +1227,10 @@ html.no-native-cursor *::after {
 		scale: 0.92;
 	}
 }
+
+/* outbound-link arrow (components/Out.astro) */
+.out {
+	display: inline-block;
+	margin-left: 0.22em;
+	vertical-align: 0.04em;
+}

@@ -4,6 +4,7 @@ import { projectBySlug, repoUrl } from "../data/projects";
 import { publishedPosts } from "../lib/posts";
 import { projectsWithPosts } from "../lib/relations";
 import type { Section } from "../router";
+import Out from "./Out.astro";
 
 type Props = { section: Section };
 const { section } = Astro.props;
@@ -20,7 +21,7 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 
 
 // Restore alongside the git block once git.crs.so resolves:
-//   <a href="https://git.crs.so" rel="me">git.crs.so ↗</a>  (in .meta)
+//   <a href="https://git.crs.so" rel="me">git.crs.so<Out /></a>  (in .meta)
 ---
 
 <div class="hub" data-section={section}>
@@ -36,7 +37,7 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 			<a href="/about" aria-current={section === "about" ? "page" : undefined}>About</a>
 		</nav>
 		<div class="meta">
-			<a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a>
+			<a href={resumeHref} target="_blank" rel="noopener">résumé<Out /></a>
 			<button type="button" data-theme-toggle aria-label="Toggle day and night">
 				<svg class="ecl" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
 					<circle class="ring" cx="8" cy="8" r="5.5"></circle>
@@ -142,7 +143,7 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 								<div class="xrefs">
 									{p.href && (
 										<a class="xref" href={p.href} rel="noopener">
-											live ↗
+											live<Out />
 										</a>
 									)}
 									{p.posts.length > 0 && (
@@ -230,9 +231,9 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 					<p class="blurb">{blurb}</p>
 					<div class="links">
 						<a href={`mailto:${contact.email}`}>{contact.email}</a>
-						<a href={contact.github} rel="me">github ↗</a>
-						<a href={contact.linkedin} rel="me">linkedin ↗</a>
-						<a href={resumeHref} target="_blank" rel="noopener">résumé ↗</a>
+						<a href={contact.github} rel="me">github<Out /></a>
+						<a href={contact.linkedin} rel="me">linkedin<Out /></a>
+						<a href={resumeHref} target="_blank" rel="noopener">résumé<Out /></a>
 					</div>
 					<p class="ptitle">Education</p>
 					{

@@ -1,5 +1,6 @@
 ---
 import { render } from "astro:content";
+import Out from "../../components/Out.astro";
 import { repoUrl } from "../../data/projects";
 import Shell from "../../layouts/Shell.astro";
 import { publishedPosts } from "../../lib/posts";
@@ -77,7 +78,7 @@ const date = post.data.date.toLocaleDateString("en-US", {
 						<p class="apro">
 							Part of&#32;
 							<a href={repoUrl(project.repo)} rel="noopener">
-								{project.name} ↗
+								{project.name}<Out />
 							</a>
 						</p>
 					)
