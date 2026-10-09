@@ -211,20 +211,37 @@ html.no-native-cursor *::after {
 }
 
 /* Hovering display type softens the letterform (SOFT axis), adds a little
-   weight and blooms, then settles while the hover lasts. */
+   weight and blooms, then settles while the hover lasts.
+
+   The axis moves through a registered property stepped to multiples of 4.
+   Each distinct value is a new font instance to shape and lay out; stepping
+   leaves most of the ease-out tail with nothing to redo, and repeat hovers
+   land on instances already cached. */
+@property --soft {
+	syntax: "<number>";
+	inherits: false;
+	initial-value: 0;
+}
+
 .inkable {
 	font-variation-settings:
 		"opsz" var(--opsz, 144),
-		"SOFT" 0;
+		"SOFT" var(--soft);
 	transition:
-		font-variation-settings 480ms cubic-bezier(0.22, 1, 0.36, 1),
+		--soft 480ms cubic-bezier(0.22, 1, 0.36, 1),
 		text-shadow 480ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+@supports (width: round(1px, 1px)) {
+	.inkable {
+		font-variation-settings:
+			"opsz" var(--opsz, 144),
+			"SOFT" round(var(--soft), 4);
+	}
+}
+
 .inkable:hover {
-	font-variation-settings:
-		"opsz" var(--opsz, 144),
-		"SOFT" 64;
+	--soft: 64;
 	text-shadow: 0 0 3px color-mix(in srgb, var(--ink) 32%, transparent);
 }
 
@@ -471,6 +488,8 @@ html.no-native-cursor *::after {
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
+	/* sized by its inset alone, so nothing inside can resize it */
+	contain: layout size style;
 	opacity: 0;
 	visibility: hidden;
 	translate: 0 4px;
@@ -566,6 +585,8 @@ html.no-native-cursor *::after {
 .entry {
 	padding: 15px 2px var(--s2);
 	border-bottom: 1px solid var(--rule);
+	/* a hovered title relays out its own entry, not the list */
+	contain: layout style;
 }
 
 .entry:last-child {
@@ -1179,6 +1200,7 @@ html.no-native-cursor *::after {
 		display: none;
 		min-height: 36svh;
 		padding: var(--s1) var(--gutter) var(--s4);
+		contain: none;
 		opacity: 1;
 		visibility: visible;
 		translate: none;
