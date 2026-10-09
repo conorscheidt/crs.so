@@ -89,27 +89,44 @@ export function bootHub(clock: Clock): () => void {
 		});
 		// The dimple follows the ring as drawn, so the two never disagree; without
 		// the ring (touch), it follows the raw pointer. The canvas fills col-c and
-		// the sim may swap it for a fresh one, so measure the column.
-		let box = colC.getBoundingClientRect();
-		const remeasure = (): void => {
-			box = colC.getBoundingClientRect();
+		// the sim may swap it for a fresh one, so measure the column. Its rect
+		// carries the sheet layout's sink scale, which the sim's px do not.
+		// Scrolling and resizing only mark it stale; it is read when next used.
+		let box: DOMRect | null = null;
+		let kx = 1;
+		let ky = 1;
+		const measure = (): DOMRect => {
+			if (!box) {
+				box = colC.getBoundingClientRect();
+				kx = box.width > 0 ? colC.clientWidth / box.width : 1;
+				ky = box.height > 0 ? colC.clientHeight / box.height : 1;
+			}
+			return box;
 		};
-		addEventListener("resize", remeasure, { passive: true, signal });
-		addEventListener("scroll", remeasure, { passive: true, signal });
+		const stale = (): void => {
+			box = null;
+		};
+		addEventListener("resize", stale, { passive: true, signal });
+		addEventListener("scroll", stale, { passive: true, signal });
+		const point = (x: number, y: number, active: boolean): void => {
+			const b = measure();
+			sim?.setPointer((x - b.left) * kx, (y - b.top) * ky, active);
+		};
 		unsubs.push(
 			clock.subscribe(() => {
 				if (!ring.live) return;
+				const b = measure();
 				const inside =
 					ring.shown &&
-					ring.x >= box.left &&
-					ring.x <= box.right &&
-					ring.y >= box.top &&
-					ring.y <= box.bottom;
-				sim?.setPointer(ring.x - box.left, ring.y - box.top, inside);
+					ring.x >= b.left &&
+					ring.x <= b.right &&
+					ring.y >= b.top &&
+					ring.y <= b.bottom;
+				point(ring.x, ring.y, inside);
 			}),
 		);
 		colC.addEventListener("pointermove", (ev) => {
-			if (!ring.live) sim?.setPointer(ev.clientX - box.left, ev.clientY - box.top, true);
+			if (!ring.live) point(ev.clientX, ev.clientY, true);
 			if (last) {
 				sim?.dragBy(ev.clientX - last.x, ev.clientY - last.y);
 				last = { x: ev.clientX, y: ev.clientY };

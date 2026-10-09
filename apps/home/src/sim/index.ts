@@ -114,12 +114,10 @@ function accentTarget(u: Uniforms): number {
 
 export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): Sim {
 	const reduced = prefersReduced();
-	const dpr = Math.min(2, devicePixelRatio || 1);
+	let dpr = Math.min(2, devicePixelRatio || 1);
 	state ??= initState(initial);
 	const s = state;
 	const u = s.u;
-	u.dimpleR = MOTION.cursorR * dpr;
-	u.dotR = 1.02 * dpr;
 	u.cursorActive = 0;
 	// The theme can flip while the hub is away.
 	[u.inkR, u.inkG, u.inkB] = readInk();
@@ -132,20 +130,55 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	let gpuBound = false;
 	let detached = false;
 	let visible = true;
-	let pendingResize = false;
-	const ro = new ResizeObserver(() => {
-		if (reduced) {
-			size();
-			renderStatic();
-		} else pendingResize = true;
-	});
-	ro.observe(canvas);
+	/** the observer has reported this canvas's size */
+	let sized = false;
 
-	function size(): void {
-		const r = canvas.getBoundingClientRect();
-		u.resW = Math.round(r.width * dpr);
-		u.resH = Math.round(r.height * dpr);
-		renderer?.resize(u.resW, u.resH);
+	// Size from the layout box rather than getBoundingClientRect, which carries
+	// the sheet layout's sink scale, and draw in the callback so the frame where
+	// the box changes never shows a stretched backing store.
+	const ro = new ResizeObserver((entries) => {
+		const e = entries.at(-1);
+		const css = e?.contentBoxSize[0];
+		if (!(e && css)) return;
+		const raw = devicePixelRatio || 1;
+		dpr = Math.min(2, raw);
+		const dev = e.devicePixelContentBoxSize?.[0];
+		const k = dpr / raw;
+		u.resW = Math.round(dev ? dev.inlineSize * k : css.inlineSize * dpr);
+		u.resH = Math.round(dev ? dev.blockSize * k : css.blockSize * dpr);
+		u.dimpleR = MOTION.cursorR * dpr;
+		u.dotR = 1.02 * dpr;
+		sized = true;
+		draw();
+	});
+	const observe = (): void => {
+		try {
+			ro.observe(canvas, { box: "device-pixel-content-box" });
+		} catch {
+			ro.observe(canvas);
+		}
+	};
+	observe();
+	// Without device-pixel-content-box (Safari), moving to a screen of another
+	// density changes nothing the observer sees.
+	let dprQuery: MediaQueryList | null = null;
+	const onDpr = (): void => {
+		watchDpr();
+		ro.unobserve(canvas);
+		observe();
+	};
+	const watchDpr = (): void => {
+		dprQuery?.removeEventListener("change", onDpr);
+		dprQuery = matchMedia(`(resolution: ${devicePixelRatio || 1}dppx)`);
+		dprQuery.addEventListener("change", onDpr);
+	};
+	watchDpr();
+
+	function draw(): void {
+		if (!(renderer && sized)) return;
+		renderer.resize(u.resW, u.resH);
+		if (reduced) renderStatic();
+		else if (visible) renderer.frame(u);
 	}
 
 	// One static frame per (section, theme); re-rendered on demand only.
@@ -156,7 +189,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		u.fromObj = u.toObj;
 		u.accentW = u.toObj === OBJECT_INDEX.projects ? 1 : 0;
 		u.tiltX = BASE_PITCH[u.toObj] ?? 0.16;
-		renderer?.frame(u);
+		if (sized) renderer?.frame(u);
 	}
 
 	const use = (gpu: Gpu | null): void => {
@@ -170,16 +203,13 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 				ro.unobserve(canvas);
 				canvas.replaceWith(fresh);
 				canvas = fresh;
-				ro.observe(canvas);
+				sized = false;
+				observe();
 			}
 			renderer = createCpuRenderer(canvas);
 		}
-		size();
-		if (reduced) renderStatic();
-		else {
-			if (Number.isNaN(s.born)) s.born = performance.now();
-			if (visible) renderer?.frame(u);
-		}
+		if (!reduced && Number.isNaN(s.born)) s.born = performance.now();
+		draw();
 	};
 	const connect = (): void => {
 		// Back on the hub with the device already up: attach before the first paint.
@@ -218,6 +248,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 				detached = true;
 				offLost();
 				ro.disconnect();
+				dprQuery?.removeEventListener("change", onDpr);
 				renderer?.destroy();
 				renderer = null;
 			},
@@ -230,11 +261,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	let lastDragAt = 0;
 
 	const unsubscribe = clock.subscribe((t, dt) => {
-		if (!renderer) return;
-		if (pendingResize) {
-			pendingResize = false;
-			size();
-		}
+		if (!(renderer && sized)) return;
 		s.exciteLevel *= Math.exp(-dt / 0.45);
 		const speedTarget = 1 + 0.9 * s.exciteLevel;
 		s.speed += (speedTarget - s.speed) * Math.min(1, dt * 8);
@@ -332,6 +359,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 			offLost();
 			unsubscribe();
 			ro.disconnect();
+			dprQuery?.removeEventListener("change", onDpr);
 			renderer?.destroy();
 			renderer = null;
 		},
