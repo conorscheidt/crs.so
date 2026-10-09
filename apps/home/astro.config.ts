@@ -130,6 +130,9 @@ export default defineConfig({
 			cssMinify: "lightningcss",
 			minify: "oxc",
 			modulePreload: { polyfill: false },
+			// Small KaTeX fonts would otherwise be inlined as data: URIs, which the
+			// CSP's font-src rightly refuses (and which bloat render-blocking CSS).
+			assetsInlineLimit: (file) => (/\.(woff2?|ttf)$/.test(file) ? false : undefined),
 			// The run worker (wabt) and the code editor (CodeMirror) are large and
 			// lazy; neither is on the first-paint path.
 			chunkSizeWarningLimit: 1024,
