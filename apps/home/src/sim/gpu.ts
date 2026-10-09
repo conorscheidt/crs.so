@@ -117,7 +117,7 @@ async function build(): Promise<Gpu | null> {
 
 	// No canvas has a context yet, so a failure here still leaves the 2D path open.
 	device.pushErrorScope("validation");
-	const module = device.createShaderModule({ code: shaderSrc });
+	const module = device.createShaderModule({ code: `const N: f32 = ${N}.0;\n${shaderSrc}` });
 	const pipeline = await device
 		.createRenderPipelineAsync({
 			layout: "auto",

@@ -1,19 +1,25 @@
 /**
  * Canvas2D fallback for browsers without WebGPU, and the single static frame
- * shown under prefers-reduced-motion. Same TS math as the shader on a smaller
- * pool.
+ * shown under prefers-reduced-motion. Same TS math as the shader, on a sample
+ * of the dots when animating.
  */
 import { type Frame, inkGain, type Projected, pose, project, type Shade, shade } from "./camera";
 import type { Renderer, Uniforms } from "./gpu";
-import { evalPoint, ICO_VERTS, N, type Pt } from "./shapes";
+import { ACCENT_ALPHA, ACCENT_SIZE, evalPoint, ICO_VERTS, N, type Pt } from "./shapes";
 
 // Squares with the same area as the GPU path's discs of radius r.
 const SIDE = Math.sqrt(Math.PI);
 const HALF = SIDE / 2;
 
-const CPU_N = 900;
+/** Dots drawn per animated frame. */
+export const CPU_N = 2000;
+const GOLDEN = 0.618_033_988_75;
 
-export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
+/**
+ * `pool` dots stand in for all N: each one carries the ink of N / pool, as
+ * extra area so the dots stay fine.
+ */
+export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Renderer | null {
 	const ctx = canvas.getContext("2d");
 	if (!ctx) return null;
 	const p: Pt = { x: 0, y: 0, z: 0, a: 0 };
@@ -49,13 +55,15 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 			// One colour per frame; dots vary only in alpha.
 			ctx.fillStyle = `rgb(${Math.round(u.inkR * 255)},${Math.round(u.inkG * 255)},${Math.round(u.inkB * 255)})`;
 			const gain = inkGain(u.inkR, u.inkG, u.inkB);
-			// Sample the pool evenly so CPU_N points cover all structures.
-			const stride = N / CPU_N;
-			for (let s = 0; s < CPU_N; s++) {
-				const i = Math.floor(s * stride);
+			const n = Math.min(pool, N);
+			const dotR = u.dotR * Math.sqrt(N / n);
+			for (let s = 0; s < n; s++) {
+				// A golden-ratio walk rather than a fixed stride, which would alias
+				// with the i mod 3 / 4 / 30 structure of the objects.
+				const i = n === N ? s : Math.floor(((s * GOLDEN) % 1) * N);
 				evalPoint(i, u.fromObj, u.toObj, u.morphT, u.phase, p, tmp);
 				project(p, f, pr);
-				shade(p.a, pr.depth, pr.lit, gain, u.dotR, sh);
+				shade(p.a, pr.depth, pr.lit, gain, dotR, sh);
 				ctx.globalAlpha = sh.a * u.fade;
 				ctx.fillRect(pr.sx - sh.r * HALF, pr.sy - sh.r * HALF, sh.r * SIDE, sh.r * SIDE);
 			}
@@ -64,9 +72,9 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 					p.x = v[0];
 					p.y = v[1];
 					p.z = v[2];
-					p.a = 0.85 * u.accentW;
+					p.a = ACCENT_ALPHA * u.accentW;
 					project(p, f, pr);
-					shade(p.a, pr.depth, pr.lit, gain, u.dotR * 1.9, sh);
+					shade(p.a, pr.depth, pr.lit, gain, u.dotR * ACCENT_SIZE, sh);
 					ctx.globalAlpha = sh.a * u.fade;
 					ctx.fillRect(pr.sx - sh.r * HALF, pr.sy - sh.r * HALF, sh.r * SIDE, sh.r * SIDE);
 				}

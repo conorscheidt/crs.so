@@ -25,8 +25,10 @@ struct U {
 const TAU: f32 = 6.28318530718;
 const CAM_Z: f32 = 4.0;
 const LIGHT: vec3f = vec3f(-0.45, -0.55, 0.7);
-const N: f32 = 4600.0;
+// N (the dot count) is prepended by gpu.ts from sim/shapes.ts.
 const MIN_DOT_R: f32 = 1.4;
+const ACCENT_SIZE: f32 = 2.5;
+const ACCENT_ALPHA: f32 = 0.85;
 
 const ICO_VERTS = array<vec3f, 12>(
 	vec3f(0.0, 0.5257311, 0.8506508), vec3f(0.0, 0.5257311, -0.8506508),
@@ -58,7 +60,7 @@ fn trefoil(i: f32, phase: f32) -> vec4f {
 		w * cos(2.0 * uu) / 2.75 + (hash(i, 1.0) - 0.5) * 0.06,
 		sin(3.0 * uu) / 1.85 + (hash(i, 2.0) - 0.5) * 0.06,
 		w * sin(2.0 * uu) / 2.75 + (hash(i, 3.0) - 0.5) * 0.06,
-		0.62,
+		0.41,
 	);
 }
 
@@ -69,7 +71,7 @@ fn icosahedron(i: f32, phase: f32) -> vec4f {
 	let speed = 0.1 + hash(i, 4.0) * 0.22;
 	let s = fract(hash(i, 5.0) + phase * speed);
 	let p = mix(a, b, s) + (vec3f(hash(i, 6.0), hash(i, 7.0), hash(i, 8.0)) - 0.5) * 0.035;
-	return vec4f(p, 0.55);
+	return vec4f(p, 0.36);
 }
 
 fn loxodrome(i: f32, phase: f32) -> vec4f {
@@ -86,7 +88,7 @@ fn loxodrome(i: f32, phase: f32) -> vec4f {
 		cl * cos(lon) + (hash(i, 6.0) - 0.5) * 0.02,
 		sin(lat) + (hash(i, 7.0) - 0.5) * 0.02,
 		cl * sin(lon) + (hash(i, 8.0) - 0.5) * 0.02,
-		0.62 * (0.25 + 0.75 * edge),
+		0.41 * (0.25 + 0.75 * edge),
 	);
 }
 
@@ -102,7 +104,7 @@ fn borromean(i: f32, phase: f32) -> vec4f {
 		p = vec3f(0.0, ca, sb);
 	}
 	p += (vec3f(hash(i, 6.0), hash(i, 7.0), hash(i, 8.0)) - 0.5) * 0.035;
-	return vec4f(p, 0.58);
+	return vec4f(p, 0.38);
 }
 
 fn shape(obj: f32, i: f32, phase: f32) -> vec4f {
@@ -133,8 +135,8 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 	var size_mul = 1.0;
 	if (ii >= u32(N)) {
 		// Icosahedron vertex accents, visible only while the icosahedron has weight.
-		p = vec4f(ICO_VERTS[ii - u32(N)], 0.85 * u.accent_w);
-		size_mul = 1.9;
+		p = vec4f(ICO_VERTS[ii - u32(N)], ACCENT_ALPHA * u.accent_w);
+		size_mul = ACCENT_SIZE;
 	} else if (u.morph_t >= 1.0 || u.from_obj == u.to_obj) {
 		p = shape(u.to_obj, i, u.phase);
 	} else {

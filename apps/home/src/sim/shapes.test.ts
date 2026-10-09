@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test";
 import { type Frame, MIN_DOT_R, type Projected, pose, project, type Shade, shade } from "./camera";
-import { evalPoint, ICO_EDGES, N, type Pt, SHAPES, staggeredT } from "./shapes";
+import {
+	ACCENT_ALPHA,
+	ACCENT_SIZE,
+	evalPoint,
+	ICO_EDGES,
+	N,
+	type Pt,
+	SHAPES,
+	staggeredT,
+} from "./shapes";
 
 const mk = (): Pt => ({ x: 0, y: 0, z: 0, a: 0 });
 
@@ -171,8 +180,21 @@ test("dots below the minimum radius widen and fade without losing ink", () => {
 	expect(big.r).toBeGreaterThan(MIN_DOT_R);
 });
 
-test("WGSL keeps the same minimum dot radius", async () => {
-	const src = await Bun.file(new URL("./shader.wgsl", import.meta.url)).text();
-	const m = src.match(/const MIN_DOT_R: f32 = ([\d.]+);/);
-	expect(Number(m?.[1])).toBe(MIN_DOT_R);
+const wgsl = (): Promise<string> => Bun.file(new URL("./shader.wgsl", import.meta.url)).text();
+const wgslConst = (src: string, name: string): number =>
+	Number(src.match(new RegExp(`const ${name}: f32 = (-?[\\d.]+);`))?.[1]);
+
+test("WGSL keeps the same scalar constants", async () => {
+	const src = await wgsl();
+	expect(wgslConst(src, "MIN_DOT_R")).toBe(MIN_DOT_R);
+	expect(wgslConst(src, "ACCENT_SIZE")).toBe(ACCENT_SIZE);
+	expect(wgslConst(src, "ACCENT_ALPHA")).toBe(ACCENT_ALPHA);
+});
+
+test("the dot count has one source: the shader takes N from gpu.ts", async () => {
+	expect(await wgsl()).not.toMatch(/const N\b/);
+	const gpu = await Bun.file(new URL("./gpu.ts", import.meta.url)).text();
+	expect(gpu).toMatch(/const N: f32 = \$\{N\}\.0;/);
+	// Borromean rings split the pool three ways.
+	expect(N % 3).toBe(0);
 });

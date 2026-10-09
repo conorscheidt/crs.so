@@ -8,7 +8,7 @@
 import type { Clock } from "../clock";
 import { Trail } from "../cursor";
 import { MOTION } from "../motion";
-import { createCpuRenderer } from "./cpu";
+import { CPU_N, createCpuRenderer } from "./cpu";
 import { flick } from "./flick";
 import {
 	acquireGpu,
@@ -19,7 +19,7 @@ import {
 	type Renderer,
 	type Uniforms,
 } from "./gpu";
-import { BASE_PITCH, OBJECT_INDEX, type Section } from "./shapes";
+import { BASE_PITCH, N, OBJECT_INDEX, type Section } from "./shapes";
 
 export interface Sim {
 	setSection: (s: Section) => void;
@@ -158,7 +158,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		u.resW = Math.round(dev ? dev.inlineSize * k : css.inlineSize * dpr);
 		u.resH = Math.round(dev ? dev.blockSize * k : css.blockSize * dpr);
 		u.dimpleR = MOTION.cursorR * dpr;
-		u.dotR = 1.02 * dpr;
+		u.dotR = 0.78 * dpr;
 		sized = true;
 		draw();
 	});
@@ -217,7 +217,8 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 				sized = false;
 				observe();
 			}
-			renderer = createCpuRenderer(canvas);
+			// The static frame draws once, so it can afford every dot.
+			renderer = createCpuRenderer(canvas, reduced ? N : CPU_N);
 		}
 		if (!reduced && Number.isNaN(s.born)) s.born = performance.now();
 		draw();

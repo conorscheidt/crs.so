@@ -19,9 +19,13 @@ export const OBJECT_INDEX: Record<Section, number> = {
 /** Base camera pitch per object (radians), interpolated during morphs. */
 export const BASE_PITCH = [0.16, 0.16, 0.38, 0.32] as const;
 
-export const N = 4600;
+/** Dot count; gpu.ts hands it to the shader too. */
+export const N = 12_000;
 /** Icosahedron vertex accents ride as extra instances after the pool. */
 export const N_ACCENT = 12;
+/** Accent radius as a multiple of a dot's, and its alpha at full weight. */
+export const ACCENT_SIZE = 2.5;
+export const ACCENT_ALPHA = 0.85;
 
 const TAU = Math.PI * 2;
 
@@ -45,7 +49,7 @@ export function trefoil(i: number, n: number, phase: number, out: Pt): void {
 	out.x = (w * Math.cos(2 * u)) / 2.75 + (hash(i, 1) - 0.5) * 0.06;
 	out.y = Math.sin(3 * u) / 1.85 + (hash(i, 2) - 0.5) * 0.06;
 	out.z = (w * Math.sin(2 * u)) / 2.75 + (hash(i, 3) - 0.5) * 0.06;
-	out.a = 0.62;
+	out.a = 0.41;
 }
 
 /** Icosahedron: 12 vertices, 30 edges. */
@@ -91,7 +95,7 @@ export function icosahedron(i: number, _n: number, phase: number, out: Pt): void
 	out.x = a[0] + (b[0] - a[0]) * s + (hash(i, 6) - 0.5) * 0.035;
 	out.y = a[1] + (b[1] - a[1]) * s + (hash(i, 7) - 0.5) * 0.035;
 	out.z = a[2] + (b[2] - a[2]) * s + (hash(i, 8) - 0.5) * 0.035;
-	out.a = 0.55;
+	out.a = 0.36;
 }
 
 /**
@@ -112,7 +116,7 @@ export function loxodrome(i: number, _n: number, phase: number, out: Pt): void {
 	out.z = cl * Math.sin(lon) + (hash(i, 8) - 0.5) * 0.02;
 	// fade near the poles so respawn never pops
 	const edge = 1 - Math.min(1, Math.abs(u * 2 - 1) ** 6);
-	out.a = 0.62 * (0.25 + 0.75 * edge);
+	out.a = 0.41 * (0.25 + 0.75 * edge);
 }
 
 /**
@@ -142,7 +146,7 @@ export function borromean(i: number, n: number, phase: number, out: Pt): void {
 	out.x += (hash(i, 6) - 0.5) * 0.035;
 	out.y += (hash(i, 7) - 0.5) * 0.035;
 	out.z += (hash(i, 8) - 0.5) * 0.035;
-	out.a = 0.58;
+	out.a = 0.38;
 }
 
 export const SHAPES = [trefoil, icosahedron, loxodrome, borromean] as const;
