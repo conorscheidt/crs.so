@@ -23,6 +23,8 @@ export const BRIGHT = 2;
 export const GROW = 1.5;
 /** Weeks along the knot: week w is knotT in [w / 52, (w + 1) / 52). */
 export const WEEKS = 52;
+/** in weeks: how far a week's glow reaches past its own arc */
+export const WEEK_SPREAD = 1.2;
 /** Latitude bands the uniforms carry. */
 export const FOCUS_LATS = 8;
 /** Half-width (rad) of a latitude band, at 1/e. */
@@ -93,9 +95,16 @@ export function focusHot(obj: number, i: number, phase: number, f: Focus): numbe
 	if (obj !== f.obj) return 0;
 	switch (obj) {
 		case 0: {
-			const w = Math.min(WEEKS - 1, Math.floor(knotT(i, N, phase) * WEEKS));
-			const word = w >= 32 ? f.weeksHi : f.weeksLo;
-			return (word >>> (w % 32)) & 1;
+			// A week is a short arc, so it glows a little past its ends.
+			const x = knotT(i, N, phase) * WEEKS;
+			const c = Math.floor(x);
+			let m = 0;
+			for (let w = Math.max(0, c - 2); w <= Math.min(WEEKS - 1, c + 2); w++) {
+				if (!(((w >= 32 ? f.weeksHi : f.weeksLo) >>> (w % 32)) & 1)) continue;
+				const d = (x - w - 0.5) / WEEK_SPREAD;
+				m = Math.max(m, Math.exp(-d * d));
+			}
+			return m;
 		}
 		case 1: {
 			const e = ICO_EDGES[i % 30] as readonly [number, number];

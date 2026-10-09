@@ -16,6 +16,7 @@ import {
 	postLatitude,
 	RECEDE,
 	VERTEX_FALL,
+	WEEK_SPREAD,
 	WEEKS,
 } from "./focus";
 import {
@@ -102,14 +103,18 @@ test("a spec encodes to the object it names", () => {
 	expect(f.obj).toBe(-1);
 });
 
-test("weeks light exactly their arcs of the knot", () => {
+test("weeks light their arcs of the knot, glowing a little past each end", () => {
 	const f = noFocus();
 	const on = [3, 33, 51];
 	encodeFocus({ weeks: on }, f);
 	for (const phase of [0, 5.5]) {
 		for (let i = 0; i < N; i += 7) {
-			const w = Math.floor(knotT(i, N, phase) * WEEKS);
-			expect(focusHot(0, i, phase, f)).toBe(on.includes(w) ? 1 : 0);
+			const x = knotT(i, N, phase) * WEEKS;
+			const near = Math.min(...on.map((w) => Math.abs(x - w - 0.5)));
+			const h = focusHot(0, i, phase, f);
+			if (near <= 0.5) expect(h).toBeGreaterThan(0.8);
+			else if (near >= 2.5) expect(h).toBe(0);
+			else expect(h).toBeCloseTo(Math.exp(-((near / WEEK_SPREAD) ** 2)), 9);
 		}
 	}
 	// Only the object it names.

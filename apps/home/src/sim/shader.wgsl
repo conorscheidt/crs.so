@@ -86,6 +86,7 @@ const RECEDE: f32 = 0.35;
 const BRIGHT: f32 = 2.0;
 const GROW: f32 = 1.5;
 const WEEKS: f32 = 52.0;
+const WEEK_SPREAD: f32 = 1.2;
 const FOCUS_LATS: u32 = 8u;
 const LAT_BAND: f32 = 0.07;
 const VERTEX_FALL: f32 = 0.55;
@@ -244,9 +245,19 @@ fn focus_hot(obj: f32, i: f32, phase: f32) -> f32 {
 	}
 	switch (u32(obj)) {
 		case 0u: {
-			let w = min(u32(knot_t(i, phase) * WEEKS), u32(WEEKS) - 1u);
-			let word = select(u.focus_weeks.x, u.focus_weeks.y, w >= 32u);
-			return f32((word >> (w % 32u)) & 1u);
+			let x = knot_t(i, phase) * WEEKS;
+			let c = i32(floor(x));
+			var m = 0.0;
+			for (var j = max(c - 2, 0); j <= min(c + 2, i32(WEEKS) - 1); j++) {
+				let w = u32(j);
+				let word = select(u.focus_weeks.x, u.focus_weeks.y, w >= 32u);
+				if (((word >> (w % 32u)) & 1u) == 0u) {
+					continue;
+				}
+				let d = (x - f32(j) - 0.5) / WEEK_SPREAD;
+				m = max(m, exp(-d * d));
+			}
+			return m;
 		}
 		case 1u: {
 			let e = ICO_EDGES[u32(i) % 30u];
