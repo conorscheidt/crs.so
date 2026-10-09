@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type Frame, type Projected, pose, project, type Shade, shade } from "./camera";
+import { type Frame, MIN_DOT_R, type Projected, pose, project, type Shade, shade } from "./camera";
 import { evalPoint, ICO_EDGES, N, type Pt, SHAPES, staggeredT } from "./shapes";
 
 const mk = (): Pt => ({ x: 0, y: 0, z: 0, a: 0 });
@@ -116,10 +116,31 @@ test("a half turn of yaw mirrors the cloud; back dots shade smaller and fainter"
 	expect(a.sx - 300).toBeCloseTo(300 - b.sx, 6);
 	expect(a.sy).toBeCloseTo(b.sy, 6);
 
-	const front: Shade = { a: 0, s: 0 };
-	const back: Shade = { a: 0, s: 0 };
-	shade(0.6, 1, 0.5, 1, front);
-	shade(0.6, -1, 0.5, 1, back);
+	const front: Shade = { a: 0, r: 0 };
+	const back: Shade = { a: 0, r: 0 };
+	shade(0.6, 1, 0.5, 1, 4, front);
+	shade(0.6, -1, 0.5, 1, 4, back);
 	expect(back.a).toBeLessThan(front.a);
-	expect(back.s).toBeLessThan(front.s);
+	expect(back.r).toBeLessThan(front.r);
+});
+
+test("dots below the minimum radius widen and fade without losing ink", () => {
+	const big: Shade = { a: 0, r: 0 };
+	const small: Shade = { a: 0, r: 0 };
+	for (const depth of [-1.2, -0.4, 0.3, 1.1]) {
+		shade(0.6, depth, 0.4, 1.3, 40, big);
+		shade(0.6, depth, 0.4, 1.3, 0.8, small);
+		expect(small.r).toBeGreaterThanOrEqual(MIN_DOT_R);
+		// Same alpha at full size; ink (alpha × area) is what the small dot keeps.
+		const size = (big.r / 40) * 0.8;
+		expect(small.a * small.r ** 2).toBeCloseTo(big.a * size ** 2, 9);
+	}
+	shade(0.6, 0, 0.4, 1, 4, big);
+	expect(big.r).toBeGreaterThan(MIN_DOT_R);
+});
+
+test("WGSL keeps the same minimum dot radius", async () => {
+	const src = await Bun.file(new URL("./shader.wgsl", import.meta.url)).text();
+	const m = src.match(/const MIN_DOT_R: f32 = ([\d.]+);/);
+	expect(Number(m?.[1])).toBe(MIN_DOT_R);
 });

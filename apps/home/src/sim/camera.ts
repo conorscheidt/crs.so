@@ -79,27 +79,37 @@ export function project(p: Pt, f: Frame, out: Projected): void {
 	out.lit = lit;
 }
 
-/**
- * Depth shading, mirrored in WGSL: alpha and size fall off smoothly with depth
- * so nothing pops. `gain` boosts density for dark ink on light paper.
- */
+/** Smaller dots widen to this radius (device px) and fade to keep their ink. */
+export const MIN_DOT_R = 1.4;
+
 export interface Shade {
 	a: number;
-	/** size multiplier on the base dot radius */
-	s: number;
+	/** radius in device px */
+	r: number;
 }
 
+/**
+ * Depth shading, mirrored in WGSL: alpha and size fall off smoothly with depth
+ * so nothing pops. `gain` boosts density for dark ink on light paper. Below
+ * MIN_DOT_R a dot's grid coverage swings with its sub-pixel offset, so it
+ * trades size for alpha instead.
+ */
 export function shade(
 	baseAlpha: number,
 	depth: number,
 	lit: number,
 	gain: number,
+	dotR: number,
 	out: Shade,
 ): void {
 	const c = Math.min(1, Math.max(0, (depth + 1.1) / 2.2));
 	const dt = c * c * (3 - 2 * c);
-	out.a = Math.min(0.92, baseAlpha * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain);
-	out.s = 0.62 + 0.38 * dt;
+	const size = dotR * (0.62 + 0.38 * dt);
+	const r = Math.max(size, MIN_DOT_R);
+	const keep = size / r;
+	out.a =
+		Math.min(0.92, baseAlpha * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain) * keep * keep;
+	out.r = r;
 }
 
 /** Alpha gain by ink luminance, mirrored in WGSL: ≈1.55 by day, ≈1.08 at night. */

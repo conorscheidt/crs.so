@@ -26,6 +26,7 @@ const TAU: f32 = 6.28318530718;
 const CAM_Z: f32 = 4.0;
 const LIGHT: vec3f = vec3f(-0.45, -0.55, 0.7);
 const N: f32 = 4600.0;
+const MIN_DOT_R: f32 = 1.4;
 
 const ICO_VERTS = array<vec3f, 12>(
 	vec3f(0.0, 0.5257311, 0.8506508), vec3f(0.0, 0.5257311, -0.8506508),
@@ -176,24 +177,26 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 	let gain = 1.0 + 0.62 * (1.0 - lum);
 	let alpha = min(0.92, p.w * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain);
 	let size = u.dot_r * size_mul * (0.62 + 0.38 * dt);
+	// A dot under ~1.4 px covers a different amount of the pixel grid at every
+	// sub-pixel offset and twinkles as it moves; widen it and fade it instead,
+	// keeping its ink.
+	let r = max(size, MIN_DOT_R);
+	let keep = size / r;
 
 	let corner = vec2f(f32(vi & 1u), f32(vi >> 1u)) * 2.0 - 1.0;
-	let half = size + 1.0;
+	let half = r + 1.0;
 	let quad = px + corner * half;
 	var out: VSOut;
 	out.clip = vec4f((quad / u.res * 2.0 - 1.0) * vec2f(1.0, -1.0), 0.0, 1.0);
 	out.local = corner * half;
-	out.radius = size;
-	out.alpha = alpha * u.fade;
+	out.radius = r;
+	out.alpha = alpha * keep * keep * u.fade;
 	return out;
 }
 
 @fragment
 fn fs(in: VSOut) -> @location(0) vec4f {
-	let a = (1.0 - smoothstep(in.radius - 0.5, in.radius + 0.5, length(in.local))) * in.alpha;
-	if (a < 0.004) {
-		discard;
-	}
+	let a = clamp(in.radius + 0.5 - length(in.local), 0.0, 1.0) * in.alpha;
 	// Premultiplied over the CSS paper background.
 	return vec4f(u.ink * a, a);
 }

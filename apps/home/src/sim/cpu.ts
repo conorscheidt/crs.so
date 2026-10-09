@@ -15,7 +15,7 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 	const p: Pt = { x: 0, y: 0, z: 0, a: 0 };
 	const tmp: Pt = { x: 0, y: 0, z: 0, a: 0 };
 	const pr: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
-	const sh: Shade = { a: 0, s: 0 };
+	const sh: Shade = { a: 0, r: 0 };
 	const f: Frame = {
 		w: 0,
 		h: 0,
@@ -51,10 +51,9 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 				const i = Math.floor(s * stride);
 				evalPoint(i, u.fromObj, u.toObj, u.morphT, u.phase, p, tmp);
 				project(p, f, pr);
-				shade(p.a, pr.depth, pr.lit, gain, sh);
-				const size = u.dotR * sh.s;
+				shade(p.a, pr.depth, pr.lit, gain, u.dotR, sh);
 				ctx.globalAlpha = sh.a * u.fade;
-				ctx.fillRect(pr.sx - size / 2, pr.sy - size / 2, size, size);
+				ctx.fillRect(pr.sx - sh.r / 2, pr.sy - sh.r / 2, sh.r, sh.r);
 			}
 			if (u.accentW > 0.01) {
 				for (const v of ICO_VERTS) {
@@ -63,10 +62,9 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 					p.z = v[2];
 					p.a = 0.85 * u.accentW;
 					project(p, f, pr);
-					shade(p.a, pr.depth, pr.lit, gain, sh);
-					const size = u.dotR * 1.9 * sh.s;
+					shade(p.a, pr.depth, pr.lit, gain, u.dotR * 1.9, sh);
 					ctx.globalAlpha = sh.a * u.fade;
-					ctx.fillRect(pr.sx - size / 2, pr.sy - size / 2, size, size);
+					ctx.fillRect(pr.sx - sh.r / 2, pr.sy - sh.r / 2, sh.r, sh.r);
 				}
 			}
 		},
