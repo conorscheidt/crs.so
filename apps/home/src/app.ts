@@ -185,10 +185,15 @@ document.addEventListener(
 let lastPath = location.pathname;
 addEventListener("popstate", () => {
 	const kind = pageKind(location.pathname);
-	if (!kind) return;
-	// Hub-to-hub popstate belongs to the hub router; hash-only changes to no one.
 	const pathChanged = location.pathname !== lastPath;
 	lastPath = location.pathname;
+	// Back to a page this navigator never renders, such as the 404 it swapped
+	// away from: let the browser load it.
+	if (!kind) {
+		if (pathChanged) location.reload();
+		return;
+	}
+	// Hub-to-hub popstate belongs to the hub router; hash-only changes to no one.
 	if (kind === "hub" && currentKind === "hub") return;
 	if (!pathChanged) return;
 	void goto(location.pathname + location.search, false);
