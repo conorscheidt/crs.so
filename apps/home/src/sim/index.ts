@@ -272,6 +272,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	if (reduced) {
 		// Pointing in and out re-renders once per frame at most.
 		let restage = 0;
+		let staticFocus = "null";
 		return {
 			kind: "static",
 			setSection(next) {
@@ -288,6 +289,9 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 			endDrag() {},
 			excite() {},
 			setFocus(spec) {
+				const key = JSON.stringify(spec);
+				if (key === staticFocus) return;
+				staticFocus = key;
 				encodeFocus(spec, u.focus);
 				u.focusW = u.focus.obj >= 0 ? 1 : 0;
 				restage ||= requestAnimationFrame(() => {
