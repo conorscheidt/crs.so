@@ -15,6 +15,7 @@
 
 import type MiniSearch from "minisearch";
 import { track } from "../analytics";
+import { invalidateTargets } from "../cursor";
 import { type DateFilter, parseDates } from "./dates";
 import { type IndexPayload, SEARCH_FIELDS, type SearchDoc } from "./options";
 
@@ -132,6 +133,7 @@ export function initSearch(
 		for (const t of chips) mk(t, t);
 		if (projectChip) mk(`@${projectChip}`, " project", "proj");
 		if (dateChip) mk(dateChip.label, " date");
+		invalidateTargets();
 	};
 
 	const matches = (entry: HTMLElement, allowed: Set<string> | null, term: string): boolean => {
@@ -172,12 +174,14 @@ export function initSearch(
 			if (ok) hits++;
 		}
 		empty.hidden = any;
+		invalidateTargets();
 		if (term.length > 2) track("search", { kind, len: term.length, hits });
 	};
 
 	const closeAuto = (): void => {
 		auto.hidden = true;
 		autoItems = [];
+		invalidateTargets();
 	};
 
 	const openAuto = (sigil: Sigil, frag: string): void => {
@@ -207,6 +211,7 @@ export function initSearch(
 			auto.appendChild(b);
 		});
 		auto.hidden = false;
+		invalidateTargets();
 	};
 
 	/** Turn an autocomplete value into a chip. Every chip is created here. */

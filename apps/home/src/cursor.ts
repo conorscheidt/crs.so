@@ -318,6 +318,11 @@ export function initCursor(clock: Clock): void {
 		const clips = new Map<Element, DOMRect>();
 		rects = [];
 		for (const t of document.querySelectorAll(INTERACTIVE)) {
+			// Mid-crossfade the outgoing panel still reads as visible and the
+			// incoming one as transparent; only the current section counts.
+			const panel = t.closest<HTMLElement>(".panel");
+			if (panel && panel.dataset.panel !== panel.closest<HTMLElement>(".hub")?.dataset.section)
+				continue;
 			if (t.checkVisibility?.({ opacityProperty: true, visibilityProperty: true }) === false)
 				continue;
 			let b = t.getBoundingClientRect();
