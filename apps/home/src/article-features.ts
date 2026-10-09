@@ -149,9 +149,10 @@ export function initReading(): () => void {
 const IN_PAGE = 'a[href^="#"]';
 
 /**
- * The bottom sheet narrow screens open from the running head: a modal
- * <dialog>, so focus is held inside it and the page behind is inert. Every
- * way out ends in close(), and the CSS transitions carry the slide.
+ * The bottom sheet for the contents (from the running head) and, on touch,
+ * footnotes: a modal <dialog>, so focus is held inside it and the page behind
+ * is inert. Every way out ends in close(), and the CSS transitions carry the
+ * slide.
  */
 export function initSheet(): () => void {
 	const sheet = document.querySelector<HTMLDialogElement>("[data-sheet]");
@@ -163,15 +164,27 @@ export function initSheet(): () => void {
 	const { signal } = ac;
 	let opener: HTMLElement | null = null;
 
-	const open = (from: HTMLElement): void => {
+	const toc = sheet.querySelector<HTMLElement>("[data-sheet-toc]");
+	const note = sheet.querySelector<HTMLElement>("[data-sheet-note]");
+	const noteBody = sheet.querySelector<HTMLElement>("[data-sheet-notebody]");
+	const noteLink = sheet.querySelector<HTMLAnchorElement>("[data-sheet-notelink]");
+	const label = sheet.querySelector<HTMLElement>("[data-sheet-label]");
+
+	/** `n` names the footnote shown; without it the sheet is the contents. */
+	const open = (from: HTMLElement, n?: string): void => {
 		opener = from;
+		if (toc) toc.hidden = n !== undefined;
+		if (note) note.hidden = n === undefined;
+		if (label) label.textContent = n === undefined ? "contents" : `note ${n}`;
+		sheet.setAttribute("aria-label", n === undefined ? "Contents" : `Note ${n}`);
 		sheet.showModal();
 		// The list only takes vertical pans when it has somewhere to scroll;
 		// otherwise every pan is the sheet's own swipe.
+		scroll.scrollTop = 0;
 		scroll.toggleAttribute("data-scrolls", scroll.scrollHeight > scroll.clientHeight + 1);
-		const cur = scroll.querySelector<HTMLElement>("[aria-current]");
+		const cur = n === undefined ? toc?.querySelector<HTMLElement>("[aria-current]") : noteBody;
 		if (cur) {
-			scroll.scrollTop = cur.offsetTop - scroll.clientHeight / 3;
+			if (n === undefined) scroll.scrollTop = cur.offsetTop - scroll.clientHeight / 3;
 			cur.focus({ preventScroll: true });
 		}
 	};
@@ -183,6 +196,28 @@ export function initSheet(): () => void {
 		btn.addEventListener("click", () => open(btn), { signal });
 	}
 	sheet.querySelector("[data-sheet-close]")?.addEventListener("click", close, { signal });
+
+	// On touch a footnote reference opens its note here; there is no hover to
+	// show the card, and jumping to the notes loses the reader's place.
+	const coarse = matchMedia("(pointer: coarse)");
+	document.querySelector<HTMLElement>("[data-prose]")?.addEventListener(
+		"click",
+		(ev) => {
+			if (!(coarse.matches && noteBody && noteLink) || ev.defaultPrevented) return;
+			if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+			const ref = (ev.target as HTMLElement).closest<HTMLAnchorElement>("[data-footnote-ref]");
+			const src = ref && document.getElementById(decodeURIComponent(ref.hash.slice(1)));
+			if (!src) return;
+			ev.preventDefault();
+			const body = src.cloneNode(true) as HTMLElement;
+			for (const el of body.querySelectorAll("[data-footnote-backref]")) el.remove();
+			for (const el of body.querySelectorAll("[id]")) el.removeAttribute("id");
+			noteBody.replaceChildren(...body.childNodes);
+			noteLink.hash = src.id;
+			open(ref, ref.textContent?.trim() ?? "");
+		},
+		{ signal },
+	);
 	sheet.addEventListener(
 		"click",
 		(ev) => {

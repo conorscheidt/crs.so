@@ -310,8 +310,11 @@
 	margin: 0;
 }
 
-.fnref:hover .fncard {
-	display: block;
+/* touch has no hover; a tap opens the note in the sheet instead */
+@media (hover: hover) {
+	.fnref:hover .fncard {
+		display: block;
+	}
 }
 
 .prose section[data-footnotes] {
@@ -1119,4 +1122,43 @@
 	border-radius: 50%;
 	background: var(--ink);
 	translate: 0 -50%;
+}
+
+/* a footnote, as the reader taps its reference on touch */
+.asheet-note {
+	padding-top: var(--s2);
+}
+
+.asheet-notebody {
+	font-size: 15px;
+	line-height: 1.6;
+	color: var(--ink-70);
+	outline: none;
+}
+
+.asheet-notebody p + p {
+	margin-top: var(--s1);
+}
+
+.asheet-notebody a {
+	color: var(--ink);
+	text-decoration: underline;
+	text-decoration-color: var(--ink-quiet);
+	text-underline-offset: 3px;
+}
+
+.asheet-notebody code {
+	font-family: var(--font-mark);
+	font-size: 0.86em;
+}
+
+.asheet-all {
+	display: inline-block;
+	margin-top: var(--s2);
+	padding: 6px 0;
+	font-family: var(--font-mark);
+	font-size: 10.5px;
+	letter-spacing: 0.06em;
+	color: var(--ink-quiet);
+	text-decoration: none;
 }
