@@ -9,18 +9,14 @@
 // · blob4 referer · double1 1 · double2 len|ms · double3 hits|ok. Nothing that
 // identifies a visitor is recorded.
 
-const GIT_SUMMARY = "https://git.crs.so/api/summary";
+import * as v from "valibot";
+import { SiteEvent } from "../src/events";
+import { Summary } from "../src/git-summary";
 
-const first = (p: Record<string, unknown>, keys: readonly string[]): unknown =>
-	keys.map((k) => p[k]).find((v) => v !== undefined);
-
-const text = (p: Record<string, unknown>, keys: readonly string[], max: number): string =>
-	String(first(p, keys) ?? "").slice(0, max);
-
-const number = (p: Record<string, unknown>, keys: readonly string[]): number => {
-	const v = first(p, keys);
-	return typeof v === "boolean" ? Number(v) : Number(v) || 0;
-};
+// basalt keeps its own routes under /-/ so they can't collide with a repository.
+const GIT_SUMMARY = "https://git.crs.so/-/api/summary";
+// basalt caps the summary at 32 KB; anything much larger isn't it.
+const SUMMARY_MAX = 64 * 1024;
 
 async function record(req: Request, env: Env, origin: string): Promise<Response> {
 	if (req.method !== "POST") return new Response(null, { status: 405 });
@@ -28,27 +24,34 @@ async function record(req: Request, env: Env, origin: string): Promise<Response>
 	if (req.headers.get("origin") !== origin) return new Response(null, { status: 403 });
 
 	if (Number(req.headers.get("content-length")) > 4096) return new Response(null, { status: 413 });
-	let body: unknown;
+	let e: SiteEvent;
 	try {
 		// sendBeacon sends text/plain and the fetch fallback sends JSON; both are JSON text.
-		body = JSON.parse(await req.text());
+		e = v.parse(SiteEvent, JSON.parse(await req.text()));
 	} catch {
 		return new Response(null, { status: 400 });
 	}
-	if (typeof body !== "object" || body === null) return new Response(null, { status: 400 });
-	const payload = body as Record<string, unknown>;
-	const { event } = payload;
-	if (typeof event !== "string") return new Response(null, { status: 400 });
 
+	const label =
+		"lang" in e
+			? e.lang
+			: "tag" in e
+				? e.tag
+				: "slug" in e
+					? e.slug
+					: "kind" in e
+						? e.kind
+						: "to" in e
+							? e.to
+							: "";
 	env.EVENTS.writeDataPoint({
-		indexes: [event.slice(0, 64)],
-		blobs: [
-			event.slice(0, 64),
-			text(payload, ["path"], 256),
-			text(payload, ["lang", "tag", "slug", "kind", "to"], 128),
-			(req.headers.get("referer") ?? "").slice(0, 256),
+		indexes: [e.event],
+		blobs: [e.event, e.path, label, (req.headers.get("referer") ?? "").slice(0, 256)],
+		doubles: [
+			1,
+			"len" in e ? e.len : "ms" in e ? e.ms : 0,
+			"hits" in e ? e.hits : "ok" in e ? Number(e.ok) : 0,
 		],
-		doubles: [1, number(payload, ["len", "ms"]), number(payload, ["hits", "ok"])],
 	});
 	return new Response(null, { status: 204 });
 }
@@ -66,7 +69,12 @@ async function gitSummary(req: Request): Promise<Response> {
 			signal: AbortSignal.timeout(3000),
 		});
 		if (!upstream.ok) throw new Error(`basalt ${upstream.status}`);
-		return new Response(upstream.body, {
+		if (Number(upstream.headers.get("content-length")) > SUMMARY_MAX)
+			throw new Error("basalt summary too large");
+		const parsed = v.safeParse(Summary, await upstream.json());
+		if (!parsed.success)
+			throw new Error(`basalt summary: ${JSON.stringify(v.flatten(parsed.issues))}`);
+		return new Response(JSON.stringify(parsed.output), {
 			headers: {
 				"content-type": "application/json",
 				"cache-control": "public, max-age=60, stale-while-revalidate=600",

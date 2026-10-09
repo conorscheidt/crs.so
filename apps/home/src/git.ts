@@ -1,41 +1,15 @@
-// The git.crs.so block on the index: a year of commit activity, the busiest
-// repositories, and the latest commits, all from basalt. It fetches /api/git on
+// The git.crs.so block on the index: a year of commit activity, featured
+// repositories and the latest commits, all from basalt. It fetches /api/git on
 // this origin, which the Worker proxies and caches. If basalt doesn't answer
 // the block stays hidden.
-import { GIT_HOST } from "./data/projects";
+import { type Commit, DAYS, derive, type GitData, type Repo, type Summary } from "./git-data";
 
-const DAYS = 364; // 52 whole weeks
 const WEEKS = 52;
+// Day numbers are calendar dates in basalt's timezone, so they're formatted as UTC.
 const MS_DAY = 86_400_000;
 
-interface FeedItem {
-	repo: string;
-	message: string;
-	when: number;
-	url: string;
-}
-
-interface Repo {
-	name: string;
-	description: string;
-	commits: number;
-	updated: number;
-	url: string;
-	/** [language, share 0–1], descending, at most three. */
-	langs: [string, number][];
-}
-
-interface GitData {
-	heat: Map<number, number>;
-	commits: number;
-	repos: number;
-	recent: FeedItem[];
-	popular: Repo[];
-}
-
 /** Consecutive days ending today (or yesterday) with at least one commit. */
-function streak(heat: Map<number, number>): number {
-	const today = Math.floor(Date.now() / MS_DAY);
+function streak({ heat, today }: GitData): number {
 	let n = 0;
 	// An empty "today" early in the day shouldn't break the streak.
 	const from = (heat.get(today) ?? 0) > 0 ? today : today - 1;
@@ -47,8 +21,7 @@ function streak(heat: Map<number, number>): number {
 }
 
 /** Weekly totals, oldest first, with the last week ending today. */
-function weekly(heat: Map<number, number>): number[] {
-	const today = Math.floor(Date.now() / MS_DAY);
+function weekly({ heat, today }: GitData): number[] {
 	return Array.from({ length: WEEKS }, (_, w) => {
 		let sum = 0;
 		for (let i = 0; i < 7; i++) sum += heat.get(today - (WEEKS - 1 - w) * 7 - (6 - i)) ?? 0;
@@ -56,55 +29,11 @@ function weekly(heat: Map<number, number>): number[] {
 	});
 }
 
-/**
- * What basalt serves at GET /api/summary. Timestamps are unix ms; `days` holds
- * [floor(ms / 86_400_000), commits] pairs for the last 364 UTC days, empty days
- * omitted. URLs are derived here, never taken from the response.
- */
-interface Summary {
-	days: [number, number][];
-	commits: number;
-	repos: number;
-	popular: {
-		name: string;
-		description?: string;
-		commits: number;
-		updated: number;
-		langs?: [string, number][];
-	}[];
-	recent: { repo: string; message: string; when: number }[];
-}
-
-async function fetchData(): Promise<GitData> {
+async function fetchData(): Promise<GitData | null> {
 	const res = await fetch("/api/git", { signal: AbortSignal.timeout(4000) });
-	if (res.status !== 200) throw new Error(`git summary ${res.status}`);
-	const s = (await res.json()) as Partial<Summary>;
-
-	const today = Math.floor(Date.now() / MS_DAY);
-	const heat = new Map<number, number>();
-	for (const [day, n] of s.days ?? []) {
-		if (today - day < DAYS) heat.set(day, n);
-	}
-
-	return {
-		heat,
-		commits: s.commits ?? 0,
-		repos: s.repos ?? 0,
-		popular: (s.popular ?? []).slice(0, 3).map((r) => ({
-			name: r.name,
-			description: r.description ?? "",
-			commits: r.commits,
-			updated: r.updated,
-			url: `${GIT_HOST}/${r.name}`,
-			langs: (r.langs ?? []).slice(0, 3),
-		})),
-		recent: (s.recent ?? []).slice(0, 3).map((c) => ({
-			repo: c.repo,
-			message: c.message,
-			when: c.when,
-			url: `${GIT_HOST}/${c.repo}/commits`,
-		})),
-	};
+	if (res.status !== 200) return null;
+	// The Worker has already validated this against the schema in git-summary.ts.
+	return derive((await res.json()) as Summary, Date.now());
 }
 
 function age(ts: number): string {
@@ -115,16 +44,12 @@ function age(ts: number): string {
 }
 
 export async function initGitBlock(root: HTMLElement): Promise<void> {
-	let data: GitData;
-	try {
-		data = await fetchData();
-	} catch {
-		return;
-	}
-	const weeks = weekly(data.heat);
-	renderYear(root, weeks);
+	const data = await fetchData().catch(() => null);
+	if (!data) return;
+	const weeks = weekly(data);
+	renderYear(root, weeks, data.today);
 	renderTotals(root, data, weeks);
-	renderPopular(root, data.popular);
+	renderPopular(root, data.featured);
 	renderRecent(root, data.recent);
 	root.hidden = false;
 }
@@ -136,7 +61,7 @@ const NS = "http://www.w3.org/2000/svg";
  * column exactly. Hovering a week highlights it and the line below describes
  * it.
  */
-function renderYear(root: HTMLElement, weeks: number[]): void {
+function renderYear(root: HTMLElement, weeks: number[], today: number): void {
 	const host = root.querySelector<HTMLElement>("[data-git-heat]");
 	const readout = root.querySelector<HTMLElement>("[data-git-readout]");
 	if (!host) return;
@@ -144,7 +69,6 @@ function renderYear(root: HTMLElement, weeks: number[]): void {
 	const H = 30;
 	const Y = 15;
 	const peak = Math.max(1, ...weeks);
-	const today = Math.floor(Date.now() / MS_DAY);
 
 	const svg = document.createElementNS(NS, "svg");
 	svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -162,7 +86,7 @@ function renderYear(root: HTMLElement, weeks: number[]): void {
 		mark.setAttribute("stroke-width", (0.7 + t * 9).toFixed(2));
 		mark.style.setProperty("--o", (0.2 + 0.62 * t).toFixed(2));
 		const end = new Date((today - (WEEKS - 1 - i) * 7) * MS_DAY);
-		const label = `${v} commit${v === 1 ? "" : "s"} · week of ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+		const label = `${v} commit${v === 1 ? "" : "s"} · week of ${end.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
 		mark.addEventListener("pointerenter", () => {
 			svg.classList.add("isolating");
 			mark.classList.add("on");
@@ -186,7 +110,10 @@ function renderYear(root: HTMLElement, weeks: number[]): void {
 	// quarter marks
 	const months = Array.from({ length: 4 }, (_, q) => {
 		const d = new Date((today - (3 - q) * 91) * MS_DAY);
-		return { x: (q * W) / 4, label: d.toLocaleDateString("en-US", { month: "short" }) };
+		return {
+			x: (q * W) / 4,
+			label: d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
+		};
 	});
 	for (const m of months) {
 		const t = document.createElementNS(NS, "text");
@@ -202,9 +129,9 @@ function renderYear(root: HTMLElement, weeks: number[]): void {
 function renderTotals(root: HTMLElement, data: GitData, weeks: number[]): void {
 	const el = root.querySelector<HTMLElement>("[data-git-totals]");
 	if (!el) return;
-	const days = streak(data.heat);
+	const days = streak(data);
 	const bits = [
-		`<em>${data.commits.toLocaleString()}</em> commits`,
+		`<em>${data.commits.year.toLocaleString()}</em> commits this year`,
 		`<em>${data.repos}</em> repos`,
 		days > 1 ? `<em>${days}</em>-day streak` : `busiest week <em>${Math.max(0, ...weeks)}</em>`,
 	];
@@ -251,7 +178,7 @@ function renderPopular(root: HTMLElement, repos: Repo[]): void {
 	}
 }
 
-function renderRecent(root: HTMLElement, recent: FeedItem[]): void {
+function renderRecent(root: HTMLElement, recent: Commit[]): void {
 	const host = root.querySelector<HTMLElement>("[data-git-recent]");
 	if (!host) return;
 	host.replaceChildren();
