@@ -14,7 +14,8 @@ import { initNavDot } from "./nav-dot";
 import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
 import { smoothScroll } from "./scroll";
 import { initSearch } from "./search/client";
-import { bootSim, type Sim } from "./sim";
+import { bootSim, type FocusSpec, type Sim } from "./sim";
+import { ICO_SPREAD, postLatitude } from "./sim/focus";
 import { readTheme, setThemeAttr, storeTheme } from "./theme";
 
 export function bootHub(clock: Clock): () => void {
@@ -183,12 +184,100 @@ export function bootHub(clock: Clock): () => void {
 	}
 
 	// Hovering an entry quickens the object.
-	hub.querySelector(".col-r")?.addEventListener(
+	const colR = hub.querySelector<HTMLElement>(".col-r");
+	colR?.addEventListener(
 		"pointerover",
 		(ev) => {
 			if ((ev.target as HTMLElement).closest(".entry, .latest-title")) sim?.excite();
 		},
 		{ passive: true },
+	);
+
+	// Pointing at an item, or reaching it from the keyboard, picks out its part
+	// of the object: a week of commits along the knot, a project's vertex, a
+	// post's latitude or a tag's posts, a role's ring.
+	const projectEntries = [...(panels.get("projects")?.querySelectorAll(".entry") ?? [])];
+	const postEntries = [...(panels.get("writing")?.querySelectorAll<HTMLElement>(".entry") ?? [])];
+	const postLat = new Map<Element, number>();
+	// Listed newest first, so on a shared date the later one in the list is older.
+	const byAge = postEntries
+		.map((el, j) => ({ el, j, ts: Number(el.dataset.ts ?? 0) }))
+		.sort((a, b) => a.ts - b.ts || b.j - a.j);
+	for (const [rank, { el }] of byAge.entries()) postLat.set(el, postLatitude(rank, byAge.length));
+	const tagged = (tag: string): number[] =>
+		postEntries
+			.filter((e) => (e.dataset.tags ?? "").split(" ").includes(tag))
+			.map((e) => postLat.get(e) ?? 0);
+	const FOCUSABLE = ".gitbrush, [data-chip], .tag[data-tag], .entry, [data-rings]";
+	const specOf = (el: HTMLElement | SVGElement): FocusSpec | null => {
+		const panel = el.closest<HTMLElement>("[data-panel]")?.dataset.panel;
+		if (panel !== section) return null;
+		const d = el.dataset;
+		if (panel === "index") return d.week ? { weeks: [Number(d.week)] } : null;
+		if (panel === "projects") {
+			const j = projectEntries.indexOf(el);
+			return j < 0 ? null : { vertex: ICO_SPREAD[j % ICO_SPREAD.length] as number };
+		}
+		if (panel === "writing") {
+			// Search chips are keyed by their tag; project and date chips by a leading space.
+			const tag = d.tag ?? (d.chip?.startsWith(" ") ? undefined : d.chip);
+			if (tag) return { latitudes: tagged(tag) };
+			const lat = postLat.get(el);
+			return lat === undefined ? null : { latitudes: [lat] };
+		}
+		return d.rings ? { rings: d.rings.split(" ").map(Number) } : null;
+	};
+	/** The innermost item at or above `from` that names a part. */
+	const resolve = (from: Element | null): FocusSpec | null => {
+		const up = (el: Element | null | undefined) =>
+			el?.closest<HTMLElement | SVGElement>(FOCUSABLE) ?? null;
+		for (let el = up(from); el && colR?.contains(el); el = up(el.parentElement)) {
+			const spec = specOf(el);
+			if (spec) return spec;
+		}
+		return null;
+	};
+	let pointed: FocusSpec | null = null;
+	let keyed: FocusSpec | null = null;
+	const syncFocus = (): void => sim?.setFocus(pointed ?? keyed);
+	// Enter and leave don't bubble, but they do pass through the capture phase.
+	// Leaving an item falls back to the one around it; entering another
+	// replaces it. A tap is not a hover.
+	colR?.addEventListener(
+		"pointerenter",
+		(ev) => {
+			if (ev.pointerType === "touch") return;
+			pointed = resolve(ev.target as Element);
+			syncFocus();
+		},
+		{ capture: true, signal },
+	);
+	colR?.addEventListener(
+		"pointerleave",
+		(ev) => {
+			if (ev.pointerType === "touch") return;
+			pointed = resolve((ev.target as Element).parentElement);
+			syncFocus();
+		},
+		{ capture: true, signal },
+	);
+	// A click leaves focus on what was clicked; only keyboard focus counts.
+	colR?.addEventListener(
+		"focusin",
+		(ev) => {
+			const el = ev.target as Element;
+			keyed = el.matches(":focus-visible") ? resolve(el) : null;
+			syncFocus();
+		},
+		{ signal },
+	);
+	colR?.addEventListener(
+		"focusout",
+		() => {
+			keyed = null;
+			syncFocus();
+		},
+		{ signal },
 	);
 
 	// Count outbound repository and live links.
@@ -289,6 +378,9 @@ export function bootHub(clock: Clock): () => void {
 			if (scrollY > top) scrollTo({ top, behavior: reducedMotion ? "instant" : "smooth" });
 		}
 		sim?.setSection(to);
+		pointed = null;
+		keyed = null;
+		sim?.setFocus(null);
 		invalidateTargets();
 	};
 

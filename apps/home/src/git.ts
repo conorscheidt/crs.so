@@ -87,6 +87,7 @@ function renderYear(root: HTMLElement, weeks: number[], today: number): void {
 			`M ${(i * seg).toFixed(2)} ${Y} L ${((i + 1) * seg - 0.6).toFixed(2)} ${Y}`,
 		);
 		mark.setAttribute("class", "gitbrush");
+		mark.dataset.week = String(i);
 		mark.setAttribute("stroke-width", (0.7 + t * 9).toFixed(2));
 		mark.style.setProperty("--o", (0.2 + 0.62 * t).toFixed(2));
 		const end = new Date((today - (WEEKS - 1 - i) * 7) * MS_DAY);

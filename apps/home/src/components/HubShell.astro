@@ -17,6 +17,9 @@ const year = new Date().getUTCFullYear();
 /** A post's project slug, if that project still exists, so a stale
  *  frontmatter reference doesn't render a mark that filters to nothing. */
 const known = (slug?: string): string | undefined => (slug && projectBySlug(slug) ? slug : undefined);
+/** Borromean rings a school stands for: every role was held at Northwestern. */
+const rings = (school: string): string | undefined =>
+	school.startsWith("Northwestern") ? "0 1 2" : undefined;
 
 
 
@@ -239,7 +242,7 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 					<p class="ptitle">Education</p>
 					{
 						education.map((e) => (
-							<div class="cvrow">
+							<div class="cvrow" data-rings={rings(e.school)}>
 								<h3>{e.school}</h3>
 								<span>
 									{e.degree} · {e.span}
@@ -249,8 +252,8 @@ const known = (slug?: string): string | undefined => (slug && projectBySlug(slug
 					}
 					<p class="ptitle sub">Experience</p>
 					{
-						experience.map((e) => (
-							<div class="cvrow">
+						experience.map((e, i) => (
+							<div class="cvrow" data-rings={i < 3 ? String(i) : undefined}>
 								<h3>{e.role}</h3>
 								<span>
 									{e.org} · {e.span}
