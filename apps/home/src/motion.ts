@@ -17,10 +17,7 @@ export const MOTION = {
 	dry: { ms: 600, stagger: 30, count: 6 },
 	/** Interrupted jobs speed up by this factor instead of snapping. */
 	interruptAccel: 3,
-	/**
-	 * Cursor ring radius, which is also the sim's dimple radius (CSS px). The GPU
-	 * uniform gets cursorR × devicePixelRatio.
-	 */
+	/** Cursor ring radius (CSS px). */
 	cursorR: 7,
 	/** Lenis wheel smoothing; lower is a longer glide (0.18 felt stiff). */
 	scrollLerp: 0.13,

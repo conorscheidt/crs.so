@@ -1,7 +1,8 @@
-// Ink dots. Mirrors sim/shapes.ts and sim/camera.ts: shapes, drawn morph,
-// rotation, projection, dimple, strand lighting and depth shading. A compute
-// pass places and shades every dot once per frame; the render pass only
-// expands each into a quad, which would otherwise redo that work per corner.
+// Ink dots. Mirrors sim/shapes.ts, sim/camera.ts and sim/wake.ts: shapes,
+// drawn morph, rotation, projection, strand lighting, depth shading and the
+// cursor's wake. A compute pass places, shades and advances every dot once per
+// frame; the render pass only expands each into a quad, which would otherwise
+// redo that work per corner.
 
 struct U {
 	res: vec2f,
@@ -13,19 +14,27 @@ struct U {
 	yaw: f32,
 	tilt_x: f32,
 	tilt_z: f32,
-	dimple_r: f32,
+	// device px per CSS px
+	dpr: f32,
 	ink: vec3f,
 	cursor_active: f32,
 	dot_r: f32,
 	fade: f32,
 	accent_w: f32,
-	pad: f32,
+	// seconds since the last frame; 0 when the last one was not drawn
+	dt: f32,
+	// device px/s
+	cursor_vel: vec2f,
+	pad: vec2f,
 }
 
 @group(0) @binding(0) var<uniform> u: U;
 
 // One per instance; the render pass reads it back as an instance vertex buffer.
 struct Mark {
+	// wake offset (device px) and its velocity
+	off: vec2f,
+	vel: vec2f,
 	pos: vec2f,
 	// radius (device px), alpha
 	look: vec2f,
@@ -45,6 +54,11 @@ const MIN_DOT_R: f32 = 1.4;
 const ACCENT_SIZE: f32 = 2.5;
 const ACCENT_ALPHA: f32 = 0.85;
 const ARC_LIFT: f32 = 0.3;
+// wake.ts
+const WAKE_R: f32 = 46.0;
+const WAKE_PUSH: f32 = 1700.0;
+const WAKE_DRAG: f32 = 0.7;
+const WAKE_W0: f32 = 6.0;
 
 const ICO_VERTS = array<vec3f, 12>(
 	vec3f(0.0, 0.5257311, 0.8506508), vec3f(0.0, 0.5257311, -0.8506508),
@@ -192,6 +206,33 @@ fn strand(t: vec3f) -> vec2f {
 	return vec2f(sl, pow(max(c, 1e-6), SPEC_POWER));
 }
 
+// wakeForce() in wake.ts, for a dot at d device px from the cursor.
+fn wake_force(d: vec2f) -> vec2f {
+	let r = WAKE_R * u.dpr;
+	let dist = length(d);
+	if (dist >= r || u.cursor_active <= 0.001) {
+		return vec2f(0.0);
+	}
+	let near = 1.0 - dist / r;
+	let f = near * near * u.cursor_active;
+	let push = (WAKE_PUSH * u.dpr) / max(dist, 1e-4);
+	return (d * push + u.cursor_vel * WAKE_DRAG) * f;
+}
+
+struct Spring {
+	x: vec2f,
+	v: vec2f,
+}
+
+// spring() in wake.ts, both axes at once.
+fn spring(x: vec2f, v: vec2f, a: vec2f, dt: f32, decay: f32) -> Spring {
+	let w = WAKE_W0;
+	let rest = a / (w * w);
+	let y = x - rest;
+	let c = v + w * y;
+	return Spring(rest + (y + c * dt) * decay, (v - w * c * dt) * decay);
+}
+
 @compute @workgroup_size(64)
 fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let ii = gid.x;
@@ -219,15 +260,15 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let v = rotate(p.xyz, rc, rs);
 	let k = min(u.res.x, u.res.y) * 0.3;
 	let persp = CAM_Z / (CAM_Z - v.z * 0.55);
-	var px = u.res * 0.5 + v.xy * k * persp;
+	let px = u.res * 0.5 + v.xy * k * persp;
 
-	if (u.cursor_active > 0.001) {
-		let dv = px - u.cursor;
-		let r2 = dot(dv, dv);
-		let rr = u.dimple_r * u.dimple_r;
-		let push = exp(-r2 / (rr * 4.0)) * u.dimple_r * 0.7 * u.cursor_active;
-		px += (dv / (sqrt(r2) + 1e-4)) * push;
-	}
+	// The wake moves on from where the dot was last drawn.
+	var m = marks[ii];
+	let force = wake_force(px + m.off - u.cursor);
+	let sp = spring(m.off, m.vel, force, u.dt, exp(-WAKE_W0 * u.dt));
+	m.off = sp.x;
+	m.vel = sp.v;
+	m.pos = px + m.off;
 
 	// Strand and depth shading, as in camera.ts shade().
 	let st = strand(tangent);
@@ -253,7 +294,8 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	// keeping its ink.
 	let r = max(size, MIN_DOT_R);
 	let keep = size / r;
-	marks[ii] = Mark(px, vec2f(r, alpha * keep * keep * u.fade));
+	m.look = vec2f(r, alpha * keep * keep * u.fade);
+	marks[ii] = m;
 }
 
 struct VSOut {

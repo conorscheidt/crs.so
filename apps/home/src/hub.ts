@@ -90,7 +90,7 @@ export function bootHub(clock: Clock): () => void {
 				colC.setPointerCapture(ev.pointerId);
 			} catch {}
 		});
-		// The dimple follows the ring as drawn, or the raw pointer on touch. Measure
+		// The wake follows the ring as drawn, or the raw pointer on touch. Measure
 		// the column: the sim may replace the canvas, and the rect includes the
 		// sheet layout's sink scale.
 		// Scrolling and resizing only mark it stale; it is read when next used.

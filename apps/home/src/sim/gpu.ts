@@ -22,7 +22,8 @@ export interface Uniforms {
 	yaw: number;
 	tiltX: number;
 	tiltZ: number;
-	dimpleR: number;
+	/** device px per CSS px */
+	dpr: number;
 	inkR: number;
 	inkG: number;
 	inkB: number;
@@ -30,11 +31,19 @@ export interface Uniforms {
 	dotR: number;
 	fade: number;
 	accentW: number;
+	/** s since the last drawn frame; 0 holds the wake still */
+	dt: number;
+	/** device px/s */
+	cursorVX: number;
+	cursorVY: number;
 }
 
 export interface Renderer {
 	frame: (u: Uniforms) => void;
+	/** Also settles the wake, which is in device px of the old size. */
 	resize: (w: number, h: number) => void;
+	/** Settle every dot's wake at once. */
+	reset: () => void;
 	/** Release the canvas. A GPU renderer leaves the shared device alive. */
 	destroy: () => void;
 	readonly kind: "gpu" | "cpu";
@@ -51,10 +60,10 @@ export interface Gpu {
 	readonly marks: GPUBuffer;
 }
 
-const FLOATS = 20;
+const FLOATS = 24;
 const COUNT = N + N_ACCENT;
 /** Bytes per instance in the marks buffer: WGSL struct Mark. */
-const MARK_BYTES = 16;
+const MARK_BYTES = 32;
 const WORKGROUP = 64;
 const buf = new Float32Array(FLOATS);
 
@@ -141,8 +150,8 @@ async function build(): Promise<Gpu | null> {
 						arrayStride: MARK_BYTES,
 						stepMode: "instance",
 						attributes: [
-							{ shaderLocation: 0, offset: 0, format: "float32x2" },
-							{ shaderLocation: 1, offset: 8, format: "float32x2" },
+							{ shaderLocation: 0, offset: 16, format: "float32x2" },
+							{ shaderLocation: 1, offset: 24, format: "float32x2" },
 						],
 					},
 				],
@@ -192,7 +201,7 @@ async function build(): Promise<Gpu | null> {
 	});
 	const marks = device.createBuffer({
 		size: COUNT * MARK_BYTES,
-		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
+		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
 	});
 	const bindGroup = device.createBindGroup({
 		layout: pipeline.getBindGroupLayout(0),
@@ -214,6 +223,8 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 	const { device, pipeline, bindGroup, advance, advanceGroup, ubo, marks } = gpu;
 	ctx.configure({ device, format: gpu.format, alphaMode: "premultiplied" });
 	let live = true;
+	// The wake belongs to whatever canvas drew it last.
+	let settle = true;
 
 	return {
 		kind: "gpu",
@@ -230,7 +241,7 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 			buf[8] = u.yaw;
 			buf[9] = u.tiltX;
 			buf[10] = u.tiltZ;
-			buf[11] = u.dimpleR;
+			buf[11] = u.dpr;
 			buf[12] = u.inkR;
 			buf[13] = u.inkG;
 			buf[14] = u.inkB;
@@ -238,8 +249,13 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 			buf[16] = u.dotR;
 			buf[17] = u.fade;
 			buf[18] = u.accentW;
+			buf[19] = settle ? 0 : u.dt;
+			buf[20] = u.cursorVX;
+			buf[21] = u.cursorVY;
 			device.queue.writeBuffer(ubo, 0, buf);
 			const encoder = device.createCommandEncoder();
+			if (settle) encoder.clearBuffer(marks);
+			settle = false;
 			const step = encoder.beginComputePass();
 			step.setPipeline(advance);
 			step.setBindGroup(0, advanceGroup);
@@ -265,6 +281,10 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 		resize(w: number, h: number): void {
 			canvas.width = Math.max(1, Math.min(w, device.limits.maxTextureDimension2D));
 			canvas.height = Math.max(1, Math.min(h, device.limits.maxTextureDimension2D));
+			settle = true;
+		},
+		reset(): void {
+			settle = true;
 		},
 		destroy(): void {
 			live = false;

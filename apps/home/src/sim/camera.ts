@@ -1,8 +1,7 @@
 /**
- * Rotation, projection, the cursor dimple and lighting, mirrored in
- * sim/shader.wgsl. Weak-perspective camera at a fixed distance; the dimple is
- * applied in screen space after projection. View space has y down the screen
- * and z toward the viewer.
+ * Rotation, projection and lighting, mirrored in sim/shader.wgsl.
+ * Weak-perspective camera at a fixed distance. View space has y down the
+ * screen and z toward the viewer.
  */
 import type { Pt } from "./shapes";
 
@@ -17,12 +16,6 @@ export interface Frame {
 	sinX: number;
 	cosZ: number;
 	sinZ: number;
-	/** cursor in device px; cursorActive (0..1) scales the dimple */
-	cx: number;
-	cy: number;
-	cursorActive: number;
-	/** dimple radius in device px (cursorR × dpr) */
-	dimpleR: number;
 }
 
 const CAM_Z = 4;
@@ -79,22 +72,8 @@ export function project(p: Pt, f: Frame, out: Projected): void {
 
 	const k = Math.min(f.w, f.h) * 0.3;
 	const persp = CAM_Z / (CAM_Z - z2 * 0.55);
-	let sxp = f.w / 2 + x3 * k * persp;
-	let syp = f.h / 2 + y3 * k * persp;
-
-	if (f.cursorActive > 0.001) {
-		const dx = sxp - f.cx;
-		const dy = syp - f.cy;
-		const r2 = dx * dx + dy * dy;
-		const rr = f.dimpleR * f.dimpleR;
-		const push = Math.exp(-r2 / (rr * 4)) * f.dimpleR * 0.7 * f.cursorActive;
-		const d = Math.sqrt(r2) + 1e-4;
-		sxp += (dx / d) * push;
-		syp += (dy / d) * push;
-	}
-
-	out.sx = sxp;
-	out.sy = syp;
+	out.sx = f.w / 2 + x3 * k * persp;
+	out.sy = f.h / 2 + y3 * k * persp;
 	out.depth = z2;
 }
 

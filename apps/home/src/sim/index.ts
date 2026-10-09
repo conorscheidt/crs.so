@@ -44,6 +44,8 @@ export interface Sim {
 const DRAG_YAW = 0.0062;
 const DRAG_PITCH = 0.005;
 const SPIN_MAX = 2.2;
+/** Smoothing on the cursor's measured velocity (s); raw pointer events bunch. */
+const CURSOR_VEL_TAU = 0.04;
 
 interface State {
 	u: Uniforms;
@@ -79,7 +81,7 @@ function initState(initial: Section): State {
 			yaw: 0,
 			tiltX: tilt,
 			tiltZ: 0,
-			dimpleR: 0,
+			dpr: 1,
 			inkR: 0,
 			inkG: 0,
 			inkB: 0,
@@ -87,6 +89,9 @@ function initState(initial: Section): State {
 			dotR: 0,
 			fade: 0,
 			accentW: initial === "projects" ? 1 : 0,
+			dt: 0,
+			cursorVX: 0,
+			cursorVY: 0,
 		},
 		spin: 0,
 		yawOff: 0,
@@ -127,6 +132,8 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	const s = state;
 	const u = s.u;
 	u.cursorActive = 0;
+	u.cursorVX = 0;
+	u.cursorVY = 0;
 	// The theme can flip while the hub is away.
 	[u.inkR, u.inkG, u.inkB] = readInk();
 
@@ -157,7 +164,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		const k = dpr / scale;
 		u.resW = Math.round(dev ? dev.inlineSize * k : css.inlineSize * dpr);
 		u.resH = Math.round(dev ? dev.blockSize * k : css.blockSize * dpr);
-		u.dimpleR = MOTION.cursorR * dpr;
+		u.dpr = dpr;
 		u.dotR = 0.78 * dpr;
 		sized = true;
 		draw();
@@ -185,9 +192,11 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	};
 	watchDpr();
 
+	// Off the clock, so nothing moves on: a dt of 0 holds the wake still.
 	function draw(): void {
 		if (!(renderer && sized)) return;
 		renderer.resize(u.resW, u.resH);
+		u.dt = 0;
 		if (reduced) renderStatic();
 		else if (visible) renderer.frame(u);
 	}
@@ -195,6 +204,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	// One static frame per (section, theme); re-rendered on demand only.
 	function renderStatic(): void {
 		[u.inkR, u.inkG, u.inkB] = readInk();
+		u.dt = 0;
 		u.fade = 1;
 		u.morphT = 1;
 		u.fromObj = u.toObj;
@@ -268,6 +278,10 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	}
 
 	const pointer = { x: 0, y: 0, active: false };
+	let wasActive = false;
+	/** clock time of the last frame drawn, and whether the last tick drew one */
+	let drawnAt = Number.NaN;
+	let drewLast = false;
 	// Drag to spin: yaw accumulates freely; pitch is clamped and eases home.
 	let dragging = false;
 	/** cumulative (yawOff, pitchOff) per input sample, for the release slope */
@@ -311,14 +325,34 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		// the hand sets pitch directly; otherwise it eases back to the object's own
 		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * (dragging ? 60 : 6));
 		u.tiltZ -= u.tiltZ * Math.min(1, dt * 1.6);
-		// The dimple eases in and out; leaving, it fades where it was last seen.
+		// The wake eases in and out; leaving, it fades where the cursor was last
+		// seen. A cursor that has just arrived has no velocity yet.
+		const ease = 1 - Math.exp(-dt / CURSOR_VEL_TAU);
 		if (pointer.active) {
-			u.cursorX = pointer.x * dpr;
-			u.cursorY = pointer.y * dpr;
+			const x = pointer.x * dpr;
+			const y = pointer.y * dpr;
+			const vx = wasActive ? (x - u.cursorX) / dt : 0;
+			const vy = wasActive ? (y - u.cursorY) / dt : 0;
+			u.cursorVX = wasActive ? u.cursorVX + (vx - u.cursorVX) * ease : 0;
+			u.cursorVY = wasActive ? u.cursorVY + (vy - u.cursorVY) * ease : 0;
+			u.cursorX = x;
+			u.cursorY = y;
+		} else {
+			u.cursorVX -= u.cursorVX * ease;
+			u.cursorVY -= u.cursorVY * ease;
 		}
+		wasActive = pointer.active;
 		u.cursorActive += ((pointer.active ? 1 : 0) - u.cursorActive) * (1 - Math.exp(-14 * dt));
 		u.accentW = accentTarget(u);
-		if (visible) renderer.frame(u);
+		if (visible) {
+			// Motion carries over only from the frame just before. After a long
+			// pause (a hidden tab, a bfcache restore) the wake settles too.
+			if (!(t - drawnAt < 1000)) renderer.reset();
+			u.dt = drewLast ? dt : 0;
+			renderer.frame(u);
+			drawnAt = t;
+		}
+		drewLast = visible;
 	});
 
 	const sim: Sim = {

@@ -142,7 +142,7 @@ test("WGSL icosahedron edge table matches the TS-computed edges exactly", async 
 	expect(pairs).toEqual(ICO_EDGES.map((e) => [e[0], e[1]]));
 });
 
-test("projection is centered, depth-shaded, and dimple pushes outward", () => {
+test("projection is centered and depth-signed", () => {
 	const f: Frame = {
 		w: 1000,
 		h: 800,
@@ -152,54 +152,16 @@ test("projection is centered, depth-shaded, and dimple pushes outward", () => {
 		sinX: 0,
 		cosZ: 0,
 		sinZ: 0,
-		cx: 500,
-		cy: 400,
-		cursorActive: 1,
-		dimpleR: 26,
 	};
 	pose(f, 0, 0, 0);
 	const out: Projected = { sx: 0, sy: 0, depth: 0 };
 	project({ x: 0, y: 0, z: 0, a: 1, k: 0 }, f, out);
-	// The origin sits under the cursor: dimple pushes it off-center slightly.
-	expect(Math.hypot(out.sx - 500, out.sy - 400)).toBeLessThan(f.dimpleR);
-	const near: Projected = { sx: 0, sy: 0, depth: 0 };
-	f.cursorActive = 0;
-	project({ x: 0.5, y: 0, z: 0.5, a: 1, k: 0 }, f, near);
-	expect(near.depth).toBeGreaterThan(0);
-	project({ x: 0.5, y: 0, z: -0.5, a: 1, k: 0 }, f, near);
-	expect(near.depth).toBeLessThan(0);
-});
-
-test("the dimple's push scales with its weight", () => {
-	const f: Frame = {
-		w: 1000,
-		h: 800,
-		cosY: 0,
-		sinY: 0,
-		cosX: 0,
-		sinX: 0,
-		cosZ: 0,
-		sinZ: 0,
-		cx: 0,
-		cy: 0,
-		cursorActive: 0,
-		dimpleR: 26,
-	};
-	pose(f, 0, 0, 0);
-	const p = { x: 0.05, y: 0, z: 0, a: 1, k: 0 };
-	const at = (w: number): number => {
-		const out: Projected = { sx: 0, sy: 0, depth: 0 };
-		f.cursorActive = w;
-		project(p, f, out);
-		return out.sx;
-	};
-	const rest = at(0);
-	f.cx = rest - 10;
-	f.cy = 400;
-	const full = at(1) - rest;
-	expect(full).toBeGreaterThan(1);
-	expect(at(0.5) - rest).toBeCloseTo(full / 2, 9);
-	expect(at(0.0005)).toBe(rest);
+	expect(out.sx).toBe(500);
+	expect(out.sy).toBe(400);
+	project({ x: 0.5, y: 0, z: 0.5, a: 1, k: 0 }, f, out);
+	expect(out.depth).toBeGreaterThan(0);
+	project({ x: 0.5, y: 0, z: -0.5, a: 1, k: 0 }, f, out);
+	expect(out.depth).toBeLessThan(0);
 });
 
 test("a half turn of yaw mirrors the cloud; back dots shade smaller and fainter", () => {
@@ -212,10 +174,6 @@ test("a half turn of yaw mirrors the cloud; back dots shade smaller and fainter"
 		sinX: 0,
 		cosZ: 0,
 		sinZ: 0,
-		cx: 0,
-		cy: 0,
-		cursorActive: 0,
-		dimpleR: 14,
 	};
 	const a: Projected = { sx: 0, sy: 0, depth: 0 };
 	const b: Projected = { sx: 0, sy: 0, depth: 0 };

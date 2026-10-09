@@ -28,10 +28,6 @@ const frame = (yaw: number, tiltX: number, tiltZ: number): Frame => {
 		sinX: 0,
 		cosZ: 1,
 		sinZ: 0,
-		cx: 0,
-		cy: 0,
-		cursorActive: 0,
-		dimpleR: 0,
 	};
 	pose(f, yaw, tiltX, tiltZ);
 	return f;
