@@ -39,10 +39,15 @@ function onMessage(e: MessageEvent): void {
 		warmed?: boolean;
 		out?: string;
 		stdinReq?: boolean;
+		started?: boolean;
 	} & Partial<RunResult>;
 	if (d?.warmed) return;
 	const p = pending.get(d.id);
 	if (!p) return;
+	if (d.started) {
+		p.armTimer();
+		return;
+	}
 	if (d.out !== undefined) {
 		if (p.hooks.onOut) p.hooks.onOut(d.out);
 		else p.buf += d.out;
@@ -169,7 +174,8 @@ export function run(
 			},
 			writeStdin,
 		};
-		entry.armTimer();
+		// the clang worker reports when a queued run actually starts
+		if (!isCpp) entry.armTimer();
 		pending.set(id, entry);
 		w.postMessage(
 			isCpp

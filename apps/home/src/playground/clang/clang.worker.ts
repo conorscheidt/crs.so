@@ -143,11 +143,16 @@ async function handle({ id, src, cpp, warm, stdin, stdinSab }: Req): Promise<voi
 		return;
 	}
 
+	// Runs queue behind each other (including one waiting on stdin), so the page
+	// starts its timeout from here rather than from when it asked.
+	globalThis.postMessage({ id, started: true });
+
 	// stdout and compile diagnostics stream to the page as they're written; the
 	// final message carries only the status.
 	currentWrite = (s) => globalThis.postMessage({ id, out: s });
 	let ok = true;
 	let errMsg = "";
+	let waited = 0; // time spent blocked on the reader, left out of the reported time
 	try {
 		const d = ensureDriver();
 		d.setStdin(stdin ?? "");
@@ -158,7 +163,9 @@ async function handle({ id, src, cpp, warm, stdin, stdinSab }: Req): Promise<voi
 			d.setStdinWaiter(() => {
 				Atomics.store(ctl, 0, 0);
 				globalThis.postMessage({ id, stdinReq: true });
+				const w0 = performance.now();
 				Atomics.wait(ctl, 0, 0);
+				waited += performance.now() - w0;
 				if (Atomics.load(ctl, 0) === 2) return null;
 				return decoder.decode(data.slice(0, Atomics.load(ctl, 1)));
 			});
@@ -173,7 +180,7 @@ async function handle({ id, src, cpp, warm, stdin, stdinSab }: Req): Promise<voi
 	currentWrite = () => {};
 	ensureDriver().setStdinWaiter(null);
 
-	const ms = Math.round(performance.now() - t0);
+	const ms = Math.round(performance.now() - t0 - waited);
 	globalThis.postMessage({
 		id,
 		stdout: "",
