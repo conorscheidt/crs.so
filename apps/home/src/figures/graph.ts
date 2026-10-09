@@ -13,7 +13,7 @@ import {
 	type SimulationLinkDatum,
 	type SimulationNodeDatum,
 } from "d3-force";
-import { type G, hash, plate } from "./ink";
+import { buildToWidth, type G, hash, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 interface N extends SimulationNodeDatum {
@@ -152,9 +152,7 @@ export const graph: FigureFactory = (mount, hooks): FigureImpl => {
 	});
 	io.observe(mount);
 
-	const ro = new ResizeObserver(() => build());
-	ro.observe(mount);
-	build();
+	const ro = buildToWidth(mount, build);
 
 	return {
 		reset(): void {

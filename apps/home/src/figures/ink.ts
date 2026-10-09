@@ -22,6 +22,22 @@ export function plate(mount: HTMLElement): { svg: Svg; w: number; h: number } {
 	return { svg, w, h };
 }
 
+/**
+ * Build now, then again whenever the mount's width changes. A ResizeObserver
+ * also reports the size it starts with, which would build every figure twice.
+ */
+export function buildToWidth(mount: HTMLElement, build: () => void): ResizeObserver {
+	let w = mount.clientWidth;
+	build();
+	const ro = new ResizeObserver(() => {
+		if (mount.clientWidth === w) return;
+		w = mount.clientWidth;
+		build();
+	});
+	ro.observe(mount);
+	return ro;
+}
+
 /** A styled axis: hairline domain, 4px ticks, mono numerals (CSS: .axis). */
 export function axis<D extends AxisDomain>(g: G, ax: Axis<D>): G {
 	g.attr("class", "axis").call(ax as unknown as (sel: G) => void);

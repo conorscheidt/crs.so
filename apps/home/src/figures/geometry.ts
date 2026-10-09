@@ -5,7 +5,7 @@
  * the plate's short side.
  */
 import { drag } from "d3-drag";
-import { type G, handle, plate } from "./ink";
+import { buildToWidth, type G, handle, plate } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 // Coordinates live in a square centred in the plate, since an anisotropic
@@ -132,9 +132,7 @@ export const geometry: FigureFactory = (mount, hooks): FigureImpl => {
 		update();
 	}
 
-	const ro = new ResizeObserver(() => build());
-	ro.observe(mount);
-	build();
+	const ro = buildToWidth(mount, build);
 
 	return {
 		reset(): void {

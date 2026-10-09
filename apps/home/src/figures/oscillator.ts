@@ -9,7 +9,7 @@ import { drag } from "d3-drag";
 import { format } from "d3-format";
 import { scaleLinear } from "d3-scale";
 import { line } from "d3-shape";
-import { axis, bottomAxis, type G, handle, leftAxis, plate, varLabel } from "./ink";
+import { axis, bottomAxis, buildToWidth, type G, handle, leftAxis, plate, varLabel } from "./ink";
 import type { FigureFactory, FigureImpl } from "./registry";
 
 const f2 = format(".2f");
@@ -212,9 +212,7 @@ export const oscillator: FigureFactory = (mount, hooks): FigureImpl => {
 		update();
 	}
 
-	const ro = new ResizeObserver(() => build());
-	ro.observe(mount);
-	build();
+	const ro = buildToWidth(mount, build);
 
 	return {
 		reset(): void {
