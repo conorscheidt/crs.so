@@ -90,6 +90,17 @@ const date = post.data.date.toLocaleDateString("en-US", {
 		</article>
 
 		<div class="arail-r" data-mrail></div>
+
+		{/* narrow screens: where you are and how long is left, once the title is gone */}
+		<div class="rhead" data-rhead data-minutes={post.data.minutes} inert>
+			<p class="rhead-at" aria-hidden="true">
+				<span class="rhead-sec" data-rhead-sec>{post.data.title}</span>
+				<span class="rhead-left" data-rhead-left></span>
+			</p>
+			<span class="rhead-bar" aria-hidden="true">
+				<span class="rhead-fill" data-rhead-progress></span>
+			</span>
+		</div>
 	</div>
 </Shell>
 
