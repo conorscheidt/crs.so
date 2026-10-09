@@ -14,16 +14,18 @@ type Props = {
 	ogSlug?: string;
 	/** Set on article routes; adds BlogPosting structured data. */
 	article?: { published: Date; tags: string[]; minutes: number };
+	/** Keep the page out of search results. */
+	noindex?: boolean;
 };
-const { title, description, scrollable = false, ogSlug, article } = Astro.props;
+const { title, description, scrollable = false, ogSlug, article, noindex = false } = Astro.props;
 
 const site = Astro.site ?? new URL("https://crs.so");
 const canonical = new URL(Astro.url.pathname, site);
 const ogPath = ogSlug ?? (Astro.url.pathname === "/" ? "index" : Astro.url.pathname.slice(1));
 const ogImage = new URL(`/og/${ogPath}.png`, site);
 
-// Cloudflare Web Analytics site token. It is public (it ships in the page),
-// so it lives here rather than in an env var.
+// Cloudflare Web Analytics site token. It ships in the page anyway, so it
+// isn't an env var.
 // biome-ignore lint/security/noSecrets: public site token
 const CF_BEACON = "7d7cc357d0bb404a8db2d53475635150";
 
@@ -80,11 +82,11 @@ const jsonLd = JSON.stringify({
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
-		<link rel="canonical" href={canonical} />
+		{noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
 		<meta property="og:type" content={article ? "article" : "website"} />
-		<meta property="og:url" content={canonical} />
+		{!noindex && <meta property="og:url" content={canonical} />}
 		<meta property="og:site_name" content="Conor Scheidt" />
 		<meta property="og:image" content={ogImage} />
 		<meta property="og:image:width" content="1200" />
