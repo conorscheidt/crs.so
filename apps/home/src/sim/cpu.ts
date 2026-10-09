@@ -156,7 +156,8 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 				strand(tan.x, tan.y, tan.z, st);
 				project(p, f, pr);
 				focus(u, s, focusTarget(i, u.fromObj, u.toObj, u.morphT, p.k, u.phase, u.focus));
-				shade(p.a * em.a, pr.depth, st.diff, st.spec, gain, night, dotR * em.r, sh);
+				shade(p.a * em.a, pr.depth, st.diff, st.spec, gain, night, dotR, sh);
+				sh.r *= em.r;
 				put(u, s, decay, scale);
 			}
 			if (u.accentW > 0.01) {

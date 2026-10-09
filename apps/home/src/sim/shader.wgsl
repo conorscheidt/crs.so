@@ -421,12 +421,12 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let day_tone = (0.32 + 0.7 * (1.0 - 0.6 * lit)) * (1.0 - 0.38 * glint);
 	let tone = mix(day_tone, night_tone, night);
 	let alpha = min(0.92, p.w * emph_a * (0.28 + 0.72 * dt) * tone * gain);
-	let size = u.dot_r * size_mul * emph_r * (0.62 + 0.38 * dt) * (1.0 + 0.3 * glint * night);
+	let size = u.dot_r * size_mul * (0.62 + 0.38 * dt) * (1.0 + 0.3 * glint * night);
 	// A dot under ~1.4 px covers a different amount of the pixel grid at every
 	// sub-pixel offset and twinkles as it moves; widen it and fade it instead,
-	// keeping its ink.
-	let r = max(size, MIN_DOT_R);
-	let keep = size / r;
+	// keeping its ink. Emphasis grows it after, so it reads the same at any dpr.
+	let keep = size / max(size, MIN_DOT_R);
+	let r = max(size, MIN_DOT_R) * emph_r;
 	m.look = vec2f(r, alpha * keep * keep * u.fade * exposure(r, len));
 	marks[ii] = m;
 }
