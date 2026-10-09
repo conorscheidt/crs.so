@@ -155,7 +155,7 @@ html.no-native-cursor *::after {
 	position: fixed;
 	left: 0;
 	top: 0;
-	will-change: transform;
+	will-change: translate, scale;
 	color: var(--ink);
 	opacity: 0;
 	z-index: 99;

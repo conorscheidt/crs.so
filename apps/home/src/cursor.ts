@@ -1,4 +1,4 @@
-// The ring trails the pointer with frame-rate-independent
+// The cursor ring. It trails the pointer with frame-rate-independent
 // exponential smoothing, leans toward the nearest interactive element, and
 // tightens while the pointer is over one. Reduced motion gets a rigid ring.
 // The native cursor is hidden in global.css with a transparent cursor image;
@@ -107,8 +107,13 @@ export function initCursor(clock: Clock): void {
 	const svg = ring.firstElementChild as SVGSVGElement;
 	const circle = svg.firstElementChild as SVGCircleElement;
 
-	let tx = -100;
-	let ty = -100;
+	// Real pointer, and the target the ring chases (the predicted pointer while
+	// input is arriving).
+	let px = -100;
+	let py = -100;
+	let movedAt = 0;
+	let tx = px;
+	let ty = py;
 	let x = tx;
 	let y = ty;
 	let shown = false;
@@ -125,10 +130,13 @@ export function initCursor(clock: Clock): void {
 	document.addEventListener(
 		"pointermove",
 		(ev) => {
+			px = ev.clientX;
+			py = ev.clientY;
+			movedAt = ev.timeStamp;
 			// Aim at where the pointer is about to be, where the browser predicts it.
 			const predicted = ev.getPredictedEvents?.().at(-1);
-			tx = predicted?.clientX ?? ev.clientX;
-			ty = predicted?.clientY ?? ev.clientY;
+			tx = predicted?.clientX ?? px;
+			ty = predicted?.clientY ?? py;
 			show();
 		},
 		{ passive: true },
@@ -149,19 +157,26 @@ export function initCursor(clock: Clock): void {
 		ring.classList.remove("on");
 	});
 	// Re-entering from the browser chrome doesn't always fire a pointermove.
-	root.addEventListener("pointerenter", show);
+	root.addEventListener("pointerenter", (ev) => {
+		px = ev.clientX;
+		py = ev.clientY;
+		tx = px;
+		ty = py;
+		show();
+	});
 
 	// Each setter touches the DOM only when its value changes, so a resting
-	// ring costs nothing per frame.
+	// ring costs nothing per frame. Position goes on `translate`, not
+	// `transform`: the press `scale` would otherwise scale the offset too.
 	const setPlace = latch((v) => {
-		ring.style.transform = v;
+		ring.style.translate = v;
 	});
-	const place = (px: number, py: number): void =>
-		setPlace(`translate3d(${(px - r - 1).toFixed(2)}px, ${(py - r - 1).toFixed(2)}px, 0)`);
+	const place = (cx: number, cy: number): void =>
+		setPlace(`${(cx - r - 1).toFixed(2)}px ${(cy - r - 1).toFixed(2)}px`);
 
 	if (reduced) {
 		clock.subscribe(() => {
-			place(tx, ty);
+			place(px, py);
 			ring.classList.toggle("over", over);
 		});
 		return;
@@ -198,6 +213,11 @@ export function initCursor(clock: Clock): void {
 	clock.subscribe((t, dt) => {
 		if (!shown) return;
 		if (t > staleAt && t - lastScroll > 200) refresh(t);
+		// Once input stops, settle on the real pointer rather than the last prediction.
+		if (t - movedAt > 50) {
+			tx = px;
+			ty = py;
+		}
 
 		const k = ease(FOLLOW, dt);
 		x += (tx - x) * k;
