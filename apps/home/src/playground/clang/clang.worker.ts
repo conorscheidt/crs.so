@@ -171,9 +171,16 @@ async function compileFresh(url: string): Promise<WebAssembly.Module> {
 	return mod;
 }
 
-async function readBuffer(url: string): Promise<ArrayBuffer> {
-	const resp = await cachedResponse(url);
-	return new Response(gunzip(resp)).arrayBuffer();
+const buffers = new Map<string, Promise<ArrayBuffer>>();
+
+function readBuffer(url: string): Promise<ArrayBuffer> {
+	let buf = buffers.get(url);
+	if (!buf) {
+		buf = cachedResponse(url).then((resp) => new Response(gunzip(resp)).arrayBuffer());
+		buffers.set(url, buf);
+		buf.catch(() => buffers.delete(url));
+	}
+	return buf;
 }
 
 let driver: ClangDriver | null = null;
@@ -240,9 +247,10 @@ async function handle({ id, src, cpp, warm, stdin, stdinSab }: Req): Promise<voi
 	if (downloads.active) report();
 	try {
 		const d = ensureDriver();
-		// The driver would fetch lld only after clang has run; asking for both
-		// now overlaps the downloads and gives the progress line its full total.
+		// Start every download now: they overlap, and the progress line knows its
+		// total from the first byte.
 		for (const url of [CLANG, LLD]) void compileStreaming(url).catch(() => {});
+		for (const url of [MEMFS, SYSROOT]) void readBuffer(url).catch(() => {});
 		d.setStdin(stdin ?? "");
 		if (stdinSab) {
 			const ctl = new Int32Array(stdinSab, 0, 2);
