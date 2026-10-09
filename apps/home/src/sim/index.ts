@@ -18,6 +18,8 @@ export interface Sim {
 	dragBy: (dx: number, dy: number) => void;
 	endDrag: () => void;
 	excite: (strength?: number) => void;
+	/** Skip drawing while nothing can see the canvas; time keeps running. */
+	setVisible: (visible: boolean) => void;
 	destroy: () => void;
 	readonly kind: "gpu" | "cpu" | "static";
 }
@@ -40,6 +42,7 @@ export async function bootSim(
 ): Promise<Sim> {
 	const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 	const dpr = Math.min(2, devicePixelRatio || 1);
+	let visible = true;
 
 	let renderer: Renderer | null = null;
 	let destroyed = false;
@@ -128,6 +131,7 @@ export async function bootSim(
 				renderStatic();
 			},
 			setPointer() {},
+			setVisible() {},
 			beginDrag() {},
 			dragBy() {},
 			endDrag() {},
@@ -175,7 +179,7 @@ export async function bootSim(
 		u.cursorY = pointer.y * dpr;
 		u.cursorActive = pointer.active ? 1 : 0;
 		u.accentW = accentTarget();
-		renderer.frame(u);
+		if (visible) renderer.frame(u);
 	});
 
 	return {
@@ -205,6 +209,9 @@ export async function bootSim(
 		},
 		setInk(): void {
 			[u.inkR, u.inkG, u.inkB] = readInk();
+		},
+		setVisible(v: boolean): void {
+			visible = v;
 		},
 		setPointer(x: number, y: number, active: boolean): void {
 			pointer.x = x;

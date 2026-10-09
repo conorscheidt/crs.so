@@ -79,8 +79,20 @@ export function bootHub(clock: Clock): () => void {
 	if (canvas) {
 		void bootSim(canvas, clock, section).then((s) => {
 			if (signal.aborted) s.destroy();
-			else sim = s;
+			else {
+				sim = s;
+				cover();
+			}
 		});
+		// On the sheet layout the object sits behind the page; once the sheet has
+		// scrolled over it entirely, stop drawing it.
+		const cover = (): void => {
+			const nav = hub.querySelector("nav");
+			const hidden = !desktop.matches && !!nav && nav.getBoundingClientRect().top <= 0;
+			sim?.setVisible(!hidden);
+		};
+		addEventListener("scroll", cover, { passive: true, signal });
+		desktop.addEventListener("change", cover, { signal });
 		const colC = canvas.parentElement as HTMLElement;
 		// the object is grabbable: drag spins it, release coasts
 		let last: { x: number; y: number } | null = null;
