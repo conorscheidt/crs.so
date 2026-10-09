@@ -1,8 +1,9 @@
-// Ink dots. Mirrors sim/shapes.ts, sim/camera.ts and sim/wake.ts: shapes,
-// drawn morph, rotation, projection, strand lighting, depth shading and the
-// cursor's wake. A compute pass places, shades and advances every dot once per
-// frame; the render pass only expands each into a quad, which would otherwise
-// redo that work per corner.
+// Ink dots. Mirrors sim/shapes.ts, sim/camera.ts, sim/wake.ts and
+// sim/shutter.ts: shapes, drawn morph, rotation, projection, strand lighting,
+// depth shading, the cursor's wake and the streaks of fast dots. A compute
+// pass places, shades and advances every dot once per frame; the render pass
+// only expands each into a quad, which would otherwise redo that work per
+// corner.
 
 struct U {
 	res: vec2f,
@@ -36,6 +37,8 @@ struct Mark {
 	off: vec2f,
 	vel: vec2f,
 	pos: vec2f,
+	// back along the motion to the streak's far end; zero for a disc
+	tail: vec2f,
 	// radius (device px), alpha
 	look: vec2f,
 }
@@ -59,6 +62,12 @@ const WAKE_R: f32 = 46.0;
 const WAKE_PUSH: f32 = 1700.0;
 const WAKE_DRAG: f32 = 0.7;
 const WAKE_W0: f32 = 6.0;
+// shutter.ts
+const SHUTTER_FROM: f32 = 500.0;
+const SHUTTER_TO: f32 = 1400.0;
+const SHUTTER_EXPOSURE: f32 = 0.012;
+const SHUTTER_MAX: f32 = 16.0;
+const SHUTTER_JUMP: f32 = 0.4;
 
 const ICO_VERTS = array<vec3f, 12>(
 	vec3f(0.0, 0.5257311, 0.8506508), vec3f(0.0, 0.5257311, -0.8506508),
@@ -233,6 +242,21 @@ fn spring(x: vec2f, v: vec2f, a: vec2f, dt: f32, decay: f32) -> Spring {
 	return Spring(rest + (y + c * dt) * decay, (v - w * c * dt) * decay);
 }
 
+// streak() in shutter.ts.
+fn streak(dist: f32, scale: f32) -> f32 {
+	if (u.dt <= 0.0 || dist > SHUTTER_JUMP * scale) {
+		return 0.0;
+	}
+	let speed = dist / u.dt;
+	let c = clamp((speed / u.dpr - SHUTTER_FROM) / (SHUTTER_TO - SHUTTER_FROM), 0.0, 1.0);
+	return min(speed * SHUTTER_EXPOSURE, SHUTTER_MAX * u.dpr) * c * c * (3.0 - 2.0 * c);
+}
+
+// exposure() in shutter.ts.
+fn exposure(r: f32, len: f32) -> f32 {
+	return (PI * r) / (PI * r + 2.0 * len);
+}
+
 @compute @workgroup_size(64)
 fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let ii = gid.x;
@@ -268,7 +292,12 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let sp = spring(m.off, m.vel, force, u.dt, exp(-WAKE_W0 * u.dt));
 	m.off = sp.x;
 	m.vel = sp.v;
-	m.pos = px + m.off;
+	let pos = px + m.off;
+	let moved = pos - m.pos;
+	let dist = length(moved);
+	let len = streak(dist, k);
+	m.tail = select(vec2f(0.0), moved * (-len / max(dist, 1e-4)), len > 0.0);
+	m.pos = pos;
 
 	// Strand and depth shading, as in camera.ts shade().
 	let st = strand(tangent);
@@ -294,37 +323,46 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	// keeping its ink.
 	let r = max(size, MIN_DOT_R);
 	let keep = size / r;
-	m.look = vec2f(r, alpha * keep * keep * u.fade);
+	m.look = vec2f(r, alpha * keep * keep * u.fade * exposure(r, len));
 	marks[ii] = m;
 }
 
 struct VSOut {
 	@builtin(position) clip: vec4f,
+	// along the streak, then across it, from its middle
 	@location(0) local: vec2f,
 	@location(1) radius: f32,
 	@location(2) alpha: f32,
+	@location(3) half_len: f32,
 }
 
 @vertex
 fn vs(
 	@builtin(vertex_index) vi: u32,
 	@location(0) pos: vec2f,
-	@location(1) look: vec2f,
+	@location(1) tail: vec2f,
+	@location(2) look: vec2f,
 ) -> VSOut {
+	let len = length(tail);
+	let axis = select(vec2f(1.0, 0.0), tail / max(len, 1e-4), len > 1e-4);
+	let half_len = 0.5 * len;
 	let corner = vec2f(f32(vi & 1u), f32(vi >> 1u)) * 2.0 - 1.0;
-	let half = look.x + 1.0;
-	let quad = pos + corner * half;
+	let local = corner * vec2f(half_len + look.x + 1.0, look.x + 1.0);
+	let quad = pos + axis * (half_len + local.x) + vec2f(-axis.y, axis.x) * local.y;
 	var out: VSOut;
 	out.clip = vec4f((quad / u.res * 2.0 - 1.0) * vec2f(1.0, -1.0), 0.0, 1.0);
-	out.local = corner * half;
+	out.local = local;
 	out.radius = look.x;
 	out.alpha = look.y;
+	out.half_len = half_len;
 	return out;
 }
 
 @fragment
 fn fs(in: VSOut) -> @location(0) vec4f {
-	let a = clamp(in.radius + 0.5 - length(in.local), 0.0, 1.0) * in.alpha;
+	// Distance to the capsule's core; with no length, to the disc's centre.
+	let d = length(vec2f(max(abs(in.local.x) - in.half_len, 0.0), in.local.y));
+	let a = clamp(in.radius + 0.5 - d, 0.0, 1.0) * in.alpha;
 	// Premultiplied over the CSS paper background.
 	return vec4f(u.ink * a, a);
 }

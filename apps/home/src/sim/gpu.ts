@@ -63,7 +63,7 @@ export interface Gpu {
 const FLOATS = 24;
 const COUNT = N + N_ACCENT;
 /** Bytes per instance in the marks buffer: WGSL struct Mark. */
-const MARK_BYTES = 32;
+const MARK_BYTES = 40;
 const WORKGROUP = 64;
 const buf = new Float32Array(FLOATS);
 
@@ -152,6 +152,7 @@ async function build(): Promise<Gpu | null> {
 						attributes: [
 							{ shaderLocation: 0, offset: 16, format: "float32x2" },
 							{ shaderLocation: 1, offset: 24, format: "float32x2" },
+							{ shaderLocation: 2, offset: 32, format: "float32x2" },
 						],
 					},
 				],

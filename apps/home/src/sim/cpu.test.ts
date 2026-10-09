@@ -10,17 +10,40 @@ function fakeCanvas(): {
 	dots: () => number;
 	/** centre of every square drawn this frame, x then y */
 	at: number[];
+	streaks: () => number;
 } {
 	let ink = 0;
 	let dots = 0;
+	let streaks = 0;
 	let finite = true;
 	const at: number[] = [];
+	const line = [0, 0, 0, 0];
 	const ctx = {
 		globalAlpha: 1,
 		fillStyle: "",
+		strokeStyle: "",
+		lineWidth: 1,
+		beginPath(): void {},
+		moveTo(x: number, y: number): void {
+			line[0] = x;
+			line[1] = y;
+		},
+		lineTo(x: number, y: number): void {
+			line[2] = x;
+			line[3] = y;
+		},
+		// Butt caps: the stroke covers its length by its width.
+		stroke(): void {
+			const len = Math.hypot((line[2] ?? 0) - (line[0] ?? 0), (line[3] ?? 0) - (line[1] ?? 0));
+			if (!Number.isFinite(len + this.lineWidth + this.globalAlpha)) finite = false;
+			ink += this.globalAlpha * this.lineWidth * len;
+			dots++;
+			streaks++;
+		},
 		clearRect(): void {
 			ink = 0;
 			dots = 0;
+			streaks = 0;
 			at.length = 0;
 		},
 		fillRect(x: number, y: number, w: number, h: number): void {
@@ -31,7 +54,13 @@ function fakeCanvas(): {
 		},
 	};
 	const canvas = { getContext: () => ctx, width: 0, height: 0 } as unknown as HTMLCanvasElement;
-	return { canvas, ink: () => (finite ? ink : Number.NaN), dots: () => dots, at };
+	return {
+		canvas,
+		ink: () => (finite ? ink : Number.NaN),
+		dots: () => dots,
+		at,
+		streaks: () => streaks,
+	};
 }
 
 const uniforms = (obj: number, inkLum: number): Uniforms => ({
@@ -107,4 +136,27 @@ test("the fallback parts the dots round a moving cursor, and they heal", () => {
 	}
 	expect(worst).toBeLessThan(0.05);
 	expect(Number.isFinite(wake.ink())).toBe(true);
+});
+
+test("the fallback streaks a fast spin without changing its ink", () => {
+	const fast = fakeCanvas();
+	const still = fakeCanvas();
+	const r = createCpuRenderer(fast.canvas);
+	for (const lum of [0.12, 0.9]) {
+		const u = { ...uniforms(1, lum), dt: 1 / 60 };
+		r?.reset();
+		r?.frame(u);
+		expect(fast.streaks()).toBe(0);
+		// A slow turn stays dots.
+		u.yaw += 0.002;
+		r?.frame(u);
+		expect(fast.streaks()).toBe(0);
+		u.yaw += 0.15;
+		r?.frame(u);
+		createCpuRenderer(still.canvas)?.frame({ ...u, dt: 0 });
+		expect(still.streaks()).toBe(0);
+		expect(fast.streaks()).toBeGreaterThan(CPU_N / 2);
+		expect(fast.dots()).toBe(still.dots());
+		expect(fast.ink() / still.ink()).toBeCloseTo(1, 6);
+	}
 });
