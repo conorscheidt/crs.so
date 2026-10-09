@@ -91,6 +91,15 @@ export function initReading(): () => void {
 
 	let current = -2;
 	let headState: HeadState = { shown: false, pivot: 0 };
+	let jumpUntil = 0;
+	document.addEventListener(
+		"click",
+		(ev) => {
+			if ((ev.target as Element | null)?.closest?.('a[href^="#"]'))
+				jumpUntil = performance.now() + 1200;
+		},
+		{ capture: true, signal },
+	);
 	let shown = false;
 	const update = (): void => {
 		ticking = false;
@@ -113,22 +122,26 @@ export function initReading(): () => void {
 		if (!(head && narrow.matches)) return;
 		if (headFill) headFill.style.transform = `scaleX(${p})`;
 
-		// The line words count from slides down the viewport as the page
-		// scrolls, so the last screenful is read by the time it can't scroll.
+		// Count words from a line that moves down the viewport with progress, so
+		// the last screenful counts as read when the page can't scroll further.
 		const mins = minutesLeft(wordsLeft(blocks, y + innerHeight * p), total, minutes);
 		const note = mins > 0 ? `· ${mins} min left` : "";
 		if (left && left.textContent !== note) left.textContent = note;
 
-		headState = stepHead(headState, y, {
-			titleOut: y > titleEnd,
-			nearEnd: max - y < innerHeight,
-			threshold: HEAD_SLACK,
-		});
+		// An in-page jump keeps the head up through its glide, so the target lands
+		// under it rather than under the gap it left.
+		headState =
+			performance.now() < jumpUntil
+				? { shown: true, pivot: y }
+				: stepHead(headState, y, {
+						titleOut: y > titleEnd,
+						nearEnd: max - y < innerHeight,
+						threshold: HEAD_SLACK,
+					});
 		const show = headState.shown || head.querySelector(":focus-visible") !== null;
 		if (show !== shown) {
 			shown = show;
 			head.classList.toggle("on", show);
-			head.inert = !show;
 		}
 	};
 

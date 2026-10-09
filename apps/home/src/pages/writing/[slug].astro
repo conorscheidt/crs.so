@@ -56,6 +56,29 @@ const date = post.data.date.toLocaleDateString("en-US", {
 			}
 		</header>
 
+		{/* narrow screens: where you are and how long is left, once the title is gone */}
+		<div class="rhead" data-rhead data-minutes={post.data.minutes}>
+			<p class="rhead-at" aria-hidden="true">
+				<span class="rhead-sec" data-rhead-sec>{post.data.title}</span>
+				<span class="rhead-left" data-rhead-left></span>
+			</p>
+			{
+				hasToc && (
+					<button
+						type="button"
+						class="rhead-btn"
+						data-sheet-open
+						aria-haspopup="dialog"
+					>
+						contents
+					</button>
+				)
+			}
+			<span class="rhead-bar" aria-hidden="true">
+				<span class="rhead-fill" data-rhead-progress></span>
+			</span>
+		</div>
+
 		<article class="aprose" data-prose>
 			<header class="ahead">
 				<h1 class="press">{post.data.title}</h1>
@@ -92,29 +115,6 @@ const date = post.data.date.toLocaleDateString("en-US", {
 		</article>
 
 		<div class="arail-r" data-mrail></div>
-
-		{/* narrow screens: where you are and how long is left, once the title is gone */}
-		<div class="rhead" data-rhead data-minutes={post.data.minutes} inert>
-			<p class="rhead-at" aria-hidden="true">
-				<span class="rhead-sec" data-rhead-sec>{post.data.title}</span>
-				<span class="rhead-left" data-rhead-left></span>
-			</p>
-			{
-				hasToc && (
-					<button
-						type="button"
-						class="rhead-btn"
-						data-sheet-open
-						aria-haspopup="dialog"
-					>
-						contents
-					</button>
-				)
-			}
-			<span class="rhead-bar" aria-hidden="true">
-				<span class="rhead-fill" data-rhead-progress></span>
-			</span>
-		</div>
 
 		{
 			(hasToc || hasNotes) && (

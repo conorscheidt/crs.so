@@ -954,7 +954,7 @@
 	background: none;
 	color: var(--ink);
 	overflow: hidden;
-	touch-action: none;
+	touch-action: pinch-zoom;
 }
 
 .asheet::backdrop {
@@ -1084,11 +1084,11 @@
 	min-height: 0;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	touch-action: none;
+	touch-action: pinch-zoom;
 }
 
 .asheet-scroll[data-scrolls] {
-	touch-action: pan-y;
+	touch-action: pan-y pinch-zoom;
 }
 
 .asheet-toc {
