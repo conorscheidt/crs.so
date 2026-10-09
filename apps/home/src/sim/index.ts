@@ -272,6 +272,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	/** cumulative (yawOff, pitchOff) per input sample, for the release slope */
 	const trail = new Trail();
 	const slope: [number, number] = [0, 0];
+	const held: [number, number] = [0, 0];
 	let spinW = 1;
 
 	const unsubscribe = clock.subscribe((t, dt) => {
@@ -292,12 +293,22 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		s.pitchOff = Math.max(-0.7, Math.min(0.7, s.pitchOff));
 		spinW += ((dragging ? 0 : 1) - spinW) * Math.min(1, dt * 6);
 		s.spin += 0.2 * s.speed * dt * spinW;
-		u.yaw = s.spin + s.yawOff;
+		// While held, follow the drag resampled slightly in the past, as the
+		// cursor does, so each frame turns by an even amount however input and
+		// display rates beat.
+		if (dragging && trail.size > 1) {
+			trail.at(t - Math.min(18, Math.max(8, 1.25 * trail.interval)), held);
+		} else if (!dragging) {
+			held[0] = s.yawOff;
+			held[1] = s.pitchOff;
+		}
+		u.yaw = s.spin + held[0];
 		u.fade = Math.max(0, Math.min(1, (t - s.born) / MOTION.budget.simFade));
 
 		const baseTilt = s.pitchFrom + (s.pitchTo - s.pitchFrom) * u.morphT;
-		const tiltTargetX = baseTilt + s.pitchOff;
-		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * 6);
+		const tiltTargetX = baseTilt + held[1];
+		// the hand sets pitch directly; otherwise it eases back to the object's own
+		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * (dragging ? 60 : 6));
 		u.tiltZ -= u.tiltZ * Math.min(1, dt * 1.6);
 		// The dimple eases in and out; leaving, it fades where it was last seen.
 		if (pointer.active) {
@@ -364,6 +375,9 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		endDrag(t: number, coast = true): void {
 			if (!dragging) return;
 			dragging = false;
+			// Coast from where the object was drawn, not from the newest sample.
+			s.yawOff = held[0];
+			s.pitchOff = held[1];
 			// Capped so a hard flick doesn't launch the object.
 			if (coast) flick(trail, t, SPIN_MAX, slope);
 			else slope.fill(0);
