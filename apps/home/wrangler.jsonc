@@ -1,6 +1,7 @@
 {
 	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "crs-so",
+	"account_id": "6c64fbba2f7c923fee733375e4f5e5f6",
 	"compatibility_date": "2026-10-06",
 	"main": "./worker/index.ts",
 	"upload_source_maps": true,
