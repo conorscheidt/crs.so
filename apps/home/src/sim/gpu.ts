@@ -1,7 +1,9 @@
 /**
  * WebGPU renderer: one pipeline, one ~80-byte uniform buffer and no vertex
- * buffers (draw(4, N + accents) instanced quads). init is re-entrant, so device
- * loss, including after a bfcache restore, just runs it again.
+ * buffers (draw(4, N + accents) instanced quads). The device and pipeline are
+ * built once and outlive any canvas, since the hub's canvas is replaced on
+ * every hub ⇄ article swap; a new canvas only configures a context. Device
+ * loss, including after a bfcache restore, rebuilds them.
  */
 import shaderSrc from "./shader.wgsl?raw";
 import { N, N_ACCENT } from "./shapes";
@@ -31,17 +33,62 @@ export interface Uniforms {
 export interface Renderer {
 	frame: (u: Uniforms) => void;
 	resize: (w: number, h: number) => void;
+	/** Release the canvas. A GPU renderer leaves the shared device alive. */
 	destroy: () => void;
 	readonly kind: "gpu" | "cpu";
 }
 
-const FLOATS = 20;
+export interface Gpu {
+	readonly device: GPUDevice;
+	readonly format: GPUTextureFormat;
+	readonly pipeline: GPURenderPipeline;
+	readonly bindGroup: GPUBindGroup;
+	readonly ubo: GPUBuffer;
+}
 
-export async function createGpuRenderer(
-	canvas: HTMLCanvasElement,
-	onLost: () => void,
-): Promise<Renderer | null> {
+const FLOATS = 20;
+const buf = new Float32Array(FLOATS);
+
+let pending: Promise<Gpu | null> | null = null;
+/** undefined while nothing has settled, so callers can attach synchronously */
+let ready: Gpu | null | undefined;
+let losses = 0;
+let broken = false;
+const lostHandlers = new Set<() => void>();
+
+/** The device if it is already up, null if WebGPU is out, undefined if pending. */
+export function gpuNow(): Gpu | null | undefined {
+	return broken ? null : ready;
+}
+
+export function acquireGpu(): Promise<Gpu | null> {
+	if (broken) return Promise.resolve(null);
+	pending ??= build().then((g) => {
+		ready = g;
+		return g;
+	});
+	return pending;
+}
+
+/** Runs when the device goes away; attached canvases must drop their context. */
+export function onGpuLost(fn: () => void): () => void {
+	lostHandlers.add(fn);
+	return () => {
+		lostHandlers.delete(fn);
+	};
+}
+
+function lose(): void {
+	pending = null;
+	ready = undefined;
+	// A device that keeps dying is not worth chasing; the 2D path takes over.
+	if (++losses > 3) broken = true;
+	for (const fn of [...lostHandlers]) fn();
+}
+
+async function build(): Promise<Gpu | null> {
 	if (!navigator.gpu) return null;
+	if (losses > 1) await new Promise((r) => setTimeout(r, 250 * 4 ** (losses - 2)));
 	// Try a compatibility-mode adapter first, then a plain one.
 	let adapter: GPUAdapter | null = null;
 	try {
@@ -58,35 +105,51 @@ export async function createGpuRenderer(
 	if (!adapter) return null;
 	const device = await adapter.requestDevice().catch(() => null);
 	if (!device) return null;
-
-	const ctx = canvas.getContext("webgpu");
-	if (!ctx) return null;
 	const format = navigator.gpu.getPreferredCanvasFormat();
-	ctx.configure({ device, format, alphaMode: "premultiplied" });
 
-	let destroyed = false;
-	device.lost.then((info) => {
-		if (!destroyed && info.reason !== "destroyed") onLost();
-	});
-
+	// No canvas has a context yet, so a failure here still leaves the 2D path open.
+	device.pushErrorScope("validation");
 	const module = device.createShaderModule({ code: shaderSrc });
-	const pipeline = device.createRenderPipeline({
-		layout: "auto",
-		vertex: { module, entryPoint: "vs" },
-		fragment: {
-			module,
-			entryPoint: "fs",
-			targets: [
-				{
-					format,
-					blend: {
-						color: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
-						alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
+	const pipeline = await device
+		.createRenderPipelineAsync({
+			layout: "auto",
+			vertex: { module, entryPoint: "vs" },
+			fragment: {
+				module,
+				entryPoint: "fs",
+				targets: [
+					{
+						format,
+						blend: {
+							color: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
+							alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
+						},
 					},
-				},
-			],
-		},
-		primitive: { topology: "triangle-strip" },
+				],
+			},
+			primitive: { topology: "triangle-strip" },
+		})
+		.catch(() => null);
+	const invalid = await device.popErrorScope().catch(() => null);
+	if (!pipeline || invalid) {
+		device.destroy();
+		return null;
+	}
+
+	let gone = false;
+	device.lost.then((info) => {
+		if (gone || info.reason === "destroyed") return;
+		gone = true;
+		lose();
+	});
+	// A validation error at draw time leaves a blank canvas and nothing else
+	// reports it, so give up on WebGPU for the page.
+	device.addEventListener("uncapturederror", () => {
+		if (gone) return;
+		gone = true;
+		broken = true;
+		device.destroy();
+		lose();
 	});
 
 	const ubo = device.createBuffer({
@@ -97,12 +160,20 @@ export async function createGpuRenderer(
 		layout: pipeline.getBindGroupLayout(0),
 		entries: [{ binding: 0, resource: { buffer: ubo } }],
 	});
-	const buf = new Float32Array(FLOATS);
+	return { device, format, pipeline, bindGroup, ubo };
+}
+
+export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null {
+	const ctx = canvas.getContext("webgpu");
+	if (!ctx) return null;
+	const { device, pipeline, bindGroup, ubo } = gpu;
+	ctx.configure({ device, format: gpu.format, alphaMode: "premultiplied" });
+	let live = true;
 
 	return {
 		kind: "gpu",
 		frame(u: Uniforms): void {
-			if (destroyed) return;
+			if (!live) return;
 			buf[0] = u.resW;
 			buf[1] = u.resH;
 			buf[2] = u.cursorX;
@@ -145,8 +216,8 @@ export async function createGpuRenderer(
 			canvas.height = Math.max(1, Math.min(h, device.limits.maxTextureDimension2D));
 		},
 		destroy(): void {
-			destroyed = true;
-			device.destroy();
+			live = false;
+			ctx.unconfigure();
 		},
 	};
 }

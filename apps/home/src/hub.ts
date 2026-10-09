@@ -63,17 +63,10 @@ export function bootHub(clock: Clock): () => void {
 
 	const offsets = new Map<Section, number>();
 
-	// The sim boots async; until it resolves, calls through `sim?` are no-ops.
 	let sim: Sim | null = null;
 	const canvas = hub.querySelector<HTMLCanvasElement>("#sim");
 	if (canvas) {
-		void bootSim(canvas, clock, section).then((s) => {
-			if (signal.aborted) s.destroy();
-			else {
-				sim = s;
-				cover();
-			}
-		});
+		sim = bootSim(canvas, clock, section);
 		// On the sheet layout the object sits behind the page; once the sheet has
 		// scrolled over it entirely, stop drawing it.
 		const cover = (): void => {
@@ -83,6 +76,7 @@ export function bootHub(clock: Clock): () => void {
 		};
 		addEventListener("scroll", cover, { passive: true, signal });
 		desktop.addEventListener("change", cover, { signal });
+		cover();
 		const colC = canvas.parentElement as HTMLElement;
 		// the object is grabbable: drag spins it, release coasts
 		let last: { x: number; y: number } | null = null;
@@ -94,10 +88,11 @@ export function bootHub(clock: Clock): () => void {
 			} catch {}
 		});
 		// The dimple follows the ring as drawn, so the two never disagree; without
-		// the ring (touch), it follows the raw pointer.
-		let box = canvas.getBoundingClientRect();
+		// the ring (touch), it follows the raw pointer. The canvas fills col-c and
+		// the sim may swap it for a fresh one, so measure the column.
+		let box = colC.getBoundingClientRect();
 		const remeasure = (): void => {
-			box = canvas.getBoundingClientRect();
+			box = colC.getBoundingClientRect();
 		};
 		addEventListener("resize", remeasure, { passive: true, signal });
 		addEventListener("scroll", remeasure, { passive: true, signal });
@@ -309,7 +304,7 @@ export function bootHub(clock: Clock): () => void {
 		ac.abort();
 		for (const u of unsubs) u();
 		for (const l of lenises.values()) l.destroy();
-		sim?.destroy();
+		sim?.detach();
 		sim = null;
 	};
 }

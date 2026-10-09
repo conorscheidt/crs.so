@@ -1,12 +1,22 @@
 /**
  * Boots the sim (reduced motion, then WebGPU, then Canvas2D) and owns its
  * per-frame state: a few springs (phase, cursor, tilt, excite) uploaded as one
- * uniform block. Morphs run as clock jobs.
+ * uniform block. Morphs run as clock jobs. The state outlives the canvas: app.ts
+ * swaps <main> on hub ⇄ article travel, and the next hub canvas continues from
+ * the same pose with no fade-in.
  */
 import type { Clock } from "../clock";
 import { MOTION } from "../motion";
 import { createCpuRenderer } from "./cpu";
-import { createGpuRenderer, type Renderer, type Uniforms } from "./gpu";
+import {
+	acquireGpu,
+	attachGpu,
+	type Gpu,
+	gpuNow,
+	onGpuLost,
+	type Renderer,
+	type Uniforms,
+} from "./gpu";
 import { BASE_PITCH, OBJECT_INDEX, type Section } from "./shapes";
 
 export interface Sim {
@@ -20,7 +30,8 @@ export interface Sim {
 	excite: (strength?: number) => void;
 	/** Skip drawing while nothing can see the canvas; time keeps running. */
 	setVisible: (visible: boolean) => void;
-	destroy: () => void;
+	/** Let go of the canvas. The pose and the GPU device wait for the next one. */
+	detach: () => void;
 	readonly kind: "gpu" | "cpu" | "static";
 }
 
@@ -29,66 +40,106 @@ const DRAG_YAW = 0.0062;
 const DRAG_PITCH = 0.005;
 const SPIN_MAX = 2.2;
 
+interface State {
+	u: Uniforms;
+	yawOff: number;
+	pitchOff: number;
+	vYaw: number;
+	vPitch: number;
+	exciteLevel: number;
+	speed: number;
+	pitchFrom: number;
+	pitchTo: number;
+	/** when the first frame drew; the fade-in runs once per page load */
+	born: number;
+}
+
+let state: State | null = null;
+
+function initState(initial: Section): State {
+	const obj = OBJECT_INDEX[initial];
+	const tilt = BASE_PITCH[obj] ?? 0.16;
+	return {
+		u: {
+			resW: 0,
+			resH: 0,
+			cursorX: -1e4,
+			cursorY: -1e4,
+			phase: 0,
+			morphT: 1,
+			fromObj: obj,
+			toObj: obj,
+			yaw: 0,
+			tiltX: tilt,
+			tiltZ: 0,
+			dimpleR: 0,
+			inkR: 0,
+			inkG: 0,
+			inkB: 0,
+			cursorActive: 0,
+			dotR: 0,
+			fade: 0,
+			accentW: initial === "projects" ? 1 : 0,
+		},
+		yawOff: 0,
+		pitchOff: 0,
+		vYaw: 0,
+		vPitch: 0,
+		exciteLevel: 0,
+		speed: 1,
+		pitchFrom: tilt,
+		pitchTo: tilt,
+		born: Number.NaN,
+	};
+}
+
 function readInk(): [number, number, number] {
 	const raw = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
 	const n = Number.parseInt(raw.slice(1), 16);
 	return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-export async function bootSim(
-	canvas: HTMLCanvasElement,
-	clock: Clock,
-	initial: Section,
-): Promise<Sim> {
-	const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const prefersReduced = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Start bringing up the GPU device ahead of the hub, e.g. on link hover. */
+export function warmSim(): void {
+	if (!prefersReduced()) void acquireGpu();
+}
+
+function accentTarget(u: Uniforms): number {
+	const fromW = u.fromObj === OBJECT_INDEX.projects ? 1 - u.morphT : 0;
+	const toW = u.toObj === OBJECT_INDEX.projects ? u.morphT : 0;
+	return fromW + toW;
+}
+
+export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): Sim {
+	const reduced = prefersReduced();
 	const dpr = Math.min(2, devicePixelRatio || 1);
-	let visible = true;
-
-	let renderer: Renderer | null = null;
-	let destroyed = false;
-
-	const initRenderer = async (): Promise<void> => {
-		renderer?.destroy();
-		renderer = reduced ? null : await createGpuRenderer(canvas, () => void initRenderer());
-		renderer ??= createCpuRenderer(canvas);
-		size();
-	};
-
-	const u: Uniforms = {
-		resW: 0,
-		resH: 0,
-		cursorX: -1e4,
-		cursorY: -1e4,
-		phase: 0,
-		morphT: 1,
-		fromObj: OBJECT_INDEX[initial],
-		toObj: OBJECT_INDEX[initial],
-		yaw: 0,
-		tiltX: BASE_PITCH[OBJECT_INDEX[initial]] ?? 0.16,
-		tiltZ: 0,
-		dimpleR: MOTION.cursorR * dpr,
-		inkR: 0,
-		inkG: 0,
-		inkB: 0,
-		cursorActive: 0,
-		dotR: 1.02 * dpr,
-		fade: 0,
-		accentW: initial === "projects" ? 1 : 0,
-	};
+	state ??= initState(initial);
+	const s = state;
+	const u = s.u;
+	u.dimpleR = MOTION.cursorR * dpr;
+	u.dotR = 1.02 * dpr;
+	u.cursorActive = 0;
+	// The theme can flip while the hub is away.
 	[u.inkR, u.inkG, u.inkB] = readInk();
 
-	const pointer = { x: 0, y: 0, active: false };
-	// Drag to spin: yaw accumulates freely; pitch is clamped and eases home.
-	let dragging = false;
-	let yawOff = 0;
-	let pitchOff = 0;
-	let vYaw = 0;
-	let vPitch = 0;
-	let lastDragAt = 0;
-	let exciteLevel = 0;
-	let speed = 1;
-	let pitchFrom = u.tiltX;
-	let pitchTo = u.tiltX;
+	if (reduced) u.toObj = OBJECT_INDEX[initial];
+
+	let canvas = el;
+	let renderer: Renderer | null = null;
+	/** a canvas that has held a WebGPU context can never give out a 2D one */
+	let gpuBound = false;
+	let detached = false;
+	let visible = true;
+	let pendingResize = false;
+	const ro = new ResizeObserver(() => {
+		if (reduced) {
+			size();
+			renderStatic();
+		} else pendingResize = true;
+	});
+	ro.observe(canvas);
 
 	function size(): void {
 		const r = canvas.getBoundingClientRect();
@@ -97,34 +148,61 @@ export async function bootSim(
 		renderer?.resize(u.resW, u.resH);
 	}
 
-	function accentTarget(): number {
-		const fromW = u.fromObj === OBJECT_INDEX.projects ? 1 - u.morphT : 0;
-		const toW = u.toObj === OBJECT_INDEX.projects ? u.morphT : 0;
-		return fromW + toW;
+	// One static frame per (section, theme); re-rendered on demand only.
+	function renderStatic(): void {
+		[u.inkR, u.inkG, u.inkB] = readInk();
+		u.fade = 1;
+		u.morphT = 1;
+		u.fromObj = u.toObj;
+		u.accentW = u.toObj === OBJECT_INDEX.projects ? 1 : 0;
+		u.tiltX = BASE_PITCH[u.toObj] ?? 0.16;
+		renderer?.frame(u);
 	}
 
-	await initRenderer();
+	const use = (gpu: Gpu | null): void => {
+		renderer?.destroy();
+		renderer = gpu && attachGpu(gpu, canvas);
+		if (renderer) gpuBound = true;
+		else {
+			if (gpuBound) {
+				gpuBound = false;
+				const fresh = canvas.cloneNode(false) as HTMLCanvasElement;
+				ro.unobserve(canvas);
+				canvas.replaceWith(fresh);
+				canvas = fresh;
+				ro.observe(canvas);
+			}
+			renderer = createCpuRenderer(canvas);
+		}
+		size();
+		if (reduced) renderStatic();
+		else {
+			if (Number.isNaN(s.born)) s.born = performance.now();
+			if (visible) renderer?.frame(u);
+		}
+	};
+	const connect = (): void => {
+		// Back on the hub with the device already up: attach before the first paint.
+		const now = reduced ? null : gpuNow();
+		if (now === undefined)
+			void acquireGpu().then((gpu) => {
+				if (!detached) use(gpu);
+			});
+		else use(now);
+	};
+	const offLost = onGpuLost(() => {
+		if (renderer?.kind !== "gpu") return;
+		renderer.destroy();
+		renderer = null;
+		connect();
+	});
+	connect();
 
 	if (reduced) {
-		// One static frame per (section, theme); re-rendered on demand only.
-		const renderStatic = (): void => {
-			[u.inkR, u.inkG, u.inkB] = readInk();
-			u.fade = 1;
-			u.morphT = 1;
-			u.accentW = u.toObj === OBJECT_INDEX.projects ? 1 : 0;
-			u.tiltX = BASE_PITCH[u.toObj] ?? 0.16;
-			renderer?.frame(u);
-		};
-		renderStatic();
-		new ResizeObserver(() => {
-			size();
-			renderStatic();
-		}).observe(canvas);
 		return {
 			kind: "static",
-			setSection(s) {
-				u.fromObj = OBJECT_INDEX[s];
-				u.toObj = OBJECT_INDEX[s];
+			setSection(next) {
+				u.toObj = OBJECT_INDEX[next];
 				renderStatic();
 			},
 			setInk() {
@@ -136,63 +214,68 @@ export async function bootSim(
 			dragBy() {},
 			endDrag() {},
 			excite() {},
-			destroy() {
+			detach() {
+				detached = true;
+				offLost();
+				ro.disconnect();
 				renderer?.destroy();
+				renderer = null;
 			},
 		};
 	}
 
-	let pendingResize = false;
-	new ResizeObserver(() => {
-		pendingResize = true;
-	}).observe(canvas);
+	const pointer = { x: 0, y: 0, active: false };
+	// Drag to spin: yaw accumulates freely; pitch is clamped and eases home.
+	let dragging = false;
+	let lastDragAt = 0;
 
-	const born = performance.now();
 	const unsubscribe = clock.subscribe((t, dt) => {
-		if (destroyed || !renderer) return;
+		if (!renderer) return;
 		if (pendingResize) {
 			pendingResize = false;
 			size();
 		}
-		exciteLevel *= Math.exp(-dt / 0.45);
-		const speedTarget = 1 + 0.9 * exciteLevel;
-		speed += (speedTarget - speed) * Math.min(1, dt * 8);
-		u.phase += speed * dt;
+		s.exciteLevel *= Math.exp(-dt / 0.45);
+		const speedTarget = 1 + 0.9 * s.exciteLevel;
+		s.speed += (speedTarget - s.speed) * Math.min(1, dt * 8);
+		u.phase += s.speed * dt;
 
 		// Released spins coast down to the idle rotation; pitch drifts back.
 		if (!dragging) {
-			vYaw *= Math.exp(-dt / 1.1);
-			vPitch *= Math.exp(-dt / 1.1);
-			yawOff += vYaw * dt;
-			pitchOff += vPitch * dt;
-			pitchOff *= Math.exp(-dt / 6);
+			s.vYaw *= Math.exp(-dt / 1.1);
+			s.vPitch *= Math.exp(-dt / 1.1);
+			s.yawOff += s.vYaw * dt;
+			s.pitchOff += s.vPitch * dt;
+			s.pitchOff *= Math.exp(-dt / 6);
 		}
-		pitchOff = Math.max(-0.7, Math.min(0.7, pitchOff));
-		u.yaw = u.phase * 0.2 + yawOff;
-		u.fade = Math.min(1, (t - born) / MOTION.budget.simFade);
+		s.pitchOff = Math.max(-0.7, Math.min(0.7, s.pitchOff));
+		u.yaw = u.phase * 0.2 + s.yawOff;
+		u.fade = Math.max(0, Math.min(1, (t - s.born) / MOTION.budget.simFade));
 
-		const baseTilt = pitchFrom + (pitchTo - pitchFrom) * u.morphT;
-		const tiltTargetX = baseTilt + pitchOff;
+		const baseTilt = s.pitchFrom + (s.pitchTo - s.pitchFrom) * u.morphT;
+		const tiltTargetX = baseTilt + s.pitchOff;
 		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * 6);
 		u.tiltZ -= u.tiltZ * Math.min(1, dt * 1.6);
 		u.cursorX = pointer.x * dpr;
 		u.cursorY = pointer.y * dpr;
 		u.cursorActive = pointer.active ? 1 : 0;
-		u.accentW = accentTarget();
+		u.accentW = accentTarget(u);
 		if (visible) renderer.frame(u);
 	});
 
-	return {
-		kind: (renderer as Renderer | null)?.kind ?? "cpu",
-		setSection(s: Section): void {
-			const target = OBJECT_INDEX[s];
+	const sim: Sim = {
+		get kind() {
+			return renderer?.kind ?? "cpu";
+		},
+		setSection(next: Section): void {
+			const target = OBJECT_INDEX[next];
 			if (target === u.toObj) return;
 			clock.request(() => {
 				u.fromObj = u.toObj;
 				u.toObj = target;
 				u.morphT = 0;
-				pitchFrom = u.tiltX;
-				pitchTo = BASE_PITCH[target] ?? 0.16;
+				s.pitchFrom = u.tiltX;
+				s.pitchTo = BASE_PITCH[target] ?? 0.16;
 				clock.run({
 					kind: "morph",
 					duration: MOTION.morph * 1000,
@@ -202,7 +285,7 @@ export async function bootSim(
 					done: () => {
 						u.morphT = 1;
 						u.fromObj = u.toObj;
-						pitchFrom = pitchTo;
+						s.pitchFrom = s.pitchTo;
 					},
 				});
 			});
@@ -220,8 +303,8 @@ export async function bootSim(
 		},
 		beginDrag(): void {
 			dragging = true;
-			vYaw = 0;
-			vPitch = 0;
+			s.vYaw = 0;
+			s.vPitch = 0;
 			lastDragAt = performance.now();
 		},
 		dragBy(dx: number, dy: number): void {
@@ -230,24 +313,30 @@ export async function bootSim(
 			const step = Math.max(8, Math.min(64, now - lastDragAt)) / 1000;
 			lastDragAt = now;
 			// Dragging down tips the top toward the viewer, so dy subtracts from pitch.
-			yawOff += dx * DRAG_YAW;
-			pitchOff = Math.max(-0.7, Math.min(0.7, pitchOff - dy * DRAG_PITCH));
+			s.yawOff += dx * DRAG_YAW;
+			s.pitchOff = Math.max(-0.7, Math.min(0.7, s.pitchOff - dy * DRAG_PITCH));
 			// Release speed comes from the smoothed pointer rate, capped so a hard
 			// flick doesn't launch the object.
 			const clamp = (v: number): number => Math.max(-SPIN_MAX, Math.min(SPIN_MAX, v));
-			vYaw = clamp(vYaw * 0.55 + ((dx * DRAG_YAW) / step) * 0.45);
-			vPitch = clamp(vPitch * 0.55 - ((dy * DRAG_PITCH) / step) * 0.45);
+			s.vYaw = clamp(s.vYaw * 0.55 + ((dx * DRAG_YAW) / step) * 0.45);
+			s.vPitch = clamp(s.vPitch * 0.55 - ((dy * DRAG_PITCH) / step) * 0.45);
 		},
 		endDrag(): void {
 			dragging = false;
 		},
 		excite(strength = 1): void {
-			exciteLevel = Math.max(exciteLevel, Math.min(1, strength));
+			s.exciteLevel = Math.max(s.exciteLevel, Math.min(1, strength));
 		},
-		destroy(): void {
-			destroyed = true;
+		detach(): void {
+			detached = true;
+			offLost();
 			unsubscribe();
+			ro.disconnect();
 			renderer?.destroy();
+			renderer = null;
 		},
 	};
+	// Returning to a different section than the one left morphs into it.
+	sim.setSection(initial);
+	return sim;
 }

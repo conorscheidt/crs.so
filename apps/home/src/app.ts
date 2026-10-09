@@ -7,6 +7,7 @@ import { Clock } from "./clock";
 import { initCursor } from "./cursor";
 import { bootHub } from "./hub";
 import { type PageKind, pageKind } from "./router";
+import { warmSim } from "./sim";
 
 const clock = new Clock();
 initCursor(clock);
@@ -88,7 +89,10 @@ for (const type of ["pointerover", "focusin"] as const) {
 		(ev) => {
 			const a = (ev.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
 			const url = a && warmable(a);
-			if (url) warm(url);
+			if (!url) return;
+			warm(url);
+			// From an article, the hub's GPU device comes up while the pointer travels.
+			if (pageKind(a.pathname) === "hub") warmSim();
 		},
 		{ passive: true, capture: true },
 	);
