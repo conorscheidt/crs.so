@@ -5,7 +5,7 @@
 	--paper-deep: #e9e6df;
 	--ink: #221f1a;
 	--ink-70: rgba(34, 31, 26, 0.7);
-	--ink-45: rgba(34, 31, 26, 0.45);
+	--ink-quiet: rgba(34, 31, 26, 0.63);
 	--rule: rgba(34, 31, 26, 0.16);
 	--press-shade: rgba(0, 0, 0, 0.28);
 	--press-light: rgba(255, 255, 255, 0.6);
@@ -37,7 +37,7 @@
 	--paper-deep: #100d0b;
 	--ink: #e8e4d9;
 	--ink-70: rgba(232, 228, 217, 0.7);
-	--ink-45: rgba(232, 228, 217, 0.45);
+	--ink-quiet: rgba(232, 228, 217, 0.52);
 	--rule: rgba(232, 228, 217, 0.16);
 	--press-shade: rgba(0, 0, 0, 0.6);
 	--press-light: rgba(255, 255, 255, 0.06);
@@ -131,7 +131,7 @@ main {
 }
 
 :focus-visible {
-	outline: 1px solid var(--ink-45);
+	outline: 1px solid var(--ink-quiet);
 	outline-offset: 3px;
 }
 
@@ -272,7 +272,7 @@ html.no-native-cursor *::after {
 	font-style: italic;
 	font-size: 13px;
 	letter-spacing: 0.04em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 }
 
 /* bottom-right: place, local time, copyright */
@@ -287,7 +287,7 @@ html.no-native-cursor *::after {
 	font-size: 10.5px;
 	letter-spacing: 0.04em;
 	line-height: 1.5;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	pointer-events: none;
 	z-index: 2;
 }
@@ -295,7 +295,7 @@ html.no-native-cursor *::after {
 .corner a {
 	color: inherit;
 	text-decoration: none;
-	border-bottom: 1px dotted var(--ink-45);
+	border-bottom: 1px dotted var(--ink-quiet);
 	pointer-events: auto;
 	transition:
 		color 200ms ease,
@@ -330,7 +330,7 @@ html.no-native-cursor *::after {
 .hollow-note {
 	font-size: 12.5px;
 	line-height: 1.65;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	margin-bottom: var(--s2);
 }
 
@@ -338,7 +338,7 @@ html.no-native-cursor *::after {
 .hollow-lead a {
 	color: var(--ink-70);
 	text-decoration: none;
-	border-bottom: 1px dotted var(--ink-45);
+	border-bottom: 1px dotted var(--ink-quiet);
 	transition:
 		color 200ms ease,
 		border-color 200ms ease;
@@ -412,7 +412,7 @@ html.no-native-cursor *::after {
 	font-weight: 300;
 	font-size: 13px;
 	letter-spacing: 0.03em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	text-decoration: none;
 	background: none;
 	border: 0;
@@ -481,7 +481,7 @@ html.no-native-cursor *::after {
 	font-size: 11px;
 	letter-spacing: 0.16em;
 	text-transform: uppercase;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	margin-bottom: var(--s1);
 }
 
@@ -520,7 +520,7 @@ html.no-native-cursor *::after {
 .search input::placeholder {
 	font-style: italic;
 	letter-spacing: 0.03em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 }
 
 .list {
@@ -558,7 +558,7 @@ html.no-native-cursor *::after {
 .entry-meta {
 	font-size: 12px;
 	letter-spacing: 0.04em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	margin-top: 5px;
 }
 
@@ -581,9 +581,9 @@ html.no-native-cursor *::after {
 .xref {
 	font-size: 11.5px;
 	letter-spacing: 0.02em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	text-decoration: none;
-	border-bottom: 1px dotted var(--ink-45);
+	border-bottom: 1px dotted var(--ink-quiet);
 	transition:
 		color 200ms ease,
 		border-color 200ms ease;
@@ -608,7 +608,7 @@ html.no-native-cursor *::after {
 	font-weight: 300;
 	font-size: 10.5px;
 	letter-spacing: 0.06em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	background: none;
 	border: 1px solid var(--rule);
 	border-radius: 999px;
@@ -620,7 +620,7 @@ html.no-native-cursor *::after {
 
 .tags .tag:hover {
 	color: var(--ink);
-	border-color: var(--ink-45);
+	border-color: var(--ink-quiet);
 }
 
 /* Project mark. A post has many tags but one project, so the two share the
@@ -684,7 +684,7 @@ html.no-native-cursor *::after {
 	font-size: 11px;
 	letter-spacing: 0.04em;
 	color: var(--ink);
-	border: 1px solid var(--ink-45);
+	border: 1px solid var(--ink-quiet);
 	border-radius: 999px;
 	padding: 1px 8px 1px 9px;
 	background: none;
@@ -696,7 +696,7 @@ html.no-native-cursor *::after {
 	font-style: normal;
 	font-size: 12px;
 	line-height: 1;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	transition: color 120ms ease;
 }
 
@@ -769,7 +769,7 @@ html.no-native-cursor *::after {
 
 .autoc button em {
 	font-style: normal;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	font-size: 11px;
 }
 
@@ -782,7 +782,7 @@ html.no-native-cursor *::after {
 .noresults {
 	font-style: italic;
 	font-size: 12.5px;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	padding: var(--s2) 2px;
 }
 
@@ -832,7 +832,7 @@ html.no-native-cursor *::after {
 .gittick {
 	font-family: var(--font-mark);
 	font-size: 7.5px;
-	fill: var(--ink-45);
+	fill: var(--ink-quiet);
 }
 
 .gitreadout {
@@ -846,7 +846,7 @@ html.no-native-cursor *::after {
 
 .gitline {
 	font-size: 12.5px;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	line-height: 1.65;
 	margin-bottom: var(--s1);
 }
@@ -862,7 +862,7 @@ html.no-native-cursor *::after {
 	justify-content: space-between;
 	gap: var(--s1);
 	font-size: 11.5px;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	line-height: 1.8;
 	text-decoration: none;
 }
@@ -922,7 +922,7 @@ html.no-native-cursor *::after {
 	font-family: var(--font-mark);
 	font-size: 9.5px;
 	letter-spacing: 0.04em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	white-space: nowrap;
 }
 
@@ -930,7 +930,7 @@ html.no-native-cursor *::after {
 	display: block;
 	font-size: 11.5px;
 	line-height: 1.45;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	margin-top: 2px;
 }
 
@@ -976,7 +976,7 @@ html.no-native-cursor *::after {
 	display: block;
 	font-size: 11.5px;
 	letter-spacing: 0.04em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	margin-top: 1px;
 }
 
@@ -999,7 +999,7 @@ html.no-native-cursor *::after {
 
 .links a {
 	font-size: 12.5px;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	text-decoration: none;
 	transition:
 		color 200ms ease,

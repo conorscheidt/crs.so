@@ -36,7 +36,7 @@
 	margin-top: var(--s1);
 	font-size: 12.5px;
 	letter-spacing: 0.04em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	text-decoration: none;
 	width: max-content;
 }
@@ -94,7 +94,7 @@
 	font-size: 12.5px;
 	letter-spacing: 0.03em;
 	line-height: 1.4;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	text-decoration: none;
 	transition: color 160ms ease;
 }
@@ -128,7 +128,7 @@
 	margin-top: var(--s1);
 	font-size: 12.5px;
 	letter-spacing: 0.05em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 }
 
 .atags {
@@ -142,7 +142,7 @@
 	font-style: normal;
 	font-size: 10.5px;
 	letter-spacing: 0.06em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	text-decoration: none;
 	border: 1px solid var(--rule);
 	border-radius: 999px;
@@ -154,20 +154,20 @@
 
 .atags a:hover {
 	color: var(--ink);
-	border-color: var(--ink-45);
+	border-color: var(--ink-quiet);
 }
 
 /* the post's link back to its project and repository */
 .apro {
 	margin-top: var(--s2);
 	font-size: 12.5px;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 }
 
 .apro a {
 	color: var(--ink-70);
 	text-decoration: none;
-	border-bottom: 1px dotted var(--ink-45);
+	border-bottom: 1px dotted var(--ink-quiet);
 	transition:
 		color 200ms ease,
 		border-color 200ms ease;
@@ -203,7 +203,7 @@
 .prose a {
 	color: var(--ink);
 	text-decoration: underline;
-	text-decoration-color: var(--ink-45);
+	text-decoration-color: var(--ink-quiet);
 	text-underline-offset: 3px;
 }
 
@@ -254,7 +254,7 @@
 	font-weight: 400;
 	font-variant-numeric: tabular-nums;
 	text-decoration: underline dotted 1px;
-	text-decoration-color: var(--ink-45);
+	text-decoration-color: var(--ink-quiet);
 	text-underline-offset: 2.5px;
 	transition:
 		text-decoration-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -330,7 +330,7 @@
 
 .prose section[data-footnotes] li {
 	font-size: 13px;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	line-height: 1.6;
 	margin-bottom: 6px;
 	transition: color 160ms ease;
@@ -345,7 +345,7 @@
 }
 
 [data-footnote-backref] {
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	text-decoration: none;
 	margin-left: 4px;
 }
@@ -360,7 +360,7 @@
 .mnote {
 	font-size: 12.5px;
 	line-height: 1.55;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	font-style: italic;
 	padding-left: 10px;
 	border-left: 1px solid var(--rule);
@@ -417,7 +417,7 @@
 
 .mnote.lit {
 	color: var(--ink-70);
-	border-left-color: var(--ink-45);
+	border-left-color: var(--ink-quiet);
 }
 
 /* narrow: marginal notes fall inline as quiet asides */
@@ -634,7 +634,7 @@
 
 .afig figcaption {
 	font-size: 12.5px;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	font-style: italic;
 	margin-top: 6px;
 }
@@ -665,7 +665,7 @@
 
 .disc:hover {
 	color: var(--ink);
-	border-color: var(--ink-45);
+	border-color: var(--ink-quiet);
 }
 
 .disc svg {
@@ -702,7 +702,7 @@
 	font-size: 9.5px;
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 	opacity: 0.7;
 	pointer-events: none;
 }
@@ -715,7 +715,7 @@
 	font-family: var(--font-mark);
 	font-size: 10.5px;
 	letter-spacing: 0.08em;
-	color: var(--ink-45);
+	color: var(--ink-quiet);
 }
 
 .vim-badge {
