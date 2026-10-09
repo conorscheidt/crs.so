@@ -347,6 +347,10 @@ html.no-native-cursor *::after {
 	font-size: 9.5px;
 	letter-spacing: 0.06em;
 	font-variant-numeric: tabular-nums;
+	/* filled in by script; hold the "14:05 CDT" box so the corner doesn't move */
+	min-width: 9ch;
+	min-height: 1lh;
+	text-align: right;
 }
 
 /* empty and failure states */
