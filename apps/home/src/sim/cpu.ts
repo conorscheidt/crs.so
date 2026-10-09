@@ -100,6 +100,8 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 		const my = y - (wake[o + 5] as number);
 		wake[o + 4] = x;
 		wake[o + 5] = y;
+		// a hidden dot keeps its place, so it returns without a stale streak
+		if (sh.a * u.fade < 1 / 1024) return;
 		const side = sh.r * SIDE;
 		const dist = Math.hypot(mx, my);
 		const len = streak(dist, dt, scale, u.dpr);
@@ -160,20 +162,19 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 				sh.r *= em.r;
 				put(u, s, decay, scale);
 			}
-			if (u.accentW > 0.01) {
-				// A vertex has no strand; light it as one seen end-on.
-				strand(0, 0, 1, st);
-				for (const [j, v] of ICO_VERTS.entries()) {
-					p.x = v[0];
-					p.y = v[1];
-					p.z = v[2];
-					p.a = ACCENT_ALPHA * u.accentW;
-					project(p, f, pr);
-					focus(u, n + j, u.focus.obj === 1 && u.focus.vertex === j ? 1 : 0);
-					const r = u.dotR * ACCENT_SIZE * em.r;
-					shade(p.a * em.a, pr.depth, st.diff, st.spec, gain, night, r, sh);
-					put(u, n + j, decay, scale);
-				}
+			// A vertex has no strand; light it as one seen end-on. Hidden accents
+			// still advance, as on the GPU, so none returns with a stale streak.
+			strand(0, 0, 1, st);
+			for (const [j, v] of ICO_VERTS.entries()) {
+				p.x = v[0];
+				p.y = v[1];
+				p.z = v[2];
+				p.a = ACCENT_ALPHA * u.accentW;
+				project(p, f, pr);
+				focus(u, n + j, u.focus.obj === 1 && u.focus.vertex === j ? 1 : 0);
+				shade(p.a * em.a, pr.depth, st.diff, st.spec, gain, night, u.dotR * ACCENT_SIZE, sh);
+				sh.r *= em.r;
+				put(u, n + j, decay, scale);
 			}
 		},
 		resize(w: number, h: number): void {
