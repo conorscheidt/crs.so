@@ -1,5 +1,5 @@
 // Instanced ink dots, stateless. Mirrors sim/shapes.ts and sim/camera.ts:
-// shapes, morph stagger, rotation, projection, dimple and depth shading.
+// shapes, drawn morph, rotation, projection, dimple and depth shading.
 
 struct U {
 	res: vec2f,
@@ -22,6 +22,7 @@ struct U {
 
 @group(0) @binding(0) var<uniform> u: U;
 
+const PI: f32 = 3.14159265359;
 const TAU: f32 = 6.28318530718;
 const CAM_Z: f32 = 4.0;
 const LIGHT: vec3f = vec3f(-0.45, -0.55, 0.7);
@@ -29,6 +30,7 @@ const LIGHT: vec3f = vec3f(-0.45, -0.55, 0.7);
 const MIN_DOT_R: f32 = 1.4;
 const ACCENT_SIZE: f32 = 2.5;
 const ACCENT_ALPHA: f32 = 0.85;
+const ARC_LIFT: f32 = 0.3;
 
 const ICO_VERTS = array<vec3f, 12>(
 	vec3f(0.0, 0.5257311, 0.8506508), vec3f(0.0, 0.5257311, -0.8506508),
@@ -49,32 +51,52 @@ const ICO_EDGES = array<vec2u, 30>(
 	vec2u(6u, 11u), vec2u(7u, 9u), vec2u(7u, 11u), vec2u(8u, 10u), vec2u(9u, 11u),
 );
 
+// Edge hops from vertex 0 (BFS over ICO_EDGES, as in the TS).
+const ICO_HOP = array<f32, 12>(0.0, 2.0, 1.0, 3.0, 1.0, 2.0, 1.0, 2.0, 1.0, 1.0, 2.0, 2.0);
+const ICO_DEPTH: f32 = 3.0;
+
+struct Dot {
+	p: vec3f,
+	a: f32,
+	// draw key in [0, 1]: the dot's place in the object's drawing order
+	k: f32,
+}
+
 fn hash(i: f32, salt: f32) -> f32 {
 	return fract(sin(i * 127.1 + salt * 311.7) * 43758.5453);
 }
 
-fn trefoil(i: f32, phase: f32) -> vec4f {
+fn trefoil(i: f32, phase: f32) -> Dot {
 	let uu = (i / N) * TAU + phase * 0.26;
 	let w = 2.0 + cos(3.0 * uu);
-	return vec4f(
+	let p = vec3f(
 		w * cos(2.0 * uu) / 2.75 + (hash(i, 1.0) - 0.5) * 0.06,
 		sin(3.0 * uu) / 1.85 + (hash(i, 2.0) - 0.5) * 0.06,
 		w * sin(2.0 * uu) / 2.75 + (hash(i, 3.0) - 0.5) * 0.06,
-		0.41,
 	);
+	return Dot(p, 0.41, i / N);
 }
 
-fn icosahedron(i: f32, phase: f32) -> vec4f {
+fn icosahedron(i: f32, phase: f32) -> Dot {
 	let e = ICO_EDGES[u32(i) % 30u];
 	let a = ICO_VERTS[e.x];
 	let b = ICO_VERTS[e.y];
 	let speed = 0.1 + hash(i, 4.0) * 0.22;
 	let s = fract(hash(i, 5.0) + phase * speed);
 	let p = mix(a, b, s) + (vec3f(hash(i, 6.0), hash(i, 7.0), hash(i, 8.0)) - 0.5) * 0.035;
-	return vec4f(p, 0.36);
+	// icoKey() in the TS
+	let h0 = ICO_HOP[e.x];
+	let h1 = ICO_HOP[e.y];
+	var along = min(s, 1.0 - s);
+	if (h0 < h1) {
+		along = s;
+	} else if (h1 < h0) {
+		along = 1.0 - s;
+	}
+	return Dot(p, 0.36, (min(h0, h1) + along) / ICO_DEPTH);
 }
 
-fn loxodrome(i: f32, phase: f32) -> vec4f {
+fn loxodrome(i: f32, phase: f32) -> Dot {
 	let strands = 4.0;
 	let k = i % strands;
 	let speed = 0.05 + hash(i, 4.0) * 0.045;
@@ -84,17 +106,18 @@ fn loxodrome(i: f32, phase: f32) -> vec4f {
 	let lon = 3.4 * merc + (k * TAU) / strands + phase * 0.1;
 	let cl = cos(lat);
 	let edge = 1.0 - min(1.0, pow(abs(u * 2.0 - 1.0), 6.0));
-	return vec4f(
+	let p = vec3f(
 		cl * cos(lon) + (hash(i, 6.0) - 0.5) * 0.02,
 		sin(lat) + (hash(i, 7.0) - 0.5) * 0.02,
 		cl * sin(lon) + (hash(i, 8.0) - 0.5) * 0.02,
-		0.41 * (0.25 + 0.75 * edge),
 	);
+	return Dot(p, 0.41 * (0.25 + 0.75 * edge), u);
 }
 
-fn borromean(i: f32, phase: f32) -> vec4f {
+fn borromean(i: f32, phase: f32) -> Dot {
 	let ring = i % 3.0;
-	let t = (floor(i / 3.0) / floor(N / 3.0)) * TAU + phase * 0.3 + ring * 2.09;
+	let along = floor(i / 3.0) / floor(N / 3.0);
+	let t = along * TAU + phase * 0.3 + ring * 2.09;
 	let ca = 1.02 * cos(t);
 	let sb = 0.52 * sin(t);
 	var p = vec3f(ca, sb, 0.0);
@@ -104,10 +127,10 @@ fn borromean(i: f32, phase: f32) -> vec4f {
 		p = vec3f(0.0, ca, sb);
 	}
 	p += (vec3f(hash(i, 6.0), hash(i, 7.0), hash(i, 8.0)) - 0.5) * 0.035;
-	return vec4f(p, 0.38);
+	return Dot(p, 0.38, (ring + along) / 3.0);
 }
 
-fn shape(obj: f32, i: f32, phase: f32) -> vec4f {
+fn shape(obj: f32, i: f32, phase: f32) -> Dot {
 	switch (u32(obj)) {
 		case 0u: { return trefoil(i, phase); }
 		case 1u: { return icosahedron(i, phase); }
@@ -116,9 +139,22 @@ fn shape(obj: f32, i: f32, phase: f32) -> vec4f {
 	}
 }
 
-fn staggered_t(morph_t: f32, i: f32) -> f32 {
-	let c = clamp(morph_t * 1.3 - hash(i, 9.0) * 0.3, 0.0, 1.0);
+fn drawn_t(morph_t: f32, k: f32) -> f32 {
+	let c = clamp(morph_t * 1.9 - k * 0.9, 0.0, 1.0);
 	return c * c * (3.0 - 2.0 * c);
+}
+
+// evalPoint() in the TS: position and alpha of pool dot i mid-morph.
+fn pool_dot(i: f32, phase: f32) -> vec4f {
+	let b = shape(u.to_obj, i, phase);
+	if (u.morph_t >= 1.0 || u.from_obj == u.to_obj) {
+		return vec4f(b.p, b.a);
+	}
+	let a = shape(u.from_obj, i, phase);
+	let t = drawn_t(u.morph_t, b.k);
+	let p = mix(a.p, b.p, t);
+	let lift = ARC_LIFT * sin(PI * t) / max(length(p), 1e-4);
+	return vec4f(p * (1.0 + lift), mix(a.a, b.a, t));
 }
 
 struct VSOut {
@@ -137,12 +173,8 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 		// Icosahedron vertex accents, visible only while the icosahedron has weight.
 		p = vec4f(ICO_VERTS[ii - u32(N)], ACCENT_ALPHA * u.accent_w);
 		size_mul = ACCENT_SIZE;
-	} else if (u.morph_t >= 1.0 || u.from_obj == u.to_obj) {
-		p = shape(u.to_obj, i, u.phase);
 	} else {
-		let a = shape(u.from_obj, i, u.phase);
-		let b = shape(u.to_obj, i, u.phase);
-		p = mix(a, b, staggered_t(u.morph_t, i));
+		p = pool_dot(i, u.phase);
 	}
 
 	// Rotation: yaw (Y), tiltX (X), tiltZ (Z), as in sim/camera.ts.

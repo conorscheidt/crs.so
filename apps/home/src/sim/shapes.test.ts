@@ -3,15 +3,18 @@ import { type Frame, MIN_DOT_R, type Projected, pose, project, type Shade, shade
 import {
 	ACCENT_ALPHA,
 	ACCENT_SIZE,
+	ARC_LIFT,
+	drawnT,
 	evalPoint,
 	ICO_EDGES,
+	ICO_HOP,
+	icoKey,
 	N,
 	type Pt,
 	SHAPES,
-	staggeredT,
 } from "./shapes";
 
-const mk = (): Pt => ({ x: 0, y: 0, z: 0, a: 0 });
+const mk = (): Pt => ({ x: 0, y: 0, z: 0, a: 0, k: 0 });
 
 test("every object stays finite and inside the ~unit stage for all i", () => {
 	const p = mk();
@@ -45,7 +48,7 @@ test("positions are continuous in phase (speed steps cannot teleport the cloud)"
 	}
 });
 
-test("morph endpoints equal the pure objects; stagger is clamped and monotone", () => {
+test("morph endpoints equal the pure objects", () => {
 	const p = mk();
 	const q = mk();
 	const tmp = mk();
@@ -56,8 +59,75 @@ test("morph endpoints equal the pure objects; stagger is clamped and monotone", 
 		evalPoint(i, 0, 3, 1, 2, p, tmp);
 		(SHAPES[3] as (typeof SHAPES)[0])(i, N, 2, q);
 		expect(Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z)).toBeLessThan(1e-9);
-		expect(staggeredT(0, i)).toBe(0);
-		expect(staggeredT(1, i)).toBe(1);
+	}
+});
+
+test("every draw key lies in [0, 1]", () => {
+	const p = mk();
+	for (let obj = 0; obj < SHAPES.length; obj++) {
+		const fn = SHAPES[obj] as (typeof SHAPES)[0];
+		for (let i = 0; i < N; i += 13) {
+			for (const phase of [0, 2.2, 61.7]) {
+				fn(i, N, phase, p);
+				expect(p.k).toBeGreaterThanOrEqual(0);
+				expect(p.k).toBeLessThanOrEqual(1);
+			}
+		}
+	}
+});
+
+test("drawn arrival: exact endpoints, monotone in time, earlier keys lead", () => {
+	const keys = Array.from({ length: 21 }, (_, j) => j / 20);
+	for (const k of keys) {
+		expect(drawnT(0, k)).toBe(0);
+		expect(drawnT(1, k)).toBe(1);
+		let prev = 0;
+		for (let m = 0; m <= 1; m += 1 / 256) {
+			const t = drawnT(m, k);
+			expect(t).toBeGreaterThanOrEqual(prev);
+			expect(t).toBeLessThanOrEqual(drawnT(m, Math.max(0, k - 0.05)));
+			prev = t;
+		}
+	}
+	// The order is visible: halfway through, the start of the drawing has
+	// landed and the end has not left.
+	expect(drawnT(0.55, 0)).toBe(1);
+	expect(drawnT(0.45, 1)).toBe(0);
+});
+
+test("morphing dots arc outward and land without a bump", () => {
+	const p = mk();
+	const tmp = mk();
+	const a = mk();
+	const b = mk();
+	let lifted = 0;
+	for (let i = 0; i < N; i += 97) {
+		(SHAPES[0] as (typeof SHAPES)[0])(i, N, 1, a);
+		(SHAPES[2] as (typeof SHAPES)[0])(i, N, 1, b);
+		const t = drawnT(0.5, b.k);
+		evalPoint(i, 0, 2, 0.5, 1, p, tmp);
+		const chord = Math.hypot(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
+		const r = Math.hypot(p.x, p.y, p.z);
+		expect(r - chord).toBeCloseTo(ARC_LIFT * Math.sin(Math.PI * t), 9);
+		if (t > 0.2 && t < 0.8) lifted++;
+	}
+	expect(lifted).toBeGreaterThan(0);
+});
+
+test("the icosahedron is drawn outward from vertex 0, edge by edge", () => {
+	expect(ICO_HOP[0]).toBe(0);
+	// 1 seed, 5 neighbours, 5 beyond, 1 antipode
+	expect([0, 1, 2, 3].map((h) => ICO_HOP.filter((x) => x === h).length)).toEqual([1, 5, 5, 1]);
+	for (const [a, b] of ICO_EDGES) {
+		const h0 = ICO_HOP[a] as number;
+		const h1 = ICO_HOP[b] as number;
+		expect(Math.abs(h0 - h1)).toBeLessThanOrEqual(1);
+		// Keys meet at the vertices, so the drawing never jumps.
+		expect(icoKey(h0, h1, 0)).toBeCloseTo(h0 / 3, 12);
+		expect(icoKey(h0, h1, 1)).toBeCloseTo(h1 / 3, 12);
+		for (let s = 0; s <= 1; s += 0.125) {
+			expect(icoKey(h0, h1, s)).toBeGreaterThanOrEqual(Math.min(h0, h1) / 3);
+		}
 	}
 });
 
@@ -89,14 +159,14 @@ test("projection is centered, depth-shaded, and dimple pushes outward", () => {
 	};
 	pose(f, 0, 0, 0);
 	const out: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
-	project({ x: 0, y: 0, z: 0, a: 1 }, f, out);
+	project({ x: 0, y: 0, z: 0, a: 1, k: 0 }, f, out);
 	// The origin sits under the cursor: dimple pushes it off-center slightly.
 	expect(Math.hypot(out.sx - 500, out.sy - 400)).toBeLessThan(f.dimpleR);
 	const near: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
 	f.cursorActive = 0;
-	project({ x: 0.5, y: 0, z: 0.5, a: 1 }, f, near);
+	project({ x: 0.5, y: 0, z: 0.5, a: 1, k: 0 }, f, near);
 	expect(near.depth).toBeGreaterThan(0);
-	project({ x: 0.5, y: 0, z: -0.5, a: 1 }, f, near);
+	project({ x: 0.5, y: 0, z: -0.5, a: 1, k: 0 }, f, near);
 	expect(near.depth).toBeLessThan(0);
 });
 
@@ -116,7 +186,7 @@ test("the dimple's push scales with its weight", () => {
 		dimpleR: 26,
 	};
 	pose(f, 0, 0, 0);
-	const p = { x: 0.05, y: 0, z: 0, a: 1 };
+	const p = { x: 0.05, y: 0, z: 0, a: 1, k: 0 };
 	const at = (w: number): number => {
 		const out: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
 		f.cursorActive = w;
@@ -149,7 +219,7 @@ test("a half turn of yaw mirrors the cloud; back dots shade smaller and fainter"
 	};
 	const a: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
 	const b: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
-	const p = { x: 0.4, y: 0.2, z: 0, a: 1 };
+	const p = { x: 0.4, y: 0.2, z: 0, a: 1, k: 0 };
 	pose(f, 0, 0, 0);
 	project(p, f, a);
 	pose(f, Math.PI, 0, 0);
@@ -184,8 +254,16 @@ const wgsl = (): Promise<string> => Bun.file(new URL("./shader.wgsl", import.met
 const wgslConst = (src: string, name: string): number =>
 	Number(src.match(new RegExp(`const ${name}: f32 = (-?[\\d.]+);`))?.[1]);
 
+test("WGSL icosahedron hop table matches the TS BFS", async () => {
+	const src = await wgsl();
+	const m = src.match(/const ICO_HOP = array<f32, 12>\(([^)]*)\)/);
+	expect(m?.[1]?.split(",").map(Number)).toEqual([...ICO_HOP]);
+	expect(wgslConst(src, "ICO_DEPTH")).toBe(Math.max(...ICO_HOP));
+});
+
 test("WGSL keeps the same scalar constants", async () => {
 	const src = await wgsl();
+	expect(wgslConst(src, "ARC_LIFT")).toBe(ARC_LIFT);
 	expect(wgslConst(src, "MIN_DOT_R")).toBe(MIN_DOT_R);
 	expect(wgslConst(src, "ACCENT_SIZE")).toBe(ACCENT_SIZE);
 	expect(wgslConst(src, "ACCENT_ALPHA")).toBe(ACCENT_ALPHA);

@@ -22,8 +22,8 @@ const GOLDEN = 0.618_033_988_75;
 export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Renderer | null {
 	const ctx = canvas.getContext("2d");
 	if (!ctx) return null;
-	const p: Pt = { x: 0, y: 0, z: 0, a: 0 };
-	const tmp: Pt = { x: 0, y: 0, z: 0, a: 0 };
+	const p: Pt = { x: 0, y: 0, z: 0, a: 0, k: 0 };
+	const tmp: Pt = { x: 0, y: 0, z: 0, a: 0, k: 0 };
 	const pr: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
 	const sh: Shade = { a: 0, r: 0 };
 	const f: Frame = {

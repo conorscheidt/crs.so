@@ -1,8 +1,9 @@
 /**
  * The four objects as closed-form point clouds. Each maps (instance i, total n,
- * phase) to a point in roughly [-1.1, 1.1]³ plus a base alpha. `phase` is
- * integrated on the CPU; raw time × speed would teleport the cloud whenever
- * the speed changed.
+ * phase) to a point in roughly [-1.1, 1.1]³, a base alpha, and a draw key: where
+ * the point falls in the order a hand would draw the object, which sequences
+ * morphs. `phase` is integrated on the CPU; raw time × speed would teleport the
+ * cloud whenever the speed changed.
  *
  * sim/shader.wgsl mirrors every formula here. Change one, change the other;
  * this side is tested and also drives the Canvas2D fallback.
@@ -40,6 +41,8 @@ export interface Pt {
 	y: number;
 	z: number;
 	a: number;
+	/** draw key in [0, 1] */
+	k: number;
 }
 
 /** 0 · Index: trefoil knot, points streaming along the curve. */
@@ -50,6 +53,7 @@ export function trefoil(i: number, n: number, phase: number, out: Pt): void {
 	out.y = Math.sin(3 * u) / 1.85 + (hash(i, 2) - 0.5) * 0.06;
 	out.z = (w * Math.sin(2 * u)) / 2.75 + (hash(i, 3) - 0.5) * 0.06;
 	out.a = 0.41;
+	out.k = i / n;
 }
 
 /** Icosahedron: 12 vertices, 30 edges. */
@@ -85,6 +89,37 @@ export const ICO_EDGES: readonly (readonly [number, number])[] = (() => {
 	return edges;
 })();
 
+/** Edge hops from vertex 0, the icosahedron's drawing order. */
+export const ICO_HOP: readonly number[] = (() => {
+	const hop = new Array<number>(12).fill(Number.POSITIVE_INFINITY);
+	hop[0] = 0;
+	const queue = [0];
+	for (const v of queue) {
+		for (const e of ICO_EDGES) {
+			if (e[0] !== v && e[1] !== v) continue;
+			const w = e[0] === v ? e[1] : e[0];
+			if (hop[w] === Number.POSITIVE_INFINITY) {
+				hop[w] = (hop[v] as number) + 1;
+				queue.push(w);
+			}
+		}
+	}
+	return hop;
+})();
+const ICO_DEPTH = Math.max(...ICO_HOP);
+
+/**
+ * Draw key at fraction s along an edge whose ends sit h0 and h1 hops out.
+ * Edges grow away from the nearer vertex; an edge between two vertices at the
+ * same depth grows in from both ends.
+ */
+export function icoKey(h0: number, h1: number, s: number): number {
+	let along = Math.min(s, 1 - s);
+	if (h0 < h1) along = s;
+	else if (h1 < h0) along = 1 - s;
+	return (Math.min(h0, h1) + along) / ICO_DEPTH;
+}
+
 /** 1 · Projects: points streaming along the 30 icosahedron edges. */
 export function icosahedron(i: number, _n: number, phase: number, out: Pt): void {
 	const e = ICO_EDGES[i % 30] as readonly [number, number];
@@ -96,6 +131,7 @@ export function icosahedron(i: number, _n: number, phase: number, out: Pt): void
 	out.y = a[1] + (b[1] - a[1]) * s + (hash(i, 7) - 0.5) * 0.035;
 	out.z = a[2] + (b[2] - a[2]) * s + (hash(i, 8) - 0.5) * 0.035;
 	out.a = 0.36;
+	out.k = icoKey(ICO_HOP[e[0]] as number, ICO_HOP[e[1]] as number, s);
 }
 
 /**
@@ -117,6 +153,7 @@ export function loxodrome(i: number, _n: number, phase: number, out: Pt): void {
 	// fade near the poles so respawn never pops
 	const edge = 1 - Math.min(1, Math.abs(u * 2 - 1) ** 6);
 	out.a = 0.41 * (0.25 + 0.75 * edge);
+	out.k = u;
 }
 
 /**
@@ -125,7 +162,8 @@ export function loxodrome(i: number, _n: number, phase: number, out: Pt): void {
  */
 export function borromean(i: number, n: number, phase: number, out: Pt): void {
 	const ring = i % 3;
-	const t = (Math.floor(i / 3) / Math.floor(n / 3)) * TAU + phase * 0.3 + ring * 2.09;
+	const along = Math.floor(i / 3) / Math.floor(n / 3);
+	const t = along * TAU + phase * 0.3 + ring * 2.09;
 	const a = 1.02;
 	const b = 0.52;
 	const ca = a * Math.cos(t);
@@ -147,14 +185,21 @@ export function borromean(i: number, n: number, phase: number, out: Pt): void {
 	out.y += (hash(i, 7) - 0.5) * 0.035;
 	out.z += (hash(i, 8) - 0.5) * 0.035;
 	out.a = 0.38;
+	out.k = (ring + along) / 3;
 }
 
 export const SHAPES = [trefoil, icosahedron, loxodrome, borromean] as const;
 
-/** Per-particle morph delay, so the cloud doesn't move in lockstep. */
-export function staggeredT(morphT: number, i: number): number {
-	const raw = morphT * 1.3 - hash(i, 9) * 0.3;
-	const c = Math.min(1, Math.max(0, raw));
+/** Height of a morphing dot's arc, outward from the centre. */
+export const ARC_LIFT = 0.3;
+
+/**
+ * Morph progress for a dot with draw key k: the target object is traced in its
+ * own order. Each dot flies for about half the morph, the last leaving as the
+ * first lands.
+ */
+export function drawnT(morphT: number, k: number): number {
+	const c = Math.min(1, Math.max(0, morphT * 1.9 - k * 0.9));
 	return c * c * (3 - 2 * c);
 }
 
@@ -176,9 +221,15 @@ export function evalPoint(
 	const from = SHAPES[fromObj] as typeof trefoil;
 	from(i, N, phase, out);
 	to(i, N, phase, tmp);
-	const t = staggeredT(morphT, i);
+	const t = drawnT(morphT, tmp.k);
 	out.x += (tmp.x - out.x) * t;
 	out.y += (tmp.y - out.y) * t;
 	out.z += (tmp.z - out.z) * t;
 	out.a += (tmp.a - out.a) * t;
+	out.k = tmp.k;
+	// A straight chord would cut through the middle of the object.
+	const lift = (ARC_LIFT * Math.sin(Math.PI * t)) / Math.max(Math.hypot(out.x, out.y, out.z), 1e-4);
+	out.x += out.x * lift;
+	out.y += out.y * lift;
+	out.z += out.z * lift;
 }
