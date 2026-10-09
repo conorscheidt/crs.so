@@ -2,6 +2,7 @@
 // repositories and the latest commits, all from basalt. It fetches /api/git on
 // this origin, which the Worker proxies and caches. If basalt doesn't answer
 // the block stays hidden.
+import { invalidateTargets } from "./cursor";
 import { type Commit, DAYS, derive, type GitData, type Repo, type Summary } from "./git-data";
 
 const WEEKS = 52;
@@ -52,6 +53,7 @@ export async function initGitBlock(root: HTMLElement): Promise<void> {
 	renderPopular(root, data.featured);
 	renderRecent(root, data.recent);
 	root.hidden = false;
+	invalidateTargets();
 }
 
 const NS = "http://www.w3.org/2000/svg";
@@ -71,6 +73,8 @@ function renderYear(root: HTMLElement, weeks: number[], today: number): void {
 	const peak = Math.max(1, ...weeks);
 
 	const svg = document.createElementNS(NS, "svg");
+	// one lean target for the whole stroke, not one per week
+	svg.dataset.cursorTarget = "";
 	svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
 	svg.setAttribute("aria-label", "commits per week over the last year");
 	const seg = W / WEEKS;

@@ -7,6 +7,7 @@
 import Lenis from "lenis";
 import { track } from "./analytics";
 import type { Clock } from "./clock";
+import { invalidateTargets, ring } from "./cursor";
 import { initGitBlock } from "./git";
 import { MOTION } from "./motion";
 import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
@@ -90,9 +91,28 @@ export function bootHub(clock: Clock): () => void {
 				colC.setPointerCapture(ev.pointerId);
 			} catch {}
 		});
+		// The dimple follows the ring as drawn, so the two never disagree; without
+		// the ring (touch), it follows the raw pointer.
+		let box = canvas.getBoundingClientRect();
+		const remeasure = (): void => {
+			box = canvas.getBoundingClientRect();
+		};
+		addEventListener("resize", remeasure, { passive: true, signal });
+		addEventListener("scroll", remeasure, { passive: true, signal });
+		unsubs.push(
+			clock.subscribe(() => {
+				if (!ring.live) return;
+				const inside =
+					ring.shown &&
+					ring.x >= box.left &&
+					ring.x <= box.right &&
+					ring.y >= box.top &&
+					ring.y <= box.bottom;
+				sim?.setPointer(ring.x - box.left, ring.y - box.top, inside);
+			}),
+		);
 		colC.addEventListener("pointermove", (ev) => {
-			const r = canvas.getBoundingClientRect();
-			sim?.setPointer(ev.clientX - r.left, ev.clientY - r.top, true);
+			if (!ring.live) sim?.setPointer(ev.clientX - box.left, ev.clientY - box.top, true);
 			if (last) {
 				sim?.dragBy(ev.clientX - last.x, ev.clientY - last.y);
 				last = { x: ev.clientX, y: ev.clientY };
@@ -105,7 +125,7 @@ export function bootHub(clock: Clock): () => void {
 		colC.addEventListener("pointerup", drop);
 		colC.addEventListener("pointercancel", drop);
 		colC.addEventListener("pointerleave", () => {
-			sim?.setPointer(0, 0, false);
+			if (!ring.live) sim?.setPointer(0, 0, false);
 		});
 	}
 
@@ -211,6 +231,7 @@ export function bootHub(clock: Clock): () => void {
 			if (scrollY > top) scrollTo({ top, behavior: reducedMotion ? "instant" : "smooth" });
 		}
 		sim?.setSection(to);
+		invalidateTargets();
 	};
 
 	document.addEventListener(

@@ -164,6 +164,17 @@ html.no-native-cursor *::after {
 		scale 220ms cubic-bezier(0.22, 1, 0.36, 1),
 		opacity 180ms ease;
 	scale: 1;
+	/* its own group, so it keeps tracking the pointer through a page swap */
+	view-transition-name: cursor;
+}
+
+::view-transition-group(cursor),
+::view-transition-new(cursor) {
+	animation: none;
+}
+
+::view-transition-old(cursor) {
+	display: none;
 }
 
 #cursor svg {
