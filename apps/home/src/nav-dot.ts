@@ -76,8 +76,8 @@ export class Glide {
 }
 
 export interface NavDot {
-	/** Travel to the item now marked aria-current. */
-	move: () => void;
+	/** Travel to the item now marked aria-current, arriving in `ms`. */
+	move: (ms?: number) => void;
 	destroy: () => void;
 }
 
@@ -114,7 +114,7 @@ export function initNavDot(nav: HTMLElement, clock: Clock, still: boolean): NavD
 	nav.dataset.dotted = "";
 
 	return {
-		move(): void {
+		move(ms = MOTION.morph * 1000): void {
 			const t = target();
 			if (!t) return;
 			if (still) {
@@ -122,7 +122,7 @@ export function initNavDot(nav: HTMLElement, clock: Clock, still: boolean): NavD
 				draw();
 				return;
 			}
-			glide.go(t[0], t[1], MOTION.morph * 1000);
+			glide.go(t[0], t[1], ms);
 			unsub ??= clock.subscribe((_, dt) => {
 				const moving = glide.step(dt * 1000);
 				draw();

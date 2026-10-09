@@ -76,3 +76,31 @@ test("dt is clamped after a long gap (bfcache / tab resume)", () => {
 	h.step(5000);
 	expect(Math.max(...dts)).toBeLessThanOrEqual(1 / 30);
 });
+
+test("landing predicts when a job requested now finishes", () => {
+	const h = harness();
+	h.clock.subscribe(() => {});
+	h.step();
+	expect(h.clock.landing(850)).toBe(850);
+	h.clock.run({ kind: "morph", duration: 300, step: () => {} });
+	h.step(16);
+	const eta = h.clock.landing(850);
+	expect(eta).toBeCloseTo((300 - 16) / MOTION.interruptAccel + 850);
+	let done = -1;
+	let ms = 0;
+	h.clock.request(() =>
+		h.clock.run({
+			kind: "morph",
+			duration: 850,
+			step: () => {},
+			done: () => {
+				done = ms;
+			},
+		}),
+	);
+	while (done < 0 && ms < 2000) {
+		h.step(4);
+		ms += 4;
+	}
+	expect(Math.abs(done - eta)).toBeLessThanOrEqual(8);
+});

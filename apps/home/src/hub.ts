@@ -358,7 +358,8 @@ export function bootHub(clock: Clock): () => void {
 			if (a.getAttribute("href") === PATHS[to]) a.setAttribute("aria-current", "page");
 			else a.removeAttribute("aria-current");
 		}
-		dot?.move();
+		// land with the object, which finishes any morph in flight first
+		dot?.move(sim ? clock.landing(MOTION.morph * 1000) : undefined);
 		const panel = panels.get(to);
 		const remembered = offsets.get(to) ?? 0;
 		const wrapper = panel?.querySelector<HTMLElement>("[data-scroll]");

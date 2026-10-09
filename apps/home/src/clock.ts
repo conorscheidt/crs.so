@@ -62,6 +62,11 @@ export class Clock {
 		this.pending = action;
 	}
 
+	/** ms until a job of `ms` requested now would finish, after the active one hurries out. */
+	landing(ms: number): number {
+		return this.job ? (this.job.duration - this.jobElapsed) / MOTION.interruptAccel + ms : ms;
+	}
+
 	/** After a bfcache restore or tab resume, drop the stale timestamp. */
 	epochReset(): void {
 		this.last = 0;
