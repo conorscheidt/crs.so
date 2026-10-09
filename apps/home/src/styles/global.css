@@ -473,24 +473,33 @@ html.no-native-cursor *::after {
 	min-height: 0;
 	opacity: 0;
 	visibility: hidden;
+	translate: 0 4px;
+	/* Leaving: a quick fade, and nothing moves until it's gone. The two panels
+	   share a box, so overlapping fades would muddy both sets of type. */
 	transition:
-		opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
-		visibility 0s 240ms;
+		opacity 110ms ease-out,
+		translate 0s 110ms,
+		visibility 0s 110ms;
 }
 
+/* Arriving: waits for most of the outgoing ink to clear, then settles. */
 .hub[data-section="index"] .panel[data-panel="index"],
 .hub[data-section="projects"] .panel[data-panel="projects"],
 .hub[data-section="writing"] .panel[data-panel="writing"],
 .hub[data-section="about"] .panel[data-panel="about"] {
 	opacity: 1;
 	visibility: visible;
+	translate: none;
 	transition:
-		opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
+		opacity 240ms cubic-bezier(0.22, 1, 0.36, 1) 70ms,
+		translate 320ms cubic-bezier(0.22, 1, 0.36, 1) 70ms,
 		visibility 0s;
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.panel {
+	.panel,
+	.hub[data-section] .panel[data-panel] {
+		translate: none;
 		transition: none;
 	}
 }
@@ -1172,7 +1181,7 @@ html.no-native-cursor *::after {
 		padding: var(--s1) var(--gutter) var(--s4);
 		opacity: 1;
 		visibility: visible;
-		transition: opacity 240ms cubic-bezier(0.22, 1, 0.36, 1);
+		translate: none;
 	}
 
 	/* keep focused controls clear of the sticky tabs */
@@ -1185,6 +1194,7 @@ html.no-native-cursor *::after {
 	.hub[data-section="writing"] .panel[data-panel="writing"],
 	.hub[data-section="about"] .panel[data-panel="about"] {
 		display: flex;
+		transition: opacity 240ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
 
 	@media (prefers-reduced-motion: no-preference) {
