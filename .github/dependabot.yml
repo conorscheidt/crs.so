@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      astro:
+        patterns: ["astro", "@astrojs/*"]
+      codemirror:
+        patterns: ["@codemirror/*", "@lezer/*", "@replit/codemirror-vim"]
+      d3:
+        patterns: ["d3-*", "@types/d3-*"]
+      tooling:
+        patterns: ["@biomejs/biome", "typescript", "wrangler", "@types/bun"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
