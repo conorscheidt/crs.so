@@ -1,5 +1,6 @@
-// Generates the icon set from one construction: the trefoil knot the home
-// page draws, as a single stroke. Run from the repo root:
+// Generates the icon set from one construction: the icosahedron from the
+// Projects section, seen face-on, its visible faces flat-shaded by a light
+// from the top left and its edges cut as hairlines. Run from the repo root:
 //
 //   bun scripts/gen-favicon.ts
 //
@@ -14,32 +15,87 @@ const INK = "#e8e4d9";
 const DAY_INK = "#221f1a";
 const PUBLIC = "apps/home/public";
 
-/**
- * x = sin t + 2 sin 2t, y = cos t − 2 cos 2t. The curve is not symmetric in y
- * (it spans −3 to ~2.06), so it is fitted and centred by its sampled bounding
- * box rather than by the parametric origin. `size` is the larger side of that
- * box in the 32-unit viewBox.
- */
-function knot(size: number, samples = 720): string {
-	const raw: [number, number][] = [];
-	for (let i = 0; i < samples; i++) {
-		const t = (i / samples) * Math.PI * 2;
-		raw.push([Math.sin(t) + 2 * Math.sin(2 * t), Math.cos(t) - 2 * Math.cos(2 * t)]);
-	}
-	const xs = raw.map(([x]) => x);
-	const ys = raw.map(([, y]) => y);
-	const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-	const k = size / Math.max(x1 - x0, y1 - y0);
-	const cx = (x0 + x1) / 2;
-	const cy = (y0 + y1) / 2;
-	const pts = raw.map(
-		([x, y]) => `${(16 + (x - cx) * k).toFixed(3)} ${(16 + (y - cy) * k).toFixed(3)}`,
-	);
-	return `M ${pts.join(" L ")} Z`;
-}
+type V3 = [number, number, number];
+const dot = (a: V3, b: V3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const unit = (v: V3): V3 => {
+	const l = Math.hypot(...v);
+	return [v[0] / l, v[1] / l, v[2] / l];
+};
+const cross = (a: V3, b: V3): V3 => [
+	a[1] * b[2] - a[2] * b[1],
+	a[2] * b[0] - a[0] * b[2],
+	a[0] * b[1] - a[1] * b[0],
+];
 
-const stroke = (size: number, width: number, ink?: string): string =>
-	`<path d="${knot(size)}" fill="none"${ink ? ` stroke="${ink}"` : ""} stroke-width="${width}" stroke-linejoin="round"/>`;
+// The 12 vertices (0, ±1, ±φ) and cyclic permutations; edges have length 2.
+const phi = (1 + Math.sqrt(5)) / 2;
+const verts: V3[] = [];
+for (const a of [-1, 1]) for (const b of [-phi, phi]) verts.push([0, a, b], [a, b, 0], [b, 0, a]);
+const isEdge = (i: number, j: number): boolean =>
+	Math.abs(Math.hypot(...(verts[i] as V3).map((c, k) => c - ((verts[j] as V3)[k] ?? 0))) - 2) < 1e-9;
+const faces: [number, number, number][] = [];
+for (let i = 0; i < 12; i++)
+	for (let j = i + 1; j < 12; j++)
+		for (let k = j + 1; k < 12; k++) if (isEdge(i, j) && isEdge(j, k) && isEdge(i, k)) faces.push([i, j, k]);
+
+// Look straight down a face normal (a three-fold axis), with a vertex at the
+// top so the outline is a symmetric hexagon with vertical sides.
+const view = unit([1, 1, 1]);
+function camera(): { x: V3; y: V3 } {
+	// up = the component of the highest-lying silhouette vertex perpendicular to the view
+	let best: V3 = [0, 1, 0];
+	let bestLen = 0;
+	for (const v of verts) {
+		const d = dot(v, view);
+		if (Math.abs(d) > 0.5) continue;
+		const perp: V3 = [v[0] - d * view[0], v[1] - d * view[1], v[2] - d * view[2]];
+		const len = Math.hypot(...perp);
+		if (len > bestLen + 1e-9) {
+			bestLen = len;
+			best = perp;
+		}
+	}
+	const y = unit(best);
+	return { x: cross(y, view), y };
+}
+const cam = camera();
+const flat = verts.map((v) => [dot(v, cam.x), -dot(v, cam.y)] as [number, number]);
+const xs = flat.map((p) => p[0]);
+const span = Math.max(...xs) - Math.min(...xs);
+
+const centroid = (f: [number, number, number]): V3 =>
+	unit(f.reduce<V3>((s, i) => [s[0] + (verts[i] as V3)[0], s[1] + (verts[i] as V3)[1], s[2] + (verts[i] as V3)[2]], [0, 0, 0]));
+const light = unit([-0.45, 0.62, 0.65]);
+const lightWorld: V3 = [
+	light[0] * cam.x[0] + light[1] * cam.y[0] + light[2] * view[0],
+	light[0] * cam.x[1] + light[1] * cam.y[1] + light[2] * view[1],
+	light[0] * cam.x[2] + light[1] * cam.y[2] + light[2] * view[2],
+];
+const visible = faces.filter((f) => dot(centroid(f), view) > 1e-6);
+const shade = (f: [number, number, number]): number => 0.28 + 0.72 * Math.max(0, dot(centroid(f), lightWorld));
+const edges = new Set<string>();
+for (const [a, b, c] of visible) for (const [i, j] of [[a, b], [b, c], [a, c]] as const) edges.add(`${Math.min(i, j)}-${Math.max(i, j)}`);
+
+/**
+ * The mark at a given silhouette width (in the 32-unit box), centred. A width
+ * of 24 puts the vertical sides on whole pixels at both 16 and 32 px.
+ */
+function mark(width: number, id: string, ink?: string): string {
+	const k = width / span;
+	const pt = (i: number): string => {
+		const [x, y] = flat[i] as [number, number];
+		return `${(16 + x * k).toFixed(2)},${(16 + y * k).toFixed(2)}`;
+	};
+	const cut = [...edges]
+		.map((e) => e.split("-").map(Number) as [number, number])
+		.map(([i, j]) => `M${pt(i)}L${pt(j)}`)
+		.join("");
+	const fill = ink ? ` fill="${ink}"` : ` class="f"`;
+	const body = visible
+		.map((f) => `<path d="M${f.map(pt).join("L")}Z"${fill} opacity="${shade(f).toFixed(2)}"/>`)
+		.join("");
+	return `<mask id="${id}"><rect width="32" height="32" fill="#fff"/><path d="${cut}" stroke="#000" stroke-width="${(width * 0.046).toFixed(2)}" stroke-linecap="round" fill="none"/></mask><g mask="url(#${id})">${body}</g>`;
+}
 
 const svg = (body: string, extra = ""): string =>
 	`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">${extra}${body}</svg>\n`;
@@ -73,32 +129,26 @@ function ico(images: { size: number; data: Buffer }[]): Buffer {
 	return Buffer.concat([header, ...entries, ...images.map((i) => i.data)]);
 }
 
-// size + stroke width ≤ 32 keeps the outer edge of the stroke inside the box.
-const TAB = { size: 28, width: 3 };
-const HOME = { size: 20, width: 2.2 };
-// Maskable icons are cropped to a circle of 80% diameter; keep the knot inside.
-const MASKABLE = { size: 15, width: 1.8 };
+const TAB = 24;
+const HOME = 19;
+// Maskable icons are cropped to a circle of 80% diameter; the hexagon's
+// corners (0.58 × width from the centre) have to stay inside it.
+const MASKABLE = 16;
 
-const themed = `<style>path{stroke:${DAY_INK}}@media(prefers-color-scheme:dark){path{stroke:${INK}}}</style>`;
-await Bun.write(`${PUBLIC}/favicon.svg`, svg(stroke(TAB.size, TAB.width), themed));
+const themed = `<style>.f{fill:${DAY_INK}}@media(prefers-color-scheme:dark){.f{fill:${INK}}}</style>`;
+await Bun.write(`${PUBLIC}/favicon.svg`, svg(mark(TAB, "m"), themed));
 
 const icoSizes = [16, 32, 48];
 const icoImages = await Promise.all(
-	icoSizes.map(async (size) => ({
-		size,
-		data: await png(size, stroke(TAB.size, TAB.width, DAY_INK)),
-	})),
+	icoSizes.map(async (size) => ({ size, data: await png(size, mark(TAB, "m", DAY_INK)) })),
 );
 await Bun.write(`${PUBLIC}/favicon.ico`, ico(icoImages));
 
-const home = stroke(HOME.size, HOME.width, INK);
+const home = mark(HOME, "m", INK);
 await Bun.write(`${PUBLIC}/apple-touch-icon.png`, await png(180, tile(home, false)));
 await Bun.write(`${PUBLIC}/icon-192.png`, await png(192, tile(home, true)));
 await Bun.write(`${PUBLIC}/icon-512.png`, await png(512, tile(home, true)));
-await Bun.write(
-	`${PUBLIC}/icon-maskable-512.png`,
-	await png(512, tile(stroke(MASKABLE.size, MASKABLE.width, INK), false)),
-);
+await Bun.write(`${PUBLIC}/icon-maskable-512.png`, await png(512, tile(mark(MASKABLE, "m", INK), false)));
 
 // biome-ignore lint/suspicious/noConsole: CLI output
 console.log(`icons written to ${PUBLIC}`);
