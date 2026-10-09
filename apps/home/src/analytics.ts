@@ -2,21 +2,15 @@
 // sends behaviour events — post reads, code runs, figure drags, searches — to
 // /api/e, which the Worker writes to Analytics Engine. Fire-and-forget,
 // and nothing sent identifies a visitor.
+import type { EventFields, EventName } from "./events";
+
 const ENDPOINT = "/api/e";
 
-/** Every event the site sends. */
-export type Event =
-	| "post-open" // an article was opened
-	| "post-read" // scrolled past 90% of an article
-	| "code-run" // a snippet was compiled/run (field: lang, ok, ms)
-	| "figure-touch" // a plate was dragged or reset (field: kind)
-	| "search" // a query ran (field: kind, len, hits)
-	| "tag-filter" // a tag chip was applied (field: tag)
-	| "project-filter" // writing was filtered to one project (field: slug)
-	| "project-open" // a repository or live link was followed (field: slug)
-	| "theme-flip"; // day/night toggled (field: to)
+// Events without fields take no second argument; the rest require theirs.
+type Args<E extends EventName> =
+	{} extends EventFields<E> ? [fields?: EventFields<E>] : [fields: EventFields<E>];
 
-export function track(event: Event, fields: Record<string, string | number> = {}): void {
+export function track<E extends EventName>(event: E, ...[fields]: Args<E>): void {
 	if (typeof navigator === "undefined") return;
 	try {
 		const body = JSON.stringify({ event, path: location.pathname, ...fields });
@@ -37,7 +31,7 @@ export function track(event: Event, fields: Record<string, string | number> = {}
 }
 
 /** Fire once when the reader passes `ratio` of the page; returns a teardown. */
-export function trackReadDepth(event: Event, ratio = 0.9): () => void {
+export function trackReadDepth(event: "post-read", ratio = 0.9): () => void {
 	let fired = false;
 	const onScroll = (): void => {
 		if (fired) return;

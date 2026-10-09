@@ -128,7 +128,12 @@ export function run(
 	stdin = "",
 	hooks: RunHooks = {},
 ): Promise<RunResult> {
-	track("code-run", { lang });
+	const result = start(lang, code, stdin, hooks);
+	void result.then((r) => track("code-run", { lang, ok: r.ok, ms: r.ms }));
+	return result;
+}
+
+function start(lang: string, code: string, stdin: string, hooks: RunHooks): Promise<RunResult> {
 	const id = ++seq;
 	const isCpp = lang === "c" || lang === "cpp" || lang === "c++";
 	const w = isCpp ? ensureCpp() : ensureWorker();
