@@ -30,10 +30,15 @@ export const ACCENT_ALPHA = 0.85;
 
 const TAU = Math.PI * 2;
 
-/** Deterministic per-instance hash in [0, 1), mirrored in WGSL. */
+/**
+ * Deterministic per-instance hash in [0, 1), mirrored in WGSL. A PCG step on
+ * integers, so both sides agree bit for bit; a sin() hash loses precision on
+ * some GPUs at these arguments and clumps the dots.
+ */
 export function hash(i: number, salt: number): number {
-	const x = Math.sin(i * 127.1 + salt * 311.7) * 43_758.5453;
-	return x - Math.floor(x);
+	let h = (Math.imul(i, 747_796_405) + Math.imul(salt, 2_891_336_453)) >>> 0;
+	h = Math.imul((h >>> ((h >>> 28) + 4)) ^ h, 277_803_737);
+	return (((h >>> 22) ^ h) >>> 8) / 16_777_216;
 }
 
 export interface Pt {

@@ -118,7 +118,9 @@ struct Dot {
 }
 
 fn hash(i: f32, salt: f32) -> f32 {
-	return fract(sin(i * 127.1 + salt * 311.7) * 43758.5453);
+	var h = u32(i) * 747796405u + u32(salt) * 2891336453u;
+	h = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u;
+	return f32(((h >> 22u) ^ h) >> 8u) / 16777216.0;
 }
 
 // knotT() in shapes.ts.

@@ -6,6 +6,7 @@ import {
 	ARC_LIFT,
 	drawnT,
 	evalPoint,
+	hash,
 	ICO_EDGES,
 	ICO_HOP,
 	icoKey,
@@ -233,4 +234,20 @@ test("the dot count has one source: the shader takes N from gpu.ts", async () =>
 	expect(gpu).toMatch(/const N: f32 = \$\{N\}\.0;/);
 	// Borromean rings split the pool three ways.
 	expect(N % 3).toBe(0);
+});
+
+test("the dot hash is uniform in [0, 1) and independent across salts", () => {
+	for (let salt = 1; salt <= 8; salt++) {
+		const bins = new Array<number>(16).fill(0);
+		for (let i = 0; i < N; i++) {
+			const h = hash(i, salt);
+			expect(h).toBeGreaterThanOrEqual(0);
+			expect(h).toBeLessThan(1);
+			bins[Math.floor(h * 16)] = (bins[Math.floor(h * 16)] ?? 0) + 1;
+		}
+		for (const b of bins) expect(Math.abs(b - N / 16) / (N / 16)).toBeLessThan(0.12);
+	}
+	let c = 0;
+	for (let i = 0; i < N; i++) c += (hash(i, 6) - 0.5) * (hash(i, 7) - 0.5);
+	expect(Math.abs(c / N)).toBeLessThan(0.005);
 });
