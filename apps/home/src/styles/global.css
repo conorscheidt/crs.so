@@ -1,6 +1,7 @@
 /* Day paper is the ground truth; night is its ink inversion. A theme flip is
    instant: .flipping holds every transition off while it lands. */
 :root {
+	color-scheme: light;
 	--paper: #f2f0ea;
 	--paper-deep: #e9e6df;
 	--ink: #221f1a;
@@ -33,6 +34,7 @@
 }
 
 :root[data-theme="night"] {
+	color-scheme: dark;
 	--paper: #171310;
 	--paper-deep: #100d0b;
 	--ink: #e8e4d9;
@@ -67,19 +69,15 @@
 	navigation: auto;
 }
 
-/* Outgoing ink lifts off; incoming ink settles in with a small rise. */
+/* Incoming ink settles in with a small rise over the outgoing page, which
+   holds still beneath it. Fading both out of step, without the UA's
+   plus-lighter blend, would let the paper dip toward the backdrop. */
 ::view-transition-old(root) {
-	animation: vt-lift 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	animation: none;
 }
 
 ::view-transition-new(root) {
 	animation: vt-settle 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes vt-lift {
-	to {
-		opacity: 0;
-	}
 }
 
 @keyframes vt-settle {
