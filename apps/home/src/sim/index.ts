@@ -54,6 +54,10 @@ const DRAG_PITCH = 0.005;
 const SPIN_MAX = 2.2;
 /** Smoothing on the cursor's measured velocity (s); raw pointer events bunch. */
 const CURSOR_VEL_TAU = 0.04;
+/** CSS px/s; past it a pointer jumped rather than moved */
+const CURSOR_VEL_MAX = 4000;
+
+const clampAbs = (v: number, max: number): number => Math.max(-max, Math.min(max, v));
 
 interface State {
 	u: Uniforms;
@@ -355,8 +359,10 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		if (pointer.active) {
 			const x = pointer.x * dpr;
 			const y = pointer.y * dpr;
-			const vx = wasActive ? (x - u.cursorX) / dt : 0;
-			const vy = wasActive ? (y - u.cursorY) / dt : 0;
+			const moving = wasActive && dt > 0;
+			const vMax = CURSOR_VEL_MAX * dpr;
+			const vx = moving ? clampAbs((x - u.cursorX) / dt, vMax) : 0;
+			const vy = moving ? clampAbs((y - u.cursorY) / dt, vMax) : 0;
 			u.cursorVX = wasActive ? u.cursorVX + (vx - u.cursorVX) * ease : 0;
 			u.cursorVY = wasActive ? u.cursorVY + (vy - u.cursorVY) * ease : 0;
 			u.cursorX = x;
