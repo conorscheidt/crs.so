@@ -1,0 +1,4 @@
+Contact: mailto:c@crs.so
+Expires: 2027-10-01T00:00:00Z
+Preferred-Languages: en
+Canonical: https://crs.so/.well-known/security.txt
