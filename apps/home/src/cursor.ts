@@ -22,6 +22,9 @@ const STRETCH_MAX = 0.4;
 /** Hover: radius reduction and extra stroke weight, in px. */
 const GRIP = 1.1;
 const GRIP_WEIGHT = 0.25;
+/** The compositor-run follow used where rAF is capped below the display rate. */
+const GLIDE_MS = 80;
+const GLIDE_CURVE = [0.22, 1, 0.36, 1] as const;
 
 const INTERACTIVE = [
 	"a[href]",
@@ -47,6 +50,83 @@ const smoothstep = (a: number, b: number, v: number): number => {
 	const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
 	return t * t * (3 - 2 * t);
 };
+
+/**
+ * A CSS cubic-bezier() timing function: progress in [0, 1] to eased output.
+ * Tabulated once and inverted by bisection; x(s) is monotonic for any valid
+ * curve, and 64 segments keep the error well under a hundredth.
+ */
+export function bezier(x1: number, y1: number, x2: number, y2: number): (u: number) => number {
+	const n = 64;
+	const xs = new Float64Array(n + 1);
+	const ys = new Float64Array(n + 1);
+	for (let i = 0; i <= n; i++) {
+		const s = i / n;
+		const a = 3 * (1 - s) * (1 - s) * s;
+		const b = 3 * (1 - s) * s * s;
+		xs[i] = a * x1 + b * x2 + s * s * s;
+		ys[i] = a * y1 + b * y2 + s * s * s;
+	}
+	return (u) => {
+		if (!(u > 0)) return 0;
+		if (u >= 1) return 1;
+		let lo = 0;
+		let hi = n;
+		while (hi - lo > 1) {
+			const mid = (lo + hi) >> 1;
+			if ((xs[mid] ?? 0) <= u) lo = mid;
+			else hi = mid;
+		}
+		const x0 = xs[lo] ?? 0;
+		const y0 = ys[lo] ?? 0;
+		const f = (u - x0) / ((xs[hi] ?? 1) - x0);
+		return y0 + ((ys[hi] ?? 1) - y0) * f;
+	};
+}
+
+/**
+ * Where a CSS transition is drawing a point it keeps being retargeted to. Each
+ * retarget starts a fresh transition from wherever the last one had reached,
+ * which is what the browser does when a transitioned value changes mid-flight.
+ */
+export interface Glide {
+	at: (t: number, out: [number, number]) => void;
+	/** The transitioned value changed to (x, y) at time t, ms. */
+	to: (t: number, x: number, y: number) => void;
+	/** No transition: the value is drawn where it is set. */
+	jump: (x: number, y: number) => void;
+}
+
+export function glide(ms: number, curve: (u: number) => number): Glide {
+	let fx = 0;
+	let fy = 0;
+	let tx = 0;
+	let ty = 0;
+	let t0 = Number.NEGATIVE_INFINITY;
+	const p: [number, number] = [0, 0];
+	const at = (t: number, out: [number, number]): void => {
+		const e = curve((t - t0) / ms);
+		out[0] = fx + (tx - fx) * e;
+		out[1] = fy + (ty - fy) * e;
+	};
+	return {
+		at,
+		to(t, x, y) {
+			at(t, p);
+			[fx, fy] = p;
+			tx = x;
+			ty = y;
+			t0 = t;
+		},
+		jump(x, y) {
+			fx = x;
+			fy = y;
+			tx = x;
+			ty = y;
+			t0 = Number.NEGATIVE_INFINITY;
+		},
+	};
+}
 
 /** Wrap a DOM write so it only runs when the value differs from the last one. */
 const latch = (write: (value: string) => void): ((value: string) => void) => {
@@ -211,6 +291,10 @@ export function magnetism(
 	return { x: sx * k, y: sy * k, d: near };
 }
 
+/** Safari (and every iOS browser, all WebKit): rAF holds at 60 Hz on faster displays. */
+export const safari = (): boolean =>
+	/Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\//.test(navigator.userAgent);
+
 /** Where the ring is drawn this frame, for anything that should agree with it. */
 export const ring = { x: 0, y: 0, shown: false, live: false };
 
@@ -285,20 +369,32 @@ export function initCursor(clock: Clock): void {
 	// Each setter touches the DOM only when its value changes, so a resting
 	// ring costs nothing per frame. Position goes on `translate`, not
 	// `transform`: the press `scale` would otherwise scale the offset too.
-	const setPlace = latch((val) => {
-		el.style.translate = val;
-	});
-	const place = (cx: number, cy: number): void => {
-		ring.x = cx;
-		ring.y = cy;
-		setPlace(`${(cx - r - 1).toFixed(2)}px ${(cy - r - 1).toFixed(2)}px`);
+	//
+	// When the compositor runs the follow (below), the ring is drawn partway
+	// through a transition rather than at the value set, so `ring` publishes
+	// the modelled drawn point for anything that has to line up with it.
+	let composited = false;
+	const drawnAt = glide(GLIDE_MS, bezier(...GLIDE_CURVE));
+	const drawn: [number, number] = [0, 0];
+	let placed = "";
+	const place = (cx: number, cy: number, t: number): void => {
+		const val = `${(cx - r - 1).toFixed(2)}px ${(cy - r - 1).toFixed(2)}px`;
+		if (val !== placed) {
+			placed = val;
+			el.style.translate = val;
+			if (composited) drawnAt.to(t, cx, cy);
+		}
+		if (!composited) drawnAt.jump(cx, cy);
+		drawnAt.at(t, drawn);
+		ring.x = drawn[0];
+		ring.y = drawn[1];
 	};
 
 	if (reduced) {
-		clock.subscribe(() => {
+		clock.subscribe((t) => {
 			if (!ring.shown) return;
 			const s = trail.newest();
-			place(s.x, s.y);
+			place(s.x, s.y, t);
 			el.classList.toggle("over", over);
 		});
 		return;
@@ -362,16 +458,16 @@ export function initCursor(clock: Clock): void {
 	let frame = 1 / 120;
 	// Only Safari holds rAF below the display rate; elsewhere a slow frame
 	// means a slow display, where interpolating would only add latency.
-	const capped =
-		/Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\//.test(navigator.userAgent);
+	const capped = safari();
+	const follow = `${base}, translate ${GLIDE_MS}ms cubic-bezier(${GLIDE_CURVE.join(", ")})`;
 
 	clock.subscribe((t, dt) => {
 		// Where rAF is held near 60 Hz on a faster display (Safari's default on
 		// ProMotion), the follow moves to a CSS transition: the compositor runs
 		// it at the display's rate, which no 60 Hz script can.
 		frame += (dt - frame) * 0.05;
-		const composited = capped && frame > 0.014;
-		setTransition(composited ? `${base}, translate 80ms cubic-bezier(0.22, 1, 0.36, 1)` : base);
+		composited = capped && frame > 0.014;
+		setTransition(composited ? follow : base);
 
 		if (!ring.shown || trail.size === 0) return;
 		if (stale && t - measuredAt > 50) {
@@ -413,7 +509,7 @@ export function initCursor(clock: Clock): void {
 		const pk = ease(LEAN, dt);
 		pullX += (pull.x - pullX) * pk;
 		pullY += (pull.y - pullY) * pk;
-		place(x + pullX, y + pullY);
+		place(x + pullX, y + pullY, t);
 
 		grip += ((over ? 1 : 0) - grip) * ease(GRIP_RATE, dt);
 		setR((r - GRIP * grip).toFixed(2));

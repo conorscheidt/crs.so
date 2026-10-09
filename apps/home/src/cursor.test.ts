@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { magnetism, Trail } from "./cursor";
+import { bezier, glide, magnetism, Trail } from "./cursor";
 
 const rect = (left: number, top: number, w: number, h: number) => ({
 	left,
@@ -115,5 +115,79 @@ describe("cursor trail", () => {
 		tr.push(0, 0, 0);
 		tr.push(200, 10, 10);
 		expect(tr.size).toBe(1);
+	});
+});
+
+describe("composited glide", () => {
+	// Reference: solve x(s) = u by bisection on the exact curve.
+	const exact = (x1: number, y1: number, x2: number, y2: number, u: number): number => {
+		const c = (p1: number, p2: number, s: number): number =>
+			3 * (1 - s) * (1 - s) * s * p1 + 3 * (1 - s) * s * s * p2 + s ** 3;
+		let lo = 0;
+		let hi = 1;
+		for (let i = 0; i < 60; i++) {
+			const mid = (lo + hi) / 2;
+			if (c(x1, x2, mid) < u) lo = mid;
+			else hi = mid;
+		}
+		return c(y1, y2, (lo + hi) / 2);
+	};
+
+	it("tabulates cubic-bezier() closely", () => {
+		const curves: [number, number, number, number][] = [
+			[0.22, 1, 0.36, 1],
+			[0.42, 0, 0.58, 1],
+			[0.25, 0.1, 0.25, 1],
+		];
+		for (const [x1, y1, x2, y2] of curves) {
+			const b = bezier(x1, y1, x2, y2);
+			for (let u = 0; u <= 1; u += 0.01) {
+				expect(Math.abs(b(u) - exact(x1, y1, x2, y2, u))).toBeLessThan(0.01);
+			}
+			expect(b(0)).toBe(0);
+			expect(b(1)).toBe(1);
+			expect(b(-1)).toBe(0);
+			expect(b(2)).toBe(1);
+		}
+	});
+
+	it("trails the set value and arrives after the duration", () => {
+		const g = glide(80, bezier(0.22, 1, 0.36, 1));
+		const out: [number, number] = [0, 0];
+		g.jump(0, 0);
+		g.to(1000, 100, 50);
+		g.at(1000, out);
+		expect(out).toEqual([0, 0]);
+		g.at(1020, out);
+		expect(out[0]).toBeGreaterThan(0);
+		expect(out[0]).toBeLessThan(100);
+		expect(out[1]).toBeCloseTo(out[0] / 2, 9);
+		g.at(1080, out);
+		expect(out).toEqual([100, 50]);
+	});
+
+	it("restarts from the point already reached when retargeted", () => {
+		const g = glide(80, bezier(0.22, 1, 0.36, 1));
+		const mid: [number, number] = [0, 0];
+		const out: [number, number] = [0, 0];
+		g.jump(0, 0);
+		g.to(0, 100, 0);
+		g.at(20, mid);
+		g.to(20, 200, 0);
+		g.at(20, out);
+		expect(out[0]).toBeCloseTo(mid[0], 9);
+		g.at(99, out);
+		expect(out[0]).toBeLessThan(200);
+		g.at(100, out);
+		expect(out[0]).toBe(200);
+	});
+
+	it("draws where the value is set when not transitioning", () => {
+		const g = glide(80, bezier(0.22, 1, 0.36, 1));
+		const out: [number, number] = [0, 0];
+		g.to(0, 100, 0);
+		g.jump(40, 30);
+		g.at(1, out);
+		expect(out).toEqual([40, 30]);
 	});
 });
