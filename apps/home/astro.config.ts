@@ -22,6 +22,24 @@ export default defineConfig({
 	build: {
 		inlineStylesheets: "auto",
 	},
+	// Astro hashes every script and style it emits into a <meta> policy. Styles
+	// keep 'unsafe-inline' because KaTeX and view-transition names are style
+	// attributes, which a hash can't cover.
+	security: {
+		csp: {
+			directives: [
+				"default-src 'self'",
+				"connect-src 'self' https://cloudflareinsights.com",
+				"img-src 'self' data:",
+				"worker-src 'self'",
+				"object-src 'none'",
+				"base-uri 'none'",
+				"form-action 'none'",
+			],
+			scriptDirective: { resources: ["'self'", "https://static.cloudflareinsights.com"] },
+			styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
+		},
+	},
 	integrations: [mdx(), sitemap()],
 
 	// All three faces come from files already in the repo or node_modules, so a
