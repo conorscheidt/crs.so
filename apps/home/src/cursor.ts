@@ -362,12 +362,11 @@ export function initCursor(clock: Clock): void {
 
 	clock.subscribe((t, dt) => {
 		// Where rAF is held near 60 Hz on a faster display (Safari's default on
-		// ProMotion), let the compositor interpolate each step across the
-		// frames the page doesn't draw.
+		// ProMotion), the follow moves to a CSS transition: the compositor runs
+		// it at the display's rate, which no 60 Hz script can.
 		frame += (dt - frame) * 0.05;
-		setTransition(
-			capped && frame > 0.014 ? `${base}, translate ${Math.round(frame * 1000)}ms linear` : base,
-		);
+		const composited = capped && frame > 0.014;
+		setTransition(composited ? `${base}, translate 80ms cubic-bezier(0.22, 1, 0.36, 1)` : base);
 
 		if (!ring.shown || trail.size === 0) return;
 		if (stale && t - measuredAt > 50) {
@@ -386,7 +385,7 @@ export function initCursor(clock: Clock): void {
 		const tx = p[0] + v[0] * lead;
 		const ty = p[1] + v[1] * lead;
 
-		const k = ease(FOLLOW, dt);
+		const k = composited ? 1 : ease(FOLLOW, dt);
 		const px = x;
 		const py = y;
 		x += (tx - x) * k;
