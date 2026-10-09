@@ -91,6 +91,38 @@ test("projection is centered, depth-shaded, and dimple pushes outward", () => {
 	expect(near.depth).toBeLessThan(0);
 });
 
+test("the dimple's push scales with its weight", () => {
+	const f: Frame = {
+		w: 1000,
+		h: 800,
+		cosY: 0,
+		sinY: 0,
+		cosX: 0,
+		sinX: 0,
+		cosZ: 0,
+		sinZ: 0,
+		cx: 0,
+		cy: 0,
+		cursorActive: 0,
+		dimpleR: 26,
+	};
+	pose(f, 0, 0, 0);
+	const p = { x: 0.05, y: 0, z: 0, a: 1 };
+	const at = (w: number): number => {
+		const out: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
+		f.cursorActive = w;
+		project(p, f, out);
+		return out.sx;
+	};
+	const rest = at(0);
+	f.cx = rest - 10;
+	f.cy = 400;
+	const full = at(1) - rest;
+	expect(full).toBeGreaterThan(1);
+	expect(at(0.5) - rest).toBeCloseTo(full / 2, 9);
+	expect(at(0.0005)).toBe(rest);
+});
+
 test("a half turn of yaw mirrors the cloud; back dots shade smaller and fainter", () => {
 	const f: Frame = {
 		w: 600,

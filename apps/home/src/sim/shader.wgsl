@@ -158,11 +158,11 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 	let persp = CAM_Z / (CAM_Z - z2 * 0.55);
 	var px = u.res * 0.5 + vec2f(x3, y3) * k * persp;
 
-	if (u.cursor_active > 0.5) {
+	if (u.cursor_active > 0.001) {
 		let dv = px - u.cursor;
 		let r2 = dot(dv, dv);
 		let rr = u.dimple_r * u.dimple_r;
-		let push = exp(-r2 / (rr * 4.0)) * u.dimple_r * 0.7;
+		let push = exp(-r2 / (rr * 4.0)) * u.dimple_r * 0.7 * u.cursor_active;
 		px += (dv / (sqrt(r2) + 1e-4)) * push;
 	}
 

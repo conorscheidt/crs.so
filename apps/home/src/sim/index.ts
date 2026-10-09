@@ -283,9 +283,12 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		const tiltTargetX = baseTilt + s.pitchOff;
 		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * 6);
 		u.tiltZ -= u.tiltZ * Math.min(1, dt * 1.6);
-		u.cursorX = pointer.x * dpr;
-		u.cursorY = pointer.y * dpr;
-		u.cursorActive = pointer.active ? 1 : 0;
+		// The dimple eases in and out; leaving, it fades where it was last seen.
+		if (pointer.active) {
+			u.cursorX = pointer.x * dpr;
+			u.cursorY = pointer.y * dpr;
+		}
+		u.cursorActive += ((pointer.active ? 1 : 0) - u.cursorActive) * (1 - Math.exp(-14 * dt));
 		u.accentW = accentTarget(u);
 		if (visible) renderer.frame(u);
 	});

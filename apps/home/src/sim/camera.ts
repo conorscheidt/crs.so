@@ -16,7 +16,7 @@ export interface Frame {
 	sinX: number;
 	cosZ: number;
 	sinZ: number;
-	/** cursor in device px; active=0 disables the dimple */
+	/** cursor in device px; cursorActive (0..1) scales the dimple */
 	cx: number;
 	cy: number;
 	cursorActive: number;
@@ -60,12 +60,12 @@ export function project(p: Pt, f: Frame, out: Projected): void {
 	let sxp = f.w / 2 + x3 * k * persp;
 	let syp = f.h / 2 + y3 * k * persp;
 
-	if (f.cursorActive > 0.5) {
+	if (f.cursorActive > 0.001) {
 		const dx = sxp - f.cx;
 		const dy = syp - f.cy;
 		const r2 = dx * dx + dy * dy;
 		const rr = f.dimpleR * f.dimpleR;
-		const push = Math.exp(-r2 / (rr * 4)) * f.dimpleR * 0.7;
+		const push = Math.exp(-r2 / (rr * 4)) * f.dimpleR * 0.7 * f.cursorActive;
 		const d = Math.sqrt(r2) + 1e-4;
 		sxp += (dx / d) * push;
 		syp += (dy / d) * push;
