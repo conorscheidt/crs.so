@@ -19,22 +19,55 @@ function boot(): () => void {
 	return currentKind === "hub" ? bootHub(clock) : bootArticle(clock);
 }
 
-// Pages are cached parsed, so a swap clones a Document instead of fetching and
-// parsing on click. The promise is cached so concurrent warms share one fetch.
-// This is not speculation-rules prerender: that would boot a second WebGPU
-// context per target, and a swapped page is never activated anyway.
-const cache = new Map<string, Promise<Document | null>>();
+// Pages are fetched on hover and parsed once the main thread is idle, so a
+// swap clones a Document instead of fetching and parsing on click. The fetch
+// promise is cached so concurrent warms share it; a click that beats the idle
+// parse does it there. This is not speculation-rules prerender: that would
+// boot a second WebGPU context per target, and a swapped page is never
+// activated anyway.
+interface Page {
+	text: Promise<string | null>;
+	doc?: Document;
+	queued?: true;
+}
+const cache = new Map<string, Page>();
 
-function warm(url: string): Promise<Document | null> {
-	let hit = cache.get(url);
-	if (!hit) {
-		hit = fetch(url, { headers: { accept: "text/html" } })
-			.then((res) => (res.ok ? res.text() : null))
-			.then((text) => (text ? new DOMParser().parseFromString(text, "text/html") : null))
-			.catch(() => null);
-		cache.set(url, hit);
+// Neither postTask nor requestIdleCallback is everywhere yet.
+const idle = (fn: () => void): void => {
+	if (typeof scheduler !== "undefined") void scheduler.postTask(fn, { priority: "background" });
+	else if (typeof requestIdleCallback === "function") requestIdleCallback(fn, { timeout: 1000 });
+	else setTimeout(fn, 50);
+};
+
+function fetchPage(url: string): Page {
+	let page = cache.get(url);
+	if (!page) {
+		page = {
+			text: fetch(url, { headers: { accept: "text/html" } })
+				.then((res) => (res.ok ? res.text() : null))
+				.catch(() => null),
+		};
+		cache.set(url, page);
 	}
-	return hit;
+	return page;
+}
+
+const parse = (page: Page, text: string): Document => {
+	page.doc ??= new DOMParser().parseFromString(text, "text/html");
+	return page.doc;
+};
+
+function warm(url: string): void {
+	const page = fetchPage(url);
+	if (page.queued) return;
+	page.queued = true;
+	void page.text.then((text) => text && idle(() => parse(page, text)));
+}
+
+async function load(url: string): Promise<Document | null> {
+	const page = fetchPage(url);
+	const text = await page.text;
+	return text ? parse(page, text) : null;
 }
 
 // Only links this navigator swaps are worth warming. Hub sections are
@@ -47,14 +80,15 @@ function warmable(a: HTMLAnchorElement): string | null {
 	return a.pathname + a.search;
 }
 
-// Hover or focus lands ~200 ms before a click: enough to fetch and parse.
+// Hover or focus lands ~200 ms before a click: enough to fetch, and usually
+// to find an idle moment to parse.
 for (const type of ["pointerover", "focusin"] as const) {
 	document.addEventListener(
 		type,
 		(ev) => {
 			const a = (ev.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
 			const url = a && warmable(a);
-			if (url) void warm(url);
+			if (url) warm(url);
 		},
 		{ passive: true, capture: true },
 	);
@@ -99,7 +133,7 @@ async function goto(url: string, push: boolean): Promise<void> {
 	if (navigating) return;
 	navigating = true;
 	try {
-		const doc = await warm(url);
+		const doc = await load(url);
 		const main = document.querySelector("main");
 		const newMain = doc?.querySelector("main");
 		if (!(main && doc && newMain)) {
