@@ -158,11 +158,11 @@ test("projection is centered, depth-shaded, and dimple pushes outward", () => {
 		dimpleR: 26,
 	};
 	pose(f, 0, 0, 0);
-	const out: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
+	const out: Projected = { sx: 0, sy: 0, depth: 0 };
 	project({ x: 0, y: 0, z: 0, a: 1, k: 0 }, f, out);
 	// The origin sits under the cursor: dimple pushes it off-center slightly.
 	expect(Math.hypot(out.sx - 500, out.sy - 400)).toBeLessThan(f.dimpleR);
-	const near: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
+	const near: Projected = { sx: 0, sy: 0, depth: 0 };
 	f.cursorActive = 0;
 	project({ x: 0.5, y: 0, z: 0.5, a: 1, k: 0 }, f, near);
 	expect(near.depth).toBeGreaterThan(0);
@@ -188,7 +188,7 @@ test("the dimple's push scales with its weight", () => {
 	pose(f, 0, 0, 0);
 	const p = { x: 0.05, y: 0, z: 0, a: 1, k: 0 };
 	const at = (w: number): number => {
-		const out: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
+		const out: Projected = { sx: 0, sy: 0, depth: 0 };
 		f.cursorActive = w;
 		project(p, f, out);
 		return out.sx;
@@ -217,8 +217,8 @@ test("a half turn of yaw mirrors the cloud; back dots shade smaller and fainter"
 		cursorActive: 0,
 		dimpleR: 14,
 	};
-	const a: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
-	const b: Projected = { sx: 0, sy: 0, depth: 0, lit: 0 };
+	const a: Projected = { sx: 0, sy: 0, depth: 0 };
+	const b: Projected = { sx: 0, sy: 0, depth: 0 };
 	const p = { x: 0.4, y: 0.2, z: 0, a: 1, k: 0 };
 	pose(f, 0, 0, 0);
 	project(p, f, a);
@@ -229,8 +229,8 @@ test("a half turn of yaw mirrors the cloud; back dots shade smaller and fainter"
 
 	const front: Shade = { a: 0, r: 0 };
 	const back: Shade = { a: 0, r: 0 };
-	shade(0.6, 1, 0.5, 1, 4, front);
-	shade(0.6, -1, 0.5, 1, 4, back);
+	shade(0.6, 1, 0.5, 0, 1, 0, 4, front);
+	shade(0.6, -1, 0.5, 0, 1, 0, 4, back);
 	expect(back.a).toBeLessThan(front.a);
 	expect(back.r).toBeLessThan(front.r);
 });
@@ -239,14 +239,14 @@ test("dots below the minimum radius widen and fade without losing ink", () => {
 	const big: Shade = { a: 0, r: 0 };
 	const small: Shade = { a: 0, r: 0 };
 	for (const depth of [-1.2, -0.4, 0.3, 1.1]) {
-		shade(0.6, depth, 0.4, 1.3, 40, big);
-		shade(0.6, depth, 0.4, 1.3, 0.8, small);
+		shade(0.6, depth, 0.4, 0, 1.3, 0, 40, big);
+		shade(0.6, depth, 0.4, 0, 1.3, 0, 0.8, small);
 		expect(small.r).toBeGreaterThanOrEqual(MIN_DOT_R);
 		// Same alpha at full size; ink (alpha × area) is what the small dot keeps.
 		const size = (big.r / 40) * 0.8;
 		expect(small.a * small.r ** 2).toBeCloseTo(big.a * size ** 2, 9);
 	}
-	shade(0.6, 0, 0.4, 1, 4, big);
+	shade(0.6, 0, 0.4, 0, 1, 0, 4, big);
 	expect(big.r).toBeGreaterThan(MIN_DOT_R);
 });
 

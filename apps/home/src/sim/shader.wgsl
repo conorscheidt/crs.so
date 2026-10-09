@@ -1,5 +1,6 @@
 // Instanced ink dots, stateless. Mirrors sim/shapes.ts and sim/camera.ts:
-// shapes, drawn morph, rotation, projection, dimple and depth shading.
+// shapes, drawn morph, rotation, projection, dimple, strand lighting and depth
+// shading.
 
 struct U {
 	res: vec2f,
@@ -25,7 +26,10 @@ struct U {
 const PI: f32 = 3.14159265359;
 const TAU: f32 = 6.28318530718;
 const CAM_Z: f32 = 4.0;
-const LIGHT: vec3f = vec3f(-0.45, -0.55, 0.7);
+// camera.ts LIGHT: unit, view space (y down the screen), upper left front.
+const LIGHT: vec3f = vec3f(-0.4511292, -0.5513802, 0.7017566);
+const SPEC_POWER: f32 = 40.0;
+const TANGENT_EPS: f32 = 0.05;
 // N (the dot count) is prepended by gpu.ts from sim/shapes.ts.
 const MIN_DOT_R: f32 = 1.4;
 const ACCENT_SIZE: f32 = 2.5;
@@ -157,6 +161,27 @@ fn pool_dot(i: f32, phase: f32) -> vec4f {
 	return vec4f(p * (1.0 + lift), mix(a.a, b.a, t));
 }
 
+// World to view space, as camera.ts rotate(): yaw (Y), tiltX (X), tiltZ (Z).
+// c and s hold the cosines and sines of those three angles.
+fn rotate(v: vec3f, c: vec3f, s: vec3f) -> vec3f {
+	let x1 = v.x * c.x + v.z * s.x;
+	let z1 = -v.x * s.x + v.z * c.x;
+	let y2 = v.y * c.y - z1 * s.y;
+	return vec3f(x1 * c.z - y2 * s.z, x1 * s.z + y2 * c.z, v.y * s.y + z1 * c.y);
+}
+
+// camera.ts strand(): Kajiya-Kay (diffuse, highlight) for a view-space tangent
+// of any length and either sign.
+fn strand(t: vec3f) -> vec2f {
+	let len = length(t);
+	let tn = select(vec3f(0.0, 0.0, 1.0), t / max(len, 1e-7), len > 1e-7);
+	let tl = dot(tn, LIGHT);
+	let sl = sqrt(max(0.0, 1.0 - tl * tl));
+	let sv = sqrt(max(0.0, 1.0 - tn.z * tn.z));
+	let c = clamp(tl * tn.z + sl * sv, 0.0, 1.0);
+	return vec2f(sl, pow(max(c, 1e-6), SPEC_POWER));
+}
+
 struct VSOut {
 	@builtin(position) clip: vec4f,
 	@location(0) local: vec2f,
@@ -167,30 +192,27 @@ struct VSOut {
 @vertex
 fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut {
 	let i = f32(ii);
+	let angles = vec3f(u.yaw, u.tilt_x, u.tilt_z);
+	let rc = cos(angles);
+	let rs = sin(angles);
 	var p: vec4f;
 	var size_mul = 1.0;
+	// A vertex has no strand; light it as one seen end-on.
+	var tangent = vec3f(0.0, 0.0, 1.0);
 	if (ii >= u32(N)) {
 		// Icosahedron vertex accents, visible only while the icosahedron has weight.
 		p = vec4f(ICO_VERTS[ii - u32(N)], ACCENT_ALPHA * u.accent_w);
 		size_mul = ACCENT_SIZE;
 	} else {
 		p = pool_dot(i, u.phase);
+		// Dots stream along their strands, so a step in phase is a step along one.
+		tangent = rotate(pool_dot(i, u.phase + TANGENT_EPS).xyz - p.xyz, rc, rs);
 	}
 
-	// Rotation: yaw (Y), tiltX (X), tiltZ (Z), as in sim/camera.ts.
-	let cy = cos(u.yaw); let sy = sin(u.yaw);
-	let cx = cos(u.tilt_x); let sx = sin(u.tilt_x);
-	let cz = cos(u.tilt_z); let sz = sin(u.tilt_z);
-	let x1 = p.x * cy + p.z * sy;
-	let z1 = -p.x * sy + p.z * cy;
-	let y2 = p.y * cx - z1 * sx;
-	let z2 = p.y * sx + z1 * cx;
-	let x3 = x1 * cz - y2 * sz;
-	let y3 = x1 * sz + y2 * cz;
-
+	let v = rotate(p.xyz, rc, rs);
 	let k = min(u.res.x, u.res.y) * 0.3;
-	let persp = CAM_Z / (CAM_Z - z2 * 0.55);
-	var px = u.res * 0.5 + vec2f(x3, y3) * k * persp;
+	let persp = CAM_Z / (CAM_Z - v.z * 0.55);
+	var px = u.res * 0.5 + v.xy * k * persp;
 
 	if (u.cursor_active > 0.001) {
 		let dv = px - u.cursor;
@@ -200,17 +222,25 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 		px += (dv / (sqrt(r2) + 1e-4)) * push;
 	}
 
-	// Depth shading, as in camera.ts shade().
-	let pl = max(length(vec3f(x3, y3, z2)), 1e-4);
-	let lit = max(0.0, dot(vec3f(x3, y3, z2) / pl, LIGHT));
-	let dc = clamp((z2 + 1.1) / 2.2, 0.0, 1.0);
+	// Strand and depth shading, as in camera.ts shade().
+	let st = strand(tangent);
+	let dc = clamp((v.z + 1.1) / 2.2, 0.0, 1.0);
 	let dt = dc * dc * (3.0 - 2.0 * dc);
+	let occl = 0.35 + 0.65 * dt * dt;
+	let lit = st.x * occl;
+	let glint = st.y * occl;
 	// Dark ink on light paper reads thinner than light on dark at the same
 	// alpha, so density rises as ink luminance falls.
 	let lum = dot(u.ink, vec3f(0.2126, 0.7152, 0.0722));
 	let gain = 1.0 + 0.62 * (1.0 - lum);
-	let alpha = min(0.92, p.w * (0.28 + 0.72 * dt) * (0.6 + 0.5 * lit * dt) * gain);
-	let size = u.dot_r * size_mul * (0.62 + 0.38 * dt);
+	// Light ink is the light, so it gathers where the strand is lit; dark ink is
+	// the shadow, so it thins there and a glint shows the paper.
+	let night = clamp((lum - 0.25) / 0.5, 0.0, 1.0);
+	let night_tone = 0.24 + 0.63 * lit + 0.75 * glint;
+	let day_tone = (0.32 + 0.7 * (1.0 - 0.6 * lit)) * (1.0 - 0.38 * glint);
+	let tone = mix(day_tone, night_tone, night);
+	let alpha = min(0.92, p.w * (0.28 + 0.72 * dt) * tone * gain);
+	let size = u.dot_r * size_mul * (0.62 + 0.38 * dt) * (1.0 + 0.3 * glint * night);
 	// A dot under ~1.4 px covers a different amount of the pixel grid at every
 	// sub-pixel offset and twinkles as it moves; widen it and fade it instead,
 	// keeping its ink.
