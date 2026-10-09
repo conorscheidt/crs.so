@@ -526,10 +526,9 @@ html.no-native-cursor *::after {
 	contain: layout size style;
 	opacity: 0;
 	visibility: hidden;
-	/* The two moves ride separate properties. Leaving lifts on transform, and
-	   only once it is gone does translate drop it below; arriving runs both
-	   home on one curve, so -4px and 10px land together as a single 6px rise.
-	   Timings mirror MOTION.panel. */
+	pointer-events: none;
+	/* Leaving lifts on transform; translate drops it below only once it's gone,
+	   so arriving runs both home as one 6px rise. Timings mirror MOTION.panel. */
 	transform: translateY(-4px);
 	translate: 0 10px;
 	transition:
@@ -546,6 +545,7 @@ html.no-native-cursor *::after {
 .hub[data-section="about"] .panel[data-panel="about"] {
 	opacity: 1;
 	visibility: visible;
+	pointer-events: auto;
 	transform: none;
 	translate: none;
 	transition:

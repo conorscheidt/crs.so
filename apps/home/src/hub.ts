@@ -225,8 +225,7 @@ export function bootHub(clock: Clock): () => void {
 		}
 	});
 
-	// An arriving panel's first titles land wet and dry off in turn as it
-	// settles: the ones in view, from wherever its list was left scrolled.
+	// The first titles in view in an arriving panel start soft and dry in turn.
 	const dries = ".latest-title, .entry:not([hidden]) .entry-title, .cvrow h3";
 	let wet: HTMLElement[] = [];
 	let dryTimer: ReturnType<typeof setTimeout> | undefined;
