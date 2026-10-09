@@ -60,6 +60,8 @@ const CAM_Z: f32 = 4.0;
 const LIGHT: vec3f = vec3f(-0.4511292, -0.5513802, 0.7017566);
 const SPEC_POWER: f32 = 40.0;
 const TANGENT_EPS: f32 = 0.05;
+// A step ahead longer than this is a wrap, not a strand.
+const WRAP_SQ: f32 = 0.01;
 // N (the dot count) is prepended by gpu.ts from sim/shapes.ts.
 const MIN_DOT_R: f32 = 1.4;
 const ACCENT_SIZE: f32 = 2.5;
@@ -369,7 +371,12 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 		p = placed.p;
 		hot = focus_target(i, placed.t);
 		// Dots stream along their strands, so a step in phase is a step along one.
-		tangent = rotate(pool_dot(i, u.phase + TANGENT_EPS).p.xyz - p.xyz, rc, rs);
+		var d = pool_dot(i, u.phase + TANGENT_EPS).p.xyz - p.xyz;
+		// one about to wrap to the far end of its strand looks behind instead
+		if (dot(d, d) > WRAP_SQ) {
+			d = p.xyz - pool_dot(i, u.phase - TANGENT_EPS).p.xyz;
+		}
+		tangent = rotate(d, rc, rs);
 	}
 
 	let v = rotate(p.xyz, rc, rs);

@@ -17,6 +17,7 @@ import {
 	strand,
 	TANGENT_EPS,
 	type Vec3,
+	WRAP_SQ,
 } from "./camera";
 import { type Emphasis, emphasis, focusEase, focusTarget } from "./focus";
 import type { Renderer, Uniforms } from "./gpu";
@@ -142,7 +143,16 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 				const i = n === N ? s : Math.floor(((s * GOLDEN) % 1) * N);
 				evalPoint(i, u.fromObj, u.toObj, u.morphT, u.phase, p, tmp);
 				evalPoint(i, u.fromObj, u.toObj, u.morphT, u.phase + TANGENT_EPS, ahead, tmp);
-				rotate(f, ahead.x - p.x, ahead.y - p.y, ahead.z - p.z, tan);
+				let dx = ahead.x - p.x;
+				let dy = ahead.y - p.y;
+				let dz = ahead.z - p.z;
+				if (dx * dx + dy * dy + dz * dz > WRAP_SQ) {
+					evalPoint(i, u.fromObj, u.toObj, u.morphT, u.phase - TANGENT_EPS, ahead, tmp);
+					dx = p.x - ahead.x;
+					dy = p.y - ahead.y;
+					dz = p.z - ahead.z;
+				}
+				rotate(f, dx, dy, dz, tan);
 				strand(tan.x, tan.y, tan.z, st);
 				project(p, f, pr);
 				focus(u, s, focusTarget(i, u.fromObj, u.toObj, u.morphT, p.k, u.phase, u.focus));

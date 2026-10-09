@@ -29,6 +29,8 @@ export const LIGHT: readonly [number, number, number] = (() => {
 export const SPEC_POWER = 40;
 /** Phase step between the two samples that give a dot its strand direction. */
 export const TANGENT_EPS = 0.05;
+/** A step ahead longer than this (squared) is a wrap, not a strand. */
+export const WRAP_SQ = 0.01;
 
 export interface Vec3 {
 	x: number;
