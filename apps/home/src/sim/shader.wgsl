@@ -1,6 +1,7 @@
-// Instanced ink dots, stateless. Mirrors sim/shapes.ts and sim/camera.ts:
-// shapes, drawn morph, rotation, projection, dimple, strand lighting and depth
-// shading.
+// Ink dots. Mirrors sim/shapes.ts and sim/camera.ts: shapes, drawn morph,
+// rotation, projection, dimple, strand lighting and depth shading. A compute
+// pass places and shades every dot once per frame; the render pass only
+// expands each into a quad, which would otherwise redo that work per corner.
 
 struct U {
 	res: vec2f,
@@ -22,6 +23,15 @@ struct U {
 }
 
 @group(0) @binding(0) var<uniform> u: U;
+
+// One per instance; the render pass reads it back as an instance vertex buffer.
+struct Mark {
+	pos: vec2f,
+	// radius (device px), alpha
+	look: vec2f,
+}
+
+@group(0) @binding(1) var<storage, read_write> marks: array<Mark>;
 
 const PI: f32 = 3.14159265359;
 const TAU: f32 = 6.28318530718;
@@ -182,15 +192,12 @@ fn strand(t: vec3f) -> vec2f {
 	return vec2f(sl, pow(max(c, 1e-6), SPEC_POWER));
 }
 
-struct VSOut {
-	@builtin(position) clip: vec4f,
-	@location(0) local: vec2f,
-	@location(1) radius: f32,
-	@location(2) alpha: f32,
-}
-
-@vertex
-fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut {
+@compute @workgroup_size(64)
+fn advance(@builtin(global_invocation_id) gid: vec3u) {
+	let ii = gid.x;
+	if (ii >= arrayLength(&marks)) {
+		return;
+	}
 	let i = f32(ii);
 	let angles = vec3f(u.yaw, u.tilt_x, u.tilt_z);
 	let rc = cos(angles);
@@ -246,15 +253,30 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut
 	// keeping its ink.
 	let r = max(size, MIN_DOT_R);
 	let keep = size / r;
+	marks[ii] = Mark(px, vec2f(r, alpha * keep * keep * u.fade));
+}
 
+struct VSOut {
+	@builtin(position) clip: vec4f,
+	@location(0) local: vec2f,
+	@location(1) radius: f32,
+	@location(2) alpha: f32,
+}
+
+@vertex
+fn vs(
+	@builtin(vertex_index) vi: u32,
+	@location(0) pos: vec2f,
+	@location(1) look: vec2f,
+) -> VSOut {
 	let corner = vec2f(f32(vi & 1u), f32(vi >> 1u)) * 2.0 - 1.0;
-	let half = r + 1.0;
-	let quad = px + corner * half;
+	let half = look.x + 1.0;
+	let quad = pos + corner * half;
 	var out: VSOut;
 	out.clip = vec4f((quad / u.res * 2.0 - 1.0) * vec2f(1.0, -1.0), 0.0, 1.0);
 	out.local = corner * half;
-	out.radius = r;
-	out.alpha = alpha * keep * keep * u.fade;
+	out.radius = look.x;
+	out.alpha = look.y;
 	return out;
 }
 

@@ -1,9 +1,11 @@
 /**
- * WebGPU renderer: one pipeline, one ~80-byte uniform buffer and no vertex
- * buffers (draw(4, N + accents) instanced quads). The device and pipeline are
- * built once and outlive any canvas, since the hub's canvas is replaced on
- * every hub ⇄ article swap; a new canvas only configures a context. Device
- * loss, including after a bfcache restore, rebuilds them.
+ * WebGPU renderer: a compute pass places and shades every dot into a storage
+ * buffer, which the render pass then reads as an instance vertex buffer
+ * (draw(4, N + accents) quads); vertex-stage storage reads are not available
+ * in compatibility mode. The device, pipelines and buffers are built once and
+ * outlive any canvas, since the hub's canvas is replaced on every hub ⇄
+ * article swap; a new canvas only configures a context. Device loss, including
+ * after a bfcache restore, rebuilds them.
  */
 import shaderSrc from "./shader.wgsl?raw";
 import { N, N_ACCENT } from "./shapes";
@@ -43,10 +45,17 @@ export interface Gpu {
 	readonly format: GPUTextureFormat;
 	readonly pipeline: GPURenderPipeline;
 	readonly bindGroup: GPUBindGroup;
+	readonly advance: GPUComputePipeline;
+	readonly advanceGroup: GPUBindGroup;
 	readonly ubo: GPUBuffer;
+	readonly marks: GPUBuffer;
 }
 
 const FLOATS = 20;
+const COUNT = N + N_ACCENT;
+/** Bytes per instance in the marks buffer: WGSL struct Mark. */
+const MARK_BYTES = 16;
+const WORKGROUP = 64;
 const buf = new Float32Array(FLOATS);
 
 let pending: Promise<Gpu | null> | null = null;
@@ -118,10 +127,26 @@ async function build(): Promise<Gpu | null> {
 	// No canvas has a context yet, so a failure here still leaves the 2D path open.
 	device.pushErrorScope("validation");
 	const module = device.createShaderModule({ code: `const N: f32 = ${N}.0;\n${shaderSrc}` });
-	const pipeline = await device
+	const advance = device
+		.createComputePipelineAsync({ layout: "auto", compute: { module, entryPoint: "advance" } })
+		.catch(() => null);
+	const render = device
 		.createRenderPipelineAsync({
 			layout: "auto",
-			vertex: { module, entryPoint: "vs" },
+			vertex: {
+				module,
+				entryPoint: "vs",
+				buffers: [
+					{
+						arrayStride: MARK_BYTES,
+						stepMode: "instance",
+						attributes: [
+							{ shaderLocation: 0, offset: 0, format: "float32x2" },
+							{ shaderLocation: 1, offset: 8, format: "float32x2" },
+						],
+					},
+				],
+			},
 			fragment: {
 				module,
 				entryPoint: "fs",
@@ -138,8 +163,9 @@ async function build(): Promise<Gpu | null> {
 			primitive: { topology: "triangle-strip" },
 		})
 		.catch(() => null);
+	const [step, pipeline] = await Promise.all([advance, render]);
 	const invalid = await device.popErrorScope().catch(() => null);
-	if (!pipeline || invalid) {
+	if (!(step && pipeline) || invalid) {
 		device.destroy();
 		return null;
 	}
@@ -164,17 +190,28 @@ async function build(): Promise<Gpu | null> {
 		size: FLOATS * 4,
 		usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 	});
+	const marks = device.createBuffer({
+		size: COUNT * MARK_BYTES,
+		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
+	});
 	const bindGroup = device.createBindGroup({
 		layout: pipeline.getBindGroupLayout(0),
 		entries: [{ binding: 0, resource: { buffer: ubo } }],
 	});
-	return { device, format, pipeline, bindGroup, ubo };
+	const advanceGroup = device.createBindGroup({
+		layout: step.getBindGroupLayout(0),
+		entries: [
+			{ binding: 0, resource: { buffer: ubo } },
+			{ binding: 1, resource: { buffer: marks } },
+		],
+	});
+	return { device, format, pipeline, bindGroup, advance: step, advanceGroup, ubo, marks };
 }
 
 export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null {
 	const ctx = canvas.getContext("webgpu");
 	if (!ctx) return null;
-	const { device, pipeline, bindGroup, ubo } = gpu;
+	const { device, pipeline, bindGroup, advance, advanceGroup, ubo, marks } = gpu;
 	ctx.configure({ device, format: gpu.format, alphaMode: "premultiplied" });
 	let live = true;
 
@@ -203,6 +240,11 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 			buf[18] = u.accentW;
 			device.queue.writeBuffer(ubo, 0, buf);
 			const encoder = device.createCommandEncoder();
+			const step = encoder.beginComputePass();
+			step.setPipeline(advance);
+			step.setBindGroup(0, advanceGroup);
+			step.dispatchWorkgroups(Math.ceil(COUNT / WORKGROUP));
+			step.end();
 			const pass = encoder.beginRenderPass({
 				colorAttachments: [
 					{
@@ -215,7 +257,8 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 			});
 			pass.setPipeline(pipeline);
 			pass.setBindGroup(0, bindGroup);
-			pass.draw(4, N + N_ACCENT);
+			pass.setVertexBuffer(0, marks);
+			pass.draw(4, COUNT);
 			pass.end();
 			device.queue.submit([encoder.finish()]);
 		},
