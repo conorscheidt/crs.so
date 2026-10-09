@@ -148,10 +148,13 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		const e = entries.at(-1);
 		const css = e?.contentBoxSize[0];
 		if (!(e && css)) return;
-		const raw = devicePixelRatio || 1;
-		dpr = Math.min(2, raw);
+		// Take the scale from the observer itself, so dot size always matches the
+		// buffer it lands in; devicePixelRatio can disagree with it under zoom.
 		const dev = e.devicePixelContentBoxSize?.[0];
-		const k = dpr / raw;
+		const scale =
+			dev && css.inlineSize > 0 ? dev.inlineSize / css.inlineSize : devicePixelRatio || 1;
+		dpr = Math.min(2, scale);
+		const k = dpr / scale;
 		u.resW = Math.round(dev ? dev.inlineSize * k : css.inlineSize * dpr);
 		u.resH = Math.round(dev ? dev.blockSize * k : css.blockSize * dpr);
 		u.dimpleR = MOTION.cursorR * dpr;
