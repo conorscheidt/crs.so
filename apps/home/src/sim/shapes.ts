@@ -215,13 +215,16 @@ export const SHAPES = [trefoil, icosahedron, loxodrome, borromean] as const;
 /** Height of a morphing dot's arc, outward from the centre. */
 export const ARC_LIFT = 0.3;
 
+/** Share of the morph each dot spends in flight. */
+export const DRAW_W = 0.3;
+
 /**
  * Morph progress for a dot with draw key k: the target object is traced in its
- * own order. Each dot flies for about half the morph, the last leaving as the
- * first lands.
+ * own order, a short flight per dot, so the old object is undone as the new
+ * one is drawn rather than both dissolving.
  */
 export function drawnT(morphT: number, k: number): number {
-	const c = Math.min(1, Math.max(0, morphT * 1.9 - k * 0.9));
+	const c = Math.min(1, Math.max(0, (morphT - k * (1 - DRAW_W)) / DRAW_W));
 	return c * c * (3 - 2 * c);
 }
 

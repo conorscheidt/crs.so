@@ -67,6 +67,7 @@ const MIN_DOT_R: f32 = 1.4;
 const ACCENT_SIZE: f32 = 2.5;
 const ACCENT_ALPHA: f32 = 0.85;
 const ARC_LIFT: f32 = 0.3;
+const DRAW_W: f32 = 0.3;
 const LOX_SPAN: f32 = 1.38;
 // wake.ts
 const WAKE_R: f32 = 46.0;
@@ -212,7 +213,7 @@ fn shape(obj: f32, i: f32, phase: f32) -> Dot {
 }
 
 fn drawn_t(morph_t: f32, k: f32) -> f32 {
-	let c = clamp(morph_t * 1.9 - k * 0.9, 0.0, 1.0);
+	let c = clamp((morph_t - k * (1.0 - DRAW_W)) / DRAW_W, 0.0, 1.0);
 	return c * c * (3.0 - 2.0 * c);
 }
 

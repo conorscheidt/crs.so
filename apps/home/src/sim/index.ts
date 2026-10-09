@@ -7,7 +7,7 @@
  */
 import type { Clock } from "../clock";
 import { Trail } from "../cursor";
-import { MOTION } from "../motion";
+import { easeOutCubic, MOTION } from "../motion";
 import { CPU_N, createCpuRenderer } from "./cpu";
 import { flick } from "./flick";
 import { encodeFocus, type FocusSpec, focusEase, noFocus } from "./focus";
@@ -134,8 +134,9 @@ export function warmSim(): void {
 }
 
 function accentTarget(u: Uniforms): number {
-	const fromW = u.fromObj === OBJECT_INDEX.projects ? 1 - u.morphT : 0;
-	const toW = u.toObj === OBJECT_INDEX.projects ? u.morphT : 0;
+	const k = easeOutCubic(u.morphT);
+	const fromW = u.fromObj === OBJECT_INDEX.projects ? 1 - k : 0;
+	const toW = u.toObj === OBJECT_INDEX.projects ? k : 0;
 	return fromW + toW;
 }
 
@@ -348,7 +349,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		u.yaw = s.spin + held[0];
 		u.fade = Math.max(0, Math.min(1, (t - s.born) / MOTION.budget.simFade));
 
-		const baseTilt = s.pitchFrom + (s.pitchTo - s.pitchFrom) * u.morphT;
+		const baseTilt = s.pitchFrom + (s.pitchTo - s.pitchFrom) * easeOutCubic(u.morphT);
 		const tiltTargetX = baseTilt + held[1];
 		// the hand sets pitch directly; otherwise it eases back to the object's own
 		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * (dragging ? 60 : 6));
@@ -403,7 +404,8 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 					kind: "morph",
 					duration: MOTION.morph * 1000,
 					step: (t01) => {
-						u.morphT = 1 - (1 - t01) ** 3;
+						// each dot eases its own stretch of it (drawnT)
+						u.morphT = t01;
 					},
 					done: () => {
 						u.morphT = 1;
