@@ -108,6 +108,9 @@ export default defineConfig({
 	// from a unified processor. Under the default (Sätteri) the maths would stop
 	// rendering.
 	markdown: {
+		// Code blocks are <Code> components; Shiki's inline styles would also need
+		// style-src exceptions.
+		syntaxHighlight: false,
 		processor: unified({
 			remarkPlugins: [remarkMath],
 			rehypePlugins: [
