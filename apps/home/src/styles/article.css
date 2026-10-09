@@ -8,6 +8,7 @@
 	justify-content: center;
 	column-gap: var(--s3);
 	position: relative;
+	padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
 }
 
 /* ---- left rail: identity + live contents ---- */
@@ -75,6 +76,9 @@
 }
 
 @keyframes toc-fill {
+	from {
+		transform: scaleY(0);
+	}
 	to {
 		transform: scaleY(1);
 	}

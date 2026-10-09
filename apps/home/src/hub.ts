@@ -204,9 +204,10 @@ export function bootHub(clock: Clock): () => void {
 			panel?.querySelector<HTMLElement>("[data-panel-head]")?.focus({ preventScroll: true });
 		// On the sheet layout, a switch made far down a long list should land at
 		// the top of the new section rather than somewhere inside it.
-		const nav = hub.querySelector("nav");
-		if (!desktop.matches && nav) {
-			const top = nav.getBoundingClientRect().top + scrollY;
+		const nav = hub.querySelector<HTMLElement>("nav");
+		if (!desktop.matches && nav && panel) {
+			// The nav is sticky, so measure from the panel row just below it.
+			const top = panel.getBoundingClientRect().top + scrollY - nav.offsetHeight;
 			if (scrollY > top) scrollTo({ top, behavior: reducedMotion ? "instant" : "smooth" });
 		}
 		sim?.setSection(to);
