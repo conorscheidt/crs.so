@@ -4,13 +4,13 @@
  * boots and tears this down on hub ⇄ article travel, so everything here is
  * reversible: listeners hang off one AbortController.
  */
-import Lenis from "lenis";
+import type Lenis from "lenis";
 import { track } from "./analytics";
 import type { Clock } from "./clock";
 import { invalidateTargets, ring } from "./cursor";
 import { initGitBlock } from "./git";
-import { MOTION } from "./motion";
 import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
+import { smoothScroll } from "./scroll";
 import { initSearch } from "./search/client";
 import { bootSim, type Sim } from "./sim";
 import { readTheme, setThemeAttr, storeTheme } from "./theme";
@@ -29,14 +29,13 @@ export function bootHub(clock: Clock): () => void {
 		panels.set(el.dataset.panel as Section, el);
 	}
 
-	// Lenis smooths the panel lists, which only scroll internally in the desktop
-	// layout. Below the breakpoint the page scrolls instead, and a Lenis left
-	// on a list would swallow trackpad wheel events.
+	// Lenis smooths wheel scrolling in the panel lists, which only scroll
+	// internally in the desktop layout. Below the breakpoint the page scrolls
+	// instead, and a Lenis left on a list would swallow its wheel events.
 	const desktop = matchMedia("(width >= 900px)");
 	const lenises = new Map<Section, Lenis>();
 	const syncLenis = (): void => {
-		const want = desktop.matches && !reducedMotion;
-		if (!want) {
+		if (!desktop.matches) {
 			for (const l of lenises.values()) l.destroy();
 			lenises.clear();
 			return;
@@ -45,17 +44,8 @@ export function bootHub(clock: Clock): () => void {
 		for (const [name, panel] of panels) {
 			const wrapper = panel.querySelector<HTMLElement>("[data-scroll]");
 			if (!wrapper?.firstElementChild) continue;
-			lenises.set(
-				name,
-				new Lenis({
-					wrapper,
-					content: wrapper.firstElementChild as HTMLElement,
-					autoRaf: false,
-					lerp: MOTION.scrollLerp,
-					wheelMultiplier: 1,
-					syncTouch: false,
-				}),
-			);
+			const l = smoothScroll({ wrapper, content: wrapper.firstElementChild as HTMLElement });
+			if (l) lenises.set(name, l);
 		}
 	};
 	syncLenis();

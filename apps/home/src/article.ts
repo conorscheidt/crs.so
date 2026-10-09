@@ -2,11 +2,12 @@
  * Article runtime: Lenis on the page scroll, in-page anchor jumps and the
  * article features. Booted and torn down by app.ts, like the hub.
  */
-import Lenis from "lenis";
+import type Lenis from "lenis";
 import { track, trackReadDepth } from "./analytics";
 import { initArticleFeatures } from "./article-features";
 import type { Clock } from "./clock";
 import { MOTION } from "./motion";
+import { smoothScroll } from "./scroll";
 
 /**
  * In-page anchors (ToC, footnote references, ↩ backrefs) glide with Lenis,
@@ -26,7 +27,11 @@ function initAnchors(lenis: Lenis | null): () => void {
 		ev.preventDefault();
 		history.pushState(null, "", a.hash);
 		if (lenis) lenis.scrollTo(target, { offset: -MOTION.anchorInset });
-		else target.scrollIntoView({ block: "start" });
+		else
+			target.scrollIntoView({
+				block: "start",
+				behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+			});
 		target.setAttribute("tabindex", "-1");
 		target.focus({ preventScroll: true });
 	};
@@ -37,27 +42,20 @@ function initAnchors(lenis: Lenis | null): () => void {
 export function bootArticle(clock: Clock): () => void {
 	if (!document.querySelector(".apage")) return () => {};
 	const cleanups: (() => void)[] = [];
-	let lenis: Lenis | null = null;
+	const lenis = smoothScroll();
 
-	if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
-		const l = new Lenis({
-			autoRaf: false,
-			lerp: MOTION.scrollLerp,
-			wheelMultiplier: 1,
-			syncTouch: false,
-		});
-		lenis = l;
-		cleanups.push(clock.subscribe((t) => l.raf(t)));
+	if (lenis) {
+		cleanups.push(clock.subscribe((t) => lenis.raf(t)));
 		// Lenis observes html/body, whose height is pinned to the viewport, so
 		// content growth never fires it and the scroll limit goes stale. Observe
 		// the page grid instead.
 		const page = document.querySelector(".apage");
 		if (page) {
-			const ro = new ResizeObserver(() => l.resize());
+			const ro = new ResizeObserver(() => lenis.resize());
 			ro.observe(page);
 			cleanups.push(() => ro.disconnect());
 		}
-		cleanups.push(() => l.destroy());
+		cleanups.push(() => lenis.destroy());
 	}
 
 	track("post-open");
