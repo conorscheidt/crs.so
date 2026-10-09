@@ -8,7 +8,7 @@
 import type { Clock } from "../clock";
 import { Trail } from "../cursor";
 import { easeOutCubic, MOTION } from "../motion";
-import { CPU_N, createCpuRenderer } from "./cpu";
+import { CPU_N, CPU_N_TOUCH, createCpuRenderer } from "./cpu";
 import { flick } from "./flick";
 import { encodeFocus, type FocusSpec, focusEase, noFocus } from "./focus";
 import {
@@ -246,7 +246,8 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 				observe();
 			}
 			// The static frame draws once, so it can afford every dot.
-			renderer = createCpuRenderer(canvas, reduced ? N : CPU_N);
+			const touch = matchMedia("(pointer: coarse)").matches;
+			renderer = createCpuRenderer(canvas, reduced ? N : touch ? CPU_N_TOUCH : CPU_N);
 		}
 		if (!reduced && Number.isNaN(s.born)) s.born = performance.now();
 		draw();

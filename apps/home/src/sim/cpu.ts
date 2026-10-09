@@ -30,6 +30,8 @@ const SIDE = Math.sqrt(Math.PI);
 
 /** Dots drawn per animated frame. */
 export const CPU_N = 3000;
+/** Phones on the fallback are the slowest devices the site meets. */
+export const CPU_N_TOUCH = 1500;
 const GOLDEN = 0.618_033_988_75;
 
 /**
