@@ -96,12 +96,21 @@ async function gitSummary(req: Request): Promise<Response> {
 	}
 }
 
+// No asset matched. Under a hashed path that is usually a deploy still
+// reaching this location, and the asset rules would mark the miss immutable,
+// so the 404 page goes out uncached instead.
+async function notFound(env: Env, url: URL): Promise<Response> {
+	const page = await env.ASSETS.fetch(new URL("/404", url));
+	const headers = new Headers(page.headers);
+	headers.set("cache-control", "no-store");
+	return new Response(page.body, { status: 404, headers });
+}
+
 export default {
 	fetch(request, env) {
 		const url = new URL(request.url);
 		if (url.pathname === "/api/e") return record(request, env, url.origin);
 		if (url.pathname === "/api/git") return gitSummary(request);
-		// No asset matched; let the asset router answer so the 404 page is served.
-		return env.ASSETS.fetch(request);
+		return notFound(env, url);
 	},
 } satisfies ExportedHandler<Env>;

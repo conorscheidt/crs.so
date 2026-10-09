@@ -19,9 +19,10 @@
 		"directory": "./dist",
 		"binding": "ASSETS",
 		"run_worker_first": ["/api/*"],
+		// no not_found_handling: misses reach the Worker, which serves the 404
+		// page uncached
 		// matches Astro's trailingSlash: "never"
-		"html_handling": "drop-trailing-slash",
-		"not_found_handling": "404-page"
+		"html_handling": "drop-trailing-slash"
 	},
 
 	// Cache in front of the Worker, keyed by version and driven by the
