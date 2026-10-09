@@ -10,6 +10,7 @@ import { Trail } from "../cursor";
 import { MOTION } from "../motion";
 import { CPU_N, createCpuRenderer } from "./cpu";
 import { flick } from "./flick";
+import { encodeFocus, type FocusSpec, focusEase, noFocus } from "./focus";
 import {
 	acquireGpu,
 	attachGpu,
@@ -20,6 +21,8 @@ import {
 	type Uniforms,
 } from "./gpu";
 import { BASE_PITCH, N, OBJECT_INDEX, type Section } from "./shapes";
+
+export type { FocusSpec } from "./focus";
 
 export interface Sim {
 	setSection: (s: Section) => void;
@@ -33,6 +36,11 @@ export interface Sim {
 	dragBy: (dx: number, dy: number, t: number) => void;
 	endDrag: (t: number, coast?: boolean) => void;
 	excite: (strength?: number) => void;
+	/**
+	 * Emphasise part of the current object, or nothing. The part fades in and
+	 * out; one part replaced by another crossfades.
+	 */
+	setFocus: (spec: FocusSpec | null) => void;
 	/** Skip drawing while nothing can see the canvas; time keeps running. */
 	setVisible: (visible: boolean) => void;
 	/** Let go of the canvas. The pose and the GPU device wait for the next one. */
@@ -92,6 +100,8 @@ function initState(initial: Section): State {
 			dt: 0,
 			cursorVX: 0,
 			cursorVY: 0,
+			focus: noFocus(),
+			focusW: 0,
 		},
 		spin: 0,
 		yawOff: 0,
@@ -134,6 +144,9 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	u.cursorActive = 0;
 	u.cursorVX = 0;
 	u.cursorVY = 0;
+	// Whatever was pointed at went with the last hub.
+	encodeFocus(null, u.focus);
+	u.focusW = 0;
 	// The theme can flip while the hub is away.
 	[u.inkR, u.inkG, u.inkB] = readInk();
 
@@ -251,6 +264,8 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	connect();
 
 	if (reduced) {
+		// Pointing in and out re-renders once per frame at most.
+		let restage = 0;
 		return {
 			kind: "static",
 			setSection(next) {
@@ -266,8 +281,17 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 			dragBy() {},
 			endDrag() {},
 			excite() {},
+			setFocus(spec) {
+				encodeFocus(spec, u.focus);
+				u.focusW = u.focus.obj >= 0 ? 1 : 0;
+				restage ||= requestAnimationFrame(() => {
+					restage = 0;
+					renderStatic();
+				});
+			},
 			detach() {
 				detached = true;
+				cancelAnimationFrame(restage);
 				offLost();
 				ro.disconnect();
 				dprQuery?.removeEventListener("change", onDpr);
@@ -344,6 +368,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		wasActive = pointer.active;
 		u.cursorActive += ((pointer.active ? 1 : 0) - u.cursorActive) * (1 - Math.exp(-14 * dt));
 		u.accentW = accentTarget(u);
+		u.focusW += ((u.focus.obj >= 0 ? 1 : 0) - u.focusW) * focusEase(dt);
 		if (visible) {
 			// Motion carries over only from the frame just before. After a long
 			// pause (a hidden tab, a bfcache restore) the wake settles too.
@@ -421,6 +446,9 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		},
 		excite(strength = 1): void {
 			s.exciteLevel = Math.max(s.exciteLevel, Math.min(1, strength));
+		},
+		setFocus(spec: FocusSpec | null): void {
+			encodeFocus(spec, u.focus);
 		},
 		detach(): void {
 			detached = true;

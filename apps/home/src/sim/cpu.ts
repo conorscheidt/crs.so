@@ -18,6 +18,7 @@ import {
 	TANGENT_EPS,
 	type Vec3,
 } from "./camera";
+import { type Emphasis, emphasis, focusEase, focusTarget } from "./focus";
 import type { Renderer, Uniforms } from "./gpu";
 import { ACCENT_ALPHA, ACCENT_SIZE, evalPoint, ICO_VERTS, N, N_ACCENT, type Pt } from "./shapes";
 import { streak } from "./shutter";
@@ -46,17 +47,27 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 	const sh: Shade = { a: 0, r: 0 };
 	const f: Frame = { w: 0, h: 0, cosY: 1, sinY: 0, cosX: 1, sinX: 0, cosZ: 1, sinZ: 0 };
 	const n = Math.min(pool, N);
+	const em: Emphasis = { a: 1, r: 1 };
 	/**
-	 * per drawn dot, then per accent: wake offset x, y, its velocity x, y, and
-	 * where the dot was last drawn
+	 * per drawn dot, then per accent: wake offset x, y, its velocity x, y,
+	 * where the dot was last drawn, and its eased share of the focus
 	 */
-	const wake = new Float32Array((n + N_ACCENT) * 6);
+	const wake = new Float32Array((n + N_ACCENT) * 7);
 	const force: [number, number] = [0, 0];
 	const sx: [number, number] = [0, 0];
 	const sy: [number, number] = [0, 0];
 	/** the next frame starts the wake and the streaks afresh */
 	let settle = true;
 	let dt = 0;
+	let ease = 1;
+
+	/** Ease slot j's share of the focus toward `hot`, and shade for it. */
+	const focus = (u: Uniforms, j: number, hot: number): void => {
+		const o = j * 7 + 6;
+		const h = (wake[o] as number) + (hot - (wake[o] as number)) * ease;
+		wake[o] = h;
+		emphasis(u.focusW, h, em);
+	};
 
 	/**
 	 * Advance slot j's wake and draw it as a square of the shaded size or, when
@@ -64,7 +75,7 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 	 * `scale` is the projection's, as in camera.ts project().
 	 */
 	const put = (u: Uniforms, j: number, decay: number, scale: number): void => {
-		const o = j * 6;
+		const o = j * 7;
 		const ox = wake[o] as number;
 		const oy = wake[o + 1] as number;
 		wakeForce(
@@ -115,6 +126,7 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 			if (settle) wake.fill(0);
 			dt = settle ? 0 : u.dt;
 			settle = false;
+			ease = focusEase(dt);
 			const decay = Math.exp(-WAKE_W0 * dt);
 			const scale = Math.min(u.resW, u.resH) * 0.3;
 			ctx.clearRect(0, 0, u.resW, u.resH);
@@ -133,7 +145,8 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 				rotate(f, ahead.x - p.x, ahead.y - p.y, ahead.z - p.z, tan);
 				strand(tan.x, tan.y, tan.z, st);
 				project(p, f, pr);
-				shade(p.a, pr.depth, st.diff, st.spec, gain, night, dotR, sh);
+				focus(u, s, focusTarget(i, u.fromObj, u.toObj, u.morphT, p.k, u.phase, u.focus));
+				shade(p.a * em.a, pr.depth, st.diff, st.spec, gain, night, dotR * em.r, sh);
 				put(u, s, decay, scale);
 			}
 			if (u.accentW > 0.01) {
@@ -145,7 +158,9 @@ export function createCpuRenderer(canvas: HTMLCanvasElement, pool = CPU_N): Rend
 					p.z = v[2];
 					p.a = ACCENT_ALPHA * u.accentW;
 					project(p, f, pr);
-					shade(p.a, pr.depth, st.diff, st.spec, gain, night, u.dotR * ACCENT_SIZE, sh);
+					focus(u, n + j, u.focus.obj === 1 && u.focus.vertex === j ? 1 : 0);
+					const r = u.dotR * ACCENT_SIZE * em.r;
+					shade(p.a * em.a, pr.depth, st.diff, st.spec, gain, night, r, sh);
 					put(u, n + j, decay, scale);
 				}
 			}

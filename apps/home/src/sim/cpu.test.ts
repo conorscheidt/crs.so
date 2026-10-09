@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { CPU_N, createCpuRenderer } from "./cpu";
+import { BRIGHT, encodeFocus, type FocusSpec, GROW, noFocus, RECEDE } from "./focus";
 import type { Uniforms } from "./gpu";
 import { N } from "./shapes";
 
@@ -10,6 +11,8 @@ function fakeCanvas(): {
 	dots: () => number;
 	/** centre of every square drawn this frame, x then y */
 	at: number[];
+	/** ink of every square drawn this frame */
+	each: number[];
 	streaks: () => number;
 } {
 	let ink = 0;
@@ -17,6 +20,7 @@ function fakeCanvas(): {
 	let streaks = 0;
 	let finite = true;
 	const at: number[] = [];
+	const each: number[] = [];
 	const line = [0, 0, 0, 0];
 	const ctx = {
 		globalAlpha: 1,
@@ -45,12 +49,14 @@ function fakeCanvas(): {
 			dots = 0;
 			streaks = 0;
 			at.length = 0;
+			each.length = 0;
 		},
 		fillRect(x: number, y: number, w: number, h: number): void {
 			if (!Number.isFinite(x + y + w + h + this.globalAlpha)) finite = false;
 			ink += this.globalAlpha * w * h;
 			dots++;
 			at.push(x + w / 2, y + h / 2);
+			each.push(this.globalAlpha * w * h);
 		},
 	};
 	const canvas = { getContext: () => ctx, width: 0, height: 0 } as unknown as HTMLCanvasElement;
@@ -59,6 +65,7 @@ function fakeCanvas(): {
 		ink: () => (finite ? ink : Number.NaN),
 		dots: () => dots,
 		at,
+		each,
 		streaks: () => streaks,
 	};
 }
@@ -87,6 +94,8 @@ const uniforms = (obj: number, inkLum: number): Uniforms => ({
 	dt: 0,
 	cursorVX: 0,
 	cursorVY: 0,
+	focus: noFocus(),
+	focusW: 0,
 });
 
 test("the sampled fallback carries the ink of every dot", () => {
@@ -159,4 +168,53 @@ test("the fallback streaks a fast spin without changing its ink", () => {
 		expect(fast.dots()).toBe(still.dots());
 		expect(fast.ink() / still.ink()).toBeCloseTo(1, 6);
 	}
+});
+
+test("a focused part gains ink and grows while the rest recedes", () => {
+	const spec: Record<number, FocusSpec> = {
+		0: { weeks: [10, 11, 12] },
+		1: { vertex: 4 },
+		2: { latitudes: [0.3] },
+		3: { rings: [1] },
+	};
+	for (let obj = 0; obj < 4; obj++) {
+		const plain = fakeCanvas();
+		const lit = fakeCanvas();
+		createCpuRenderer(plain.canvas)?.frame(uniforms(obj, 0.12));
+		const u = { ...uniforms(obj, 0.12), focus: noFocus(), focusW: 1 };
+		encodeFocus(spec[obj] ?? null, u.focus);
+		// A held frame lands every dot on its share at once.
+		createCpuRenderer(lit.canvas)?.frame(u);
+		expect(lit.dots()).toBe(plain.dots());
+		let receded = 0;
+		let raised = 0;
+		for (let j = 0; j < plain.each.length; j++) {
+			// Same dots in the same places; only their ink differs.
+			expect(lit.at[2 * j]).toBeCloseTo(plain.at[2 * j] as number, 9);
+			const k = (lit.each[j] as number) / (plain.each[j] as number);
+			expect(k).toBeGreaterThan(RECEDE - 1e-6);
+			expect(k).toBeLessThan(BRIGHT * GROW ** 2 + 1e-6);
+			if (k < RECEDE + 1e-6) receded++;
+			else if (k > 1) raised++;
+		}
+		expect(receded).toBeGreaterThan(plain.dots() / 2);
+		expect(raised).toBeGreaterThan(50);
+	}
+});
+
+test("a focus fades in over its time constant, frame by frame", () => {
+	const c = fakeCanvas();
+	const r = createCpuRenderer(c.canvas);
+	const u = { ...uniforms(3, 0.12), dt: 1 / 60, focus: noFocus(), focusW: 0 };
+	r?.frame(u);
+	const before = c.ink();
+	encodeFocus({ rings: [0] }, u.focus);
+	u.focusW = 1;
+	r?.frame(u);
+	const first = c.ink();
+	for (let j = 0; j < 60; j++) r?.frame(u);
+	const settled = c.ink();
+	// Recession lands with the fade; the ring's own gain eases in after it.
+	expect(first).toBeLessThan(before);
+	expect(settled).toBeGreaterThan(first);
 });

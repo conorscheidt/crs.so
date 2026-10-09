@@ -7,6 +7,7 @@
  * article swap; a new canvas only configures a context. Device loss, including
  * after a bfcache restore, rebuilds them.
  */
+import type { Focus } from "./focus";
 import shaderSrc from "./shader.wgsl?raw";
 import { N, N_ACCENT } from "./shapes";
 
@@ -36,6 +37,9 @@ export interface Uniforms {
 	/** device px/s */
 	cursorVX: number;
 	cursorVY: number;
+	focus: Focus;
+	/** 0..1, the fade in and out of any focus */
+	focusW: number;
 }
 
 export interface Renderer {
@@ -60,12 +64,13 @@ export interface Gpu {
 	readonly marks: GPUBuffer;
 }
 
-const FLOATS = 24;
+const FLOATS = 36;
 const COUNT = N + N_ACCENT;
 /** Bytes per instance in the marks buffer: WGSL struct Mark. */
-const MARK_BYTES = 40;
+const MARK_BYTES = 48;
 const WORKGROUP = 64;
 const buf = new Float32Array(FLOATS);
+const words = new Uint32Array(buf.buffer);
 
 let pending: Promise<Gpu | null> | null = null;
 /** undefined while nothing has settled, so callers can attach synchronously */
@@ -253,6 +258,13 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 			buf[19] = settle ? 0 : u.dt;
 			buf[20] = u.cursorVX;
 			buf[21] = u.cursorVY;
+			buf[22] = u.focus.obj;
+			buf[23] = u.focusW;
+			words[24] = u.focus.weeksLo;
+			words[25] = u.focus.weeksHi;
+			buf[26] = u.focus.vertex;
+			buf[27] = u.focus.rings;
+			buf.set(u.focus.lats, 28);
 			device.queue.writeBuffer(ubo, 0, buf);
 			const encoder = device.createCommandEncoder();
 			if (settle) encoder.clearBuffer(marks);

@@ -1,9 +1,9 @@
-// Ink dots. Mirrors sim/shapes.ts, sim/camera.ts, sim/wake.ts and
-// sim/shutter.ts: shapes, drawn morph, rotation, projection, strand lighting,
-// depth shading, the cursor's wake and the streaks of fast dots. A compute
-// pass places, shades and advances every dot once per frame; the render pass
-// only expands each into a quad, which would otherwise redo that work per
-// corner.
+// Ink dots. Mirrors sim/shapes.ts, sim/camera.ts, sim/wake.ts, sim/shutter.ts
+// and sim/focus.ts: shapes, drawn morph, rotation, projection, strand
+// lighting, depth shading, the cursor's wake, the streaks of fast dots and
+// the emphasis of a focused part. A compute pass places, shades and advances
+// every dot once per frame; the render pass only expands each into a quad,
+// which would otherwise redo that work per corner.
 
 struct U {
 	res: vec2f,
@@ -26,7 +26,13 @@ struct U {
 	dt: f32,
 	// device px/s
 	cursor_vel: vec2f,
-	pad: vec2f,
+	// focus.ts Focus: the object named (-1 for none), then the fade
+	focus_obj: f32,
+	focus_w: f32,
+	focus_weeks: vec2u,
+	focus_vertex: f32,
+	focus_rings: f32,
+	focus_lat: array<vec4f, 2>,
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -41,6 +47,8 @@ struct Mark {
 	tail: vec2f,
 	// radius (device px), alpha
 	look: vec2f,
+	// eased share of the focus; y is unused
+	heat: vec2f,
 }
 
 @group(0) @binding(1) var<storage, read_write> marks: array<Mark>;
@@ -57,6 +65,7 @@ const MIN_DOT_R: f32 = 1.4;
 const ACCENT_SIZE: f32 = 2.5;
 const ACCENT_ALPHA: f32 = 0.85;
 const ARC_LIFT: f32 = 0.3;
+const LOX_SPAN: f32 = 1.38;
 // wake.ts
 const WAKE_R: f32 = 46.0;
 const WAKE_PUSH: f32 = 1700.0;
@@ -68,6 +77,15 @@ const SHUTTER_TO: f32 = 1400.0;
 const SHUTTER_EXPOSURE: f32 = 0.012;
 const SHUTTER_MAX: f32 = 16.0;
 const SHUTTER_JUMP: f32 = 0.4;
+// focus.ts
+const FOCUS_TAU: f32 = 0.11;
+const RECEDE: f32 = 0.35;
+const BRIGHT: f32 = 2.0;
+const GROW: f32 = 1.5;
+const WEEKS: f32 = 52.0;
+const FOCUS_LATS: u32 = 8u;
+const LAT_BAND: f32 = 0.07;
+const VERTEX_FALL: f32 = 0.55;
 
 const ICO_VERTS = array<vec3f, 12>(
 	vec3f(0.0, 0.5257311, 0.8506508), vec3f(0.0, 0.5257311, -0.8506508),
@@ -103,6 +121,11 @@ fn hash(i: f32, salt: f32) -> f32 {
 	return fract(sin(i * 127.1 + salt * 311.7) * 43758.5453);
 }
 
+// knotT() in shapes.ts.
+fn knot_t(i: f32, phase: f32) -> f32 {
+	return fract(i / N + phase * (0.26 / TAU));
+}
+
 fn trefoil(i: f32, phase: f32) -> Dot {
 	let uu = (i / N) * TAU + phase * 0.26;
 	let w = 2.0 + cos(3.0 * uu);
@@ -114,12 +137,16 @@ fn trefoil(i: f32, phase: f32) -> Dot {
 	return Dot(p, 0.41, i / N);
 }
 
+// icoS() in shapes.ts.
+fn ico_s(i: f32, phase: f32) -> f32 {
+	return fract(hash(i, 5.0) + phase * (0.1 + hash(i, 4.0) * 0.22));
+}
+
 fn icosahedron(i: f32, phase: f32) -> Dot {
 	let e = ICO_EDGES[u32(i) % 30u];
 	let a = ICO_VERTS[e.x];
 	let b = ICO_VERTS[e.y];
-	let speed = 0.1 + hash(i, 4.0) * 0.22;
-	let s = fract(hash(i, 5.0) + phase * speed);
+	let s = ico_s(i, phase);
 	let p = mix(a, b, s) + (vec3f(hash(i, 6.0), hash(i, 7.0), hash(i, 8.0)) - 0.5) * 0.035;
 	// icoKey() in the TS
 	let h0 = ICO_HOP[e.x];
@@ -133,12 +160,16 @@ fn icosahedron(i: f32, phase: f32) -> Dot {
 	return Dot(p, 0.36, (min(h0, h1) + along) / ICO_DEPTH);
 }
 
+// loxU() in shapes.ts.
+fn lox_u(i: f32, phase: f32) -> f32 {
+	return fract(hash(i, 5.0) + phase * (0.05 + hash(i, 4.0) * 0.045));
+}
+
 fn loxodrome(i: f32, phase: f32) -> Dot {
 	let strands = 4.0;
 	let k = i % strands;
-	let speed = 0.05 + hash(i, 4.0) * 0.045;
-	let u = fract(hash(i, 5.0) + phase * speed);
-	let lat = (u * 2.0 - 1.0) * 1.38;
+	let u = lox_u(i, phase);
+	let lat = (u * 2.0 - 1.0) * LOX_SPAN;
 	let merc = log(tan(0.78539816 + lat / 2.0));
 	let lon = 3.4 * merc + (k * TAU) / strands + phase * 0.1;
 	let cl = cos(lat);
@@ -181,17 +212,70 @@ fn drawn_t(morph_t: f32, k: f32) -> f32 {
 	return c * c * (3.0 - 2.0 * c);
 }
 
+struct Placed {
+	// position, alpha
+	p: vec4f,
+	// how far the dot has been drawn into to_obj
+	t: f32,
+}
+
 // evalPoint() in the TS: position and alpha of pool dot i mid-morph.
-fn pool_dot(i: f32, phase: f32) -> vec4f {
+fn pool_dot(i: f32, phase: f32) -> Placed {
 	let b = shape(u.to_obj, i, phase);
 	if (u.morph_t >= 1.0 || u.from_obj == u.to_obj) {
-		return vec4f(b.p, b.a);
+		return Placed(vec4f(b.p, b.a), 1.0);
 	}
 	let a = shape(u.from_obj, i, phase);
 	let t = drawn_t(u.morph_t, b.k);
 	let p = mix(a.p, b.p, t);
 	let lift = ARC_LIFT * sin(PI * t) / max(length(p), 1e-4);
-	return vec4f(p * (1.0 + lift), mix(a.a, b.a, t));
+	return Placed(vec4f(p * (1.0 + lift), mix(a.a, b.a, t)), t);
+}
+
+// focusHot() in focus.ts.
+fn focus_hot(obj: f32, i: f32, phase: f32) -> f32 {
+	if (obj != u.focus_obj) {
+		return 0.0;
+	}
+	switch (u32(obj)) {
+		case 0u: {
+			let w = min(u32(knot_t(i, phase) * WEEKS), u32(WEEKS) - 1u);
+			let word = select(u.focus_weeks.x, u.focus_weeks.y, w >= 32u);
+			return f32((word >> (w % 32u)) & 1u);
+		}
+		case 1u: {
+			let e = ICO_EDGES[u32(i) % 30u];
+			let v = u32(u.focus_vertex);
+			let s = ico_s(i, phase);
+			if (e.x == v) {
+				return 1.0 - VERTEX_FALL * s;
+			}
+			if (e.y == v) {
+				return 1.0 - VERTEX_FALL * (1.0 - s);
+			}
+			return 0.0;
+		}
+		case 2u: {
+			let lat = (lox_u(i, phase) * 2.0 - 1.0) * LOX_SPAN;
+			var m = 0.0;
+			for (var j = 0u; j < FOCUS_LATS; j++) {
+				let d = (lat - u.focus_lat[j / 4u][j % 4u]) / LAT_BAND;
+				m = max(m, exp(-d * d));
+			}
+			return m;
+		}
+		default: {
+			return f32((u32(u.focus_rings) >> (u32(i) % 3u)) & 1u);
+		}
+	}
+}
+
+// focusTarget() in focus.ts.
+fn focus_target(i: f32, t: f32) -> f32 {
+	if (u.focus_obj < 0.0) {
+		return 0.0;
+	}
+	return t * focus_hot(u.to_obj, i, u.phase) + (1.0 - t) * focus_hot(u.from_obj, i, u.phase);
 }
 
 // World to view space, as camera.ts rotate(): yaw (Y), tiltX (X), tiltZ (Z).
@@ -269,16 +353,21 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let rs = sin(angles);
 	var p: vec4f;
 	var size_mul = 1.0;
+	var hot = 0.0;
 	// A vertex has no strand; light it as one seen end-on.
 	var tangent = vec3f(0.0, 0.0, 1.0);
 	if (ii >= u32(N)) {
 		// Icosahedron vertex accents, visible only while the icosahedron has weight.
-		p = vec4f(ICO_VERTS[ii - u32(N)], ACCENT_ALPHA * u.accent_w);
+		let j = ii - u32(N);
+		p = vec4f(ICO_VERTS[j], ACCENT_ALPHA * u.accent_w);
 		size_mul = ACCENT_SIZE;
+		hot = select(0.0, 1.0, u.focus_obj == 1.0 && f32(j) == u.focus_vertex);
 	} else {
-		p = pool_dot(i, u.phase);
+		let placed = pool_dot(i, u.phase);
+		p = placed.p;
+		hot = focus_target(i, placed.t);
 		// Dots stream along their strands, so a step in phase is a step along one.
-		tangent = rotate(pool_dot(i, u.phase + TANGENT_EPS).xyz - p.xyz, rc, rs);
+		tangent = rotate(pool_dot(i, u.phase + TANGENT_EPS).p.xyz - p.xyz, rc, rs);
 	}
 
 	let v = rotate(p.xyz, rc, rs);
@@ -298,6 +387,12 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let len = streak(dist, k);
 	m.tail = select(vec2f(0.0), moved * (-len / max(dist, 1e-4)), len > 0.0);
 	m.pos = pos;
+	// focusEase() and emphasis() in focus.ts.
+	let ease = select(1.0, 1.0 - exp(-u.dt / FOCUS_TAU), u.dt > 0.0);
+	m.heat.x += (hot - m.heat.x) * ease;
+	let h = min(m.heat.x, u.focus_w);
+	let emph_a = 1.0 - (1.0 - RECEDE) * u.focus_w + (BRIGHT - RECEDE) * h;
+	let emph_r = 1.0 + (GROW - 1.0) * h;
 
 	// Strand and depth shading, as in camera.ts shade().
 	let st = strand(tangent);
@@ -316,8 +411,8 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let night_tone = 0.24 + 0.63 * lit + 0.75 * glint;
 	let day_tone = (0.32 + 0.7 * (1.0 - 0.6 * lit)) * (1.0 - 0.38 * glint);
 	let tone = mix(day_tone, night_tone, night);
-	let alpha = min(0.92, p.w * (0.28 + 0.72 * dt) * tone * gain);
-	let size = u.dot_r * size_mul * (0.62 + 0.38 * dt) * (1.0 + 0.3 * glint * night);
+	let alpha = min(0.92, p.w * emph_a * (0.28 + 0.72 * dt) * tone * gain);
+	let size = u.dot_r * size_mul * emph_r * (0.62 + 0.38 * dt) * (1.0 + 0.3 * glint * night);
 	// A dot under ~1.4 px covers a different amount of the pixel grid at every
 	// sub-pixel offset and twinkles as it moves; widen it and fade it instead,
 	// keeping its ink.

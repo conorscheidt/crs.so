@@ -45,6 +45,12 @@ export interface Pt {
 	k: number;
 }
 
+/** Where dot i sits along the trefoil, as a fraction of the knot from its start. */
+export function knotT(i: number, n: number, phase: number): number {
+	const t = i / n + phase * (0.26 / TAU);
+	return t - Math.floor(t);
+}
+
 /** 0 · Index: trefoil knot, points streaming along the curve. */
 export function trefoil(i: number, n: number, phase: number, out: Pt): void {
 	const u = (i / n) * TAU + phase * 0.26;
@@ -120,18 +126,30 @@ export function icoKey(h0: number, h1: number, s: number): number {
 	return (Math.min(h0, h1) + along) / ICO_DEPTH;
 }
 
+/** How far dot i is along its edge, ICO_EDGES[i % 30], from the first vertex. */
+export function icoS(i: number, phase: number): number {
+	return (hash(i, 5) + phase * (0.1 + hash(i, 4) * 0.22)) % 1;
+}
+
 /** 1 · Projects: points streaming along the 30 icosahedron edges. */
 export function icosahedron(i: number, _n: number, phase: number, out: Pt): void {
 	const e = ICO_EDGES[i % 30] as readonly [number, number];
 	const a = ICO_VERTS[e[0]] as readonly [number, number, number];
 	const b = ICO_VERTS[e[1]] as readonly [number, number, number];
-	const speed = 0.1 + hash(i, 4) * 0.22;
-	const s = (hash(i, 5) + phase * speed) % 1;
+	const s = icoS(i, phase);
 	out.x = a[0] + (b[0] - a[0]) * s + (hash(i, 6) - 0.5) * 0.035;
 	out.y = a[1] + (b[1] - a[1]) * s + (hash(i, 7) - 0.5) * 0.035;
 	out.z = a[2] + (b[2] - a[2]) * s + (hash(i, 8) - 0.5) * 0.035;
 	out.a = 0.36;
 	out.k = icoKey(ICO_HOP[e[0]] as number, ICO_HOP[e[1]] as number, s);
+}
+
+/** Latitude reach of the loxodrome (rad); a dot's latitude is (u·2 − 1)·LOX_SPAN. */
+export const LOX_SPAN = 1.38;
+
+/** How far dot i has climbed its rhumb line, pole to pole, in [0, 1). */
+export function loxU(i: number, phase: number): number {
+	return (hash(i, 5) + phase * (0.05 + hash(i, 4) * 0.045)) % 1;
 }
 
 /**
@@ -141,9 +159,8 @@ export function icosahedron(i: number, _n: number, phase: number, out: Pt): void
 export function loxodrome(i: number, _n: number, phase: number, out: Pt): void {
 	const STRANDS = 4;
 	const k = i % STRANDS;
-	const speed = 0.05 + hash(i, 4) * 0.045;
-	const u = (hash(i, 5) + phase * speed) % 1;
-	const lat = (u * 2 - 1) * 1.38;
+	const u = loxU(i, phase);
+	const lat = (u * 2 - 1) * LOX_SPAN;
 	const merc = Math.log(Math.tan(Math.PI / 4 + lat / 2));
 	const lon = 3.4 * merc + (k * TAU) / STRANDS + phase * 0.1;
 	const cl = Math.cos(lat);
