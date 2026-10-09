@@ -19,8 +19,13 @@ export function readTheme(): Theme {
 }
 
 export function setThemeAttr(theme: Theme): void {
-	document.documentElement.dataset.theme = theme;
+	const root = document.documentElement;
+	// Hover transitions on themed colours and shadows would otherwise fade
+	// between themes while the paper snaps. Held until a frame has been styled.
+	root.classList.add("flipping");
+	root.dataset.theme = theme;
 	document.querySelector('meta[name="theme-color"]')?.setAttribute("content", PAPER[theme]);
+	requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("flipping")));
 }
 
 export function storeTheme(theme: Theme): void {

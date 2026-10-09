@@ -1,5 +1,5 @@
-/* Day paper is the ground truth; night is its ink inversion. Themed
-   properties never transition, so a theme flip is instant. */
+/* Day paper is the ground truth; night is its ink inversion. A theme flip is
+   instant: .flipping holds every transition off while it lands. */
 :root {
 	--paper: #f2f0ea;
 	--paper-deep: #e9e6df;
@@ -51,6 +51,15 @@
 	--cm-punct: rgba(232, 228, 217, 0.46);
 	--cm-caret: #e8e4d9;
 	--cm-sel: rgba(232, 228, 217, 0.18);
+}
+
+/* The frames of a theme flip (theme.ts). Only the toggle's disc animates, and
+   the cursor keeps its own follow. The id inside :not() lifts these above
+   every class-level transition, so no !important is needed. */
+:root.flipping :not(#cursor, .ecl .disc),
+:root.flipping :not(#cursor)::before,
+:root.flipping :not(#cursor)::after {
+	transition: none;
 }
 
 /* Per-slug view-transition names live inline on list titles and article h1. */
