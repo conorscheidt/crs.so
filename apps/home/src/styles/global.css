@@ -508,32 +508,39 @@ html.no-native-cursor *::after {
 	contain: layout size style;
 	opacity: 0;
 	visibility: hidden;
-	translate: 0 4px;
-	/* Leaving: a quick fade, and nothing moves until it's gone. The two panels
-	   share a box, so overlapping fades would muddy both sets of type. */
+	/* The two moves ride separate properties. Leaving lifts on transform, and
+	   only once it is gone does translate drop it below; arriving runs both
+	   home on one curve, so -4px and 10px land together as a single 6px rise.
+	   Timings mirror MOTION.panel. */
+	transform: translateY(-4px);
+	translate: 0 10px;
 	transition:
-		opacity 110ms ease-out,
-		translate 0s 110ms,
-		visibility 0s 110ms;
+		opacity 140ms cubic-bezier(0.22, 1, 0.36, 1),
+		transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
+		translate 0s 140ms,
+		visibility 0s 140ms;
 }
 
-/* Arriving: waits for most of the outgoing ink to clear, then settles. */
+/* Arriving: starts as the outgoing ink clears, then settles. */
 .hub[data-section="index"] .panel[data-panel="index"],
 .hub[data-section="projects"] .panel[data-panel="projects"],
 .hub[data-section="writing"] .panel[data-panel="writing"],
 .hub[data-section="about"] .panel[data-panel="about"] {
 	opacity: 1;
 	visibility: visible;
+	transform: none;
 	translate: none;
 	transition:
-		opacity 240ms cubic-bezier(0.22, 1, 0.36, 1) 70ms,
-		translate 320ms cubic-bezier(0.22, 1, 0.36, 1) 70ms,
+		opacity 220ms cubic-bezier(0.22, 1, 0.36, 1) 120ms,
+		transform 220ms cubic-bezier(0.22, 1, 0.36, 1) 120ms,
+		translate 220ms cubic-bezier(0.22, 1, 0.36, 1) 120ms,
 		visibility 0s;
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.panel,
 	.hub[data-section] .panel[data-panel] {
+		transform: none;
 		translate: none;
 		transition: none;
 	}
@@ -1119,6 +1126,8 @@ html.no-native-cursor *::after {
 		min-height: 100svh;
 		/* --gutter already carries the side insets here */
 		padding-inline: 0;
+		/* the containing block for a leaving panel */
+		position: relative;
 	}
 
 	.col-l,
@@ -1204,17 +1213,19 @@ html.no-native-cursor *::after {
 		font-size: 14px;
 	}
 
+	/* A leaving panel drops out of flow into the same grid area, so it can
+	   lift out over the arriving one without holding the sheet open. */
 	.panel {
 		grid-area: panel;
-		position: relative;
-		inset: auto;
+		position: absolute;
+		inset: 0 0 auto;
 		z-index: 2;
 		display: none;
 		min-height: 36svh;
 		padding: var(--s1) var(--gutter) var(--s4);
 		contain: none;
-		opacity: 1;
 		visibility: visible;
+		transform: none;
 		translate: none;
 	}
 
@@ -1227,17 +1238,41 @@ html.no-native-cursor *::after {
 	.hub[data-section="projects"] .panel[data-panel="projects"],
 	.hub[data-section="writing"] .panel[data-panel="writing"],
 	.hub[data-section="about"] .panel[data-panel="about"] {
+		position: relative;
+		inset: auto;
 		display: flex;
-		transition: opacity 240ms cubic-bezier(0.22, 1, 0.36, 1);
+		opacity: 1;
 	}
 
+	/* Same handoff as the desktop panels; display holds until the lift ends.
+	   Without discrete transitions the old panel just goes at once. */
 	@media (prefers-reduced-motion: no-preference) {
+		.panel {
+			translate: 0 -4px;
+			transition:
+				opacity 140ms cubic-bezier(0.22, 1, 0.36, 1),
+				translate 140ms cubic-bezier(0.22, 1, 0.36, 1),
+				display 140ms;
+			transition-behavior: allow-discrete;
+		}
+
+		.hub[data-section="index"] .panel[data-panel="index"],
+		.hub[data-section="projects"] .panel[data-panel="projects"],
+		.hub[data-section="writing"] .panel[data-panel="writing"],
+		.hub[data-section="about"] .panel[data-panel="about"] {
+			translate: none;
+			transition:
+				opacity 220ms cubic-bezier(0.22, 1, 0.36, 1) 120ms,
+				translate 220ms cubic-bezier(0.22, 1, 0.36, 1) 120ms;
+		}
+
 		@starting-style {
 			.hub[data-section="index"] .panel[data-panel="index"],
 			.hub[data-section="projects"] .panel[data-panel="projects"],
 			.hub[data-section="writing"] .panel[data-panel="writing"],
 			.hub[data-section="about"] .panel[data-panel="about"] {
 				opacity: 0;
+				translate: 0 6px;
 			}
 		}
 	}
