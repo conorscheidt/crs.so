@@ -4,13 +4,15 @@
  * only on article pages.
  */
 import { track } from "./analytics";
-import { distribution } from "./figures/distribution";
-import { geometry } from "./figures/geometry";
-import { graph } from "./figures/graph";
-import { oscillator } from "./figures/oscillator";
-import type { FigureImpl } from "./figures/registry";
+import type { FigureFactory, FigureImpl } from "./figures/registry";
 
-const FIGURES = { oscillator, geometry, graph, distribution };
+// Each figure (and d3 with it) is its own chunk, fetched only by pages that use it.
+const FIGURES: Partial<Record<string, () => Promise<FigureFactory>>> = {
+	oscillator: () => import("./figures/oscillator").then((m) => m.oscillator),
+	geometry: () => import("./figures/geometry").then((m) => m.geometry),
+	graph: () => import("./figures/graph").then((m) => m.graph),
+	distribution: () => import("./figures/distribution").then((m) => m.distribution),
+};
 
 export function initToc(): () => void {
 	const toc = document.querySelector<HTMLElement>("[data-toc]");
@@ -133,11 +135,13 @@ export function initMarginals(): () => void {
 
 export function initFigures(): () => void {
 	const impls: FigureImpl[] = [];
-	for (const root of document.querySelectorAll<HTMLElement>("[data-fig-root]")) {
-		const kind = root.dataset.kind as keyof typeof FIGURES;
-		const mount = root.querySelector<HTMLElement>("[data-fig-mount]");
-		const factory = FIGURES[kind];
-		if (!(mount && factory)) continue;
+	let alive = true;
+	const mountFigure = (
+		root: HTMLElement,
+		kind: string,
+		mount: HTMLElement,
+		factory: FigureFactory,
+	): void => {
 		const figId = root.dataset.figRoot ?? "";
 		const binds = document.querySelectorAll<HTMLElement>(
 			`[data-bind][data-fig="${figId}"], [class*="vbind-${figId}-"]`,
@@ -163,8 +167,18 @@ export function initFigures(): () => void {
 		root.querySelector("[data-fig-reset]")?.addEventListener("click", () => impl.reset());
 		mount.addEventListener("pointerdown", () => track("figure-touch", { kind }), { once: true });
 		impls.push(impl);
+	};
+	for (const root of document.querySelectorAll<HTMLElement>("[data-fig-root]")) {
+		const kind = root.dataset.kind ?? "";
+		const mount = root.querySelector<HTMLElement>("[data-fig-mount]");
+		const load = FIGURES[kind];
+		if (!(mount && load)) continue;
+		void load().then((factory) => {
+			if (alive) mountFigure(root, kind, mount, factory);
+		});
 	}
 	return () => {
+		alive = false;
 		for (const impl of impls) impl.destroy();
 	};
 }
