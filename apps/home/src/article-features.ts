@@ -4,16 +4,19 @@
  * code blocks. Loaded only on article pages.
  */
 import { track } from "./analytics";
+import { Trail } from "./cursor";
 import type { FigureFactory, FigureImpl } from "./figures/registry";
 import {
 	activeSection,
 	type Block,
 	countWords,
+	dismissed,
 	type HeadState,
 	minutesLeft,
 	stepHead,
 	wordsLeft,
 } from "./reading";
+import { flick } from "./sim/flick";
 
 // Each figure (and d3 with it) is its own chunk, fetched only by pages that use it.
 const FIGURES: Partial<Record<string, () => Promise<FigureFactory>>> = {
@@ -139,6 +142,142 @@ export function initReading(): () => void {
 	return () => {
 		ac.abort();
 		ro.disconnect();
+	};
+}
+
+// biome-ignore lint/security/noSecrets: a CSS attribute selector, not a secret
+const IN_PAGE = 'a[href^="#"]';
+
+/**
+ * The bottom sheet narrow screens open from the running head: a modal
+ * <dialog>, so focus is held inside it and the page behind is inert. Every
+ * way out ends in close(), and the CSS transitions carry the slide.
+ */
+export function initSheet(): () => void {
+	const sheet = document.querySelector<HTMLDialogElement>("[data-sheet]");
+	const panel = sheet?.querySelector<HTMLElement>("[data-sheet-panel]");
+	const scroll = sheet?.querySelector<HTMLElement>("[data-sheet-scroll]");
+	const scrim = sheet?.querySelector<HTMLElement>("[data-sheet-scrim]");
+	if (!(sheet && panel && scroll && scrim)) return () => {};
+	const ac = new AbortController();
+	const { signal } = ac;
+	let opener: HTMLElement | null = null;
+
+	const open = (from: HTMLElement): void => {
+		opener = from;
+		sheet.showModal();
+		// The list only takes vertical pans when it has somewhere to scroll;
+		// otherwise every pan is the sheet's own swipe.
+		scroll.toggleAttribute("data-scrolls", scroll.scrollHeight > scroll.clientHeight + 1);
+		const cur = scroll.querySelector<HTMLElement>("[aria-current]");
+		if (cur) {
+			scroll.scrollTop = cur.offsetTop - scroll.clientHeight / 3;
+			cur.focus({ preventScroll: true });
+		}
+	};
+	const close = (): void => {
+		if (sheet.open) sheet.close();
+	};
+
+	for (const btn of document.querySelectorAll<HTMLElement>("[data-sheet-open]")) {
+		btn.addEventListener("click", () => open(btn), { signal });
+	}
+	sheet.querySelector("[data-sheet-close]")?.addEventListener("click", close, { signal });
+	sheet.addEventListener(
+		"click",
+		(ev) => {
+			if (ev.target === scrim) close();
+			// In-page links close the sheet and let article.ts take the jump, which
+			// can only move focus once the page behind is live again.
+			else if ((ev.target as HTMLElement).closest(IN_PAGE)) close();
+		},
+		{ signal },
+	);
+	sheet.addEventListener(
+		"close",
+		() => {
+			sheet.classList.remove("dragging");
+			panel.style.removeProperty("translate");
+			scrim.style.removeProperty("opacity");
+			// A jump has already put focus on its target; anything else goes back.
+			const f = document.activeElement;
+			if (opener?.isConnected && (f === null || f === document.body || sheet.contains(f))) {
+				opener.focus({ preventScroll: true });
+			}
+			opener = null;
+		},
+		{ signal },
+	);
+
+	// A downward swipe lets the sheet go; short of that it springs back.
+	const trail = new Trail();
+	const v: [number, number] = [0, 0];
+	let pointer = -1;
+	let y0 = 0;
+	let dy = 0;
+	let dragging = false;
+	let dragEnd = Number.NEGATIVE_INFINITY;
+	panel.addEventListener(
+		"pointerdown",
+		(ev) => {
+			if (ev.pointerType === "mouse" || !ev.isPrimary) return;
+			pointer = ev.pointerId;
+			y0 = ev.clientY;
+			dy = 0;
+			dragging = false;
+			trail.clear();
+			trail.push(ev.timeStamp, 0, ev.clientY);
+		},
+		{ signal },
+	);
+	panel.addEventListener(
+		"pointermove",
+		(ev) => {
+			if (ev.pointerId !== pointer) return;
+			trail.push(ev.timeStamp, 0, ev.clientY);
+			dy = Math.max(0, ev.clientY - y0);
+			if (!dragging && dy > 8) {
+				dragging = true;
+				panel.setPointerCapture(ev.pointerId);
+				sheet.classList.add("dragging");
+			}
+			if (!dragging) return;
+			panel.style.translate = `0 ${dy}px`;
+			scrim.style.opacity = String(1 - Math.min(1, dy / panel.offsetHeight));
+		},
+		{ signal },
+	);
+	const release = (ev: PointerEvent): void => {
+		if (ev.pointerId !== pointer) return;
+		pointer = -1;
+		if (!dragging) return;
+		dragging = false;
+		dragEnd = ev.timeStamp;
+		flick(trail, ev.timeStamp, 1e4, v);
+		// Clearing the drag in the same frame as closing lets the transition
+		// run on from where the finger let go.
+		sheet.classList.remove("dragging");
+		panel.style.removeProperty("translate");
+		scrim.style.removeProperty("opacity");
+		if (ev.type === "pointerup" && dismissed(dy, panel.offsetHeight, v[1] / 1000)) close();
+	};
+	panel.addEventListener("pointerup", release, { signal });
+	panel.addEventListener("pointercancel", release, { signal });
+	// a swipe that ends on a link isn't a tap on it
+	panel.addEventListener(
+		"click",
+		(ev) => {
+			if (ev.timeStamp - dragEnd < 400) {
+				ev.preventDefault();
+				ev.stopPropagation();
+			}
+		},
+		{ capture: true, signal },
+	);
+
+	return () => {
+		ac.abort();
+		close();
 	};
 }
 
@@ -272,7 +411,7 @@ export function initCode(): () => void {
 }
 
 export function initArticleFeatures(): () => void {
-	const cleanups = [initReading(), initMarginals(), initFigures(), initCode()];
+	const cleanups = [initReading(), initSheet(), initMarginals(), initFigures(), initCode()];
 	initFootnotes();
 	return () => {
 		for (const c of cleanups) c();

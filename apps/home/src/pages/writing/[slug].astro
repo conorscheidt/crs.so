@@ -15,6 +15,7 @@ const { post } = Astro.props;
 const project = projectOf(post);
 const { Content, headings } = await render(post);
 const toc = headings.filter((h) => h.depth === 2 && h.slug !== "footnote-label");
+const hasToc = toc.length > 1;
 const date = post.data.date.toLocaleDateString("en-US", {
 	year: "numeric",
 	month: "long",
@@ -37,7 +38,7 @@ const date = post.data.date.toLocaleDateString("en-US", {
 			<a class="aname" href="/" data-astro-prefetch>Conor<br />Scheidt</a>
 			<a class="aback" href="/writing" data-astro-prefetch>← writing</a>
 			{
-				toc.length > 1 && (
+				hasToc && (
 					<nav class="atoc" data-toc aria-label="Contents">
 						<span class="atoc-track" aria-hidden="true">
 							<span class="atoc-fill" data-toc-progress />
@@ -97,10 +98,52 @@ const date = post.data.date.toLocaleDateString("en-US", {
 				<span class="rhead-sec" data-rhead-sec>{post.data.title}</span>
 				<span class="rhead-left" data-rhead-left></span>
 			</p>
+			{
+				hasToc && (
+					<button
+						type="button"
+						class="rhead-btn"
+						data-sheet-open
+						aria-haspopup="dialog"
+					>
+						contents
+					</button>
+				)
+			}
 			<span class="rhead-bar" aria-hidden="true">
 				<span class="rhead-fill" data-rhead-progress></span>
 			</span>
 		</div>
+
+		{
+			hasToc && (
+				<dialog class="asheet" data-sheet data-lenis-prevent aria-label="Contents">
+					<div class="asheet-scrim" data-sheet-scrim />
+					<div class="asheet-panel" data-sheet-panel>
+						<span class="asheet-grip" aria-hidden="true" />
+						<div class="asheet-head">
+							<p class="asheet-label" aria-hidden="true" data-sheet-label>
+								contents
+							</p>
+							<button type="button" class="asheet-close" data-sheet-close>
+								close
+							</button>
+						</div>
+						<div class="asheet-scroll" data-sheet-scroll>
+							<ol class="asheet-toc" data-sheet-toc>
+								{toc.map((h) => (
+									<li>
+										<a href={`#${h.slug}`} data-head={h.slug}>
+											{h.text}
+										</a>
+									</li>
+								))}
+							</ol>
+						</div>
+					</div>
+				</dialog>
+			)
+		}
 	</div>
 </Shell>
 
