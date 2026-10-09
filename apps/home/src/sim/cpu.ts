@@ -7,6 +7,10 @@ import { type Frame, inkGain, type Projected, pose, project, type Shade, shade }
 import type { Renderer, Uniforms } from "./gpu";
 import { evalPoint, ICO_VERTS, N, type Pt } from "./shapes";
 
+// Squares with the same area as the GPU path's discs of radius r.
+const SIDE = Math.sqrt(Math.PI);
+const HALF = SIDE / 2;
+
 const CPU_N = 900;
 
 export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
@@ -53,7 +57,7 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 				project(p, f, pr);
 				shade(p.a, pr.depth, pr.lit, gain, u.dotR, sh);
 				ctx.globalAlpha = sh.a * u.fade;
-				ctx.fillRect(pr.sx - sh.r / 2, pr.sy - sh.r / 2, sh.r, sh.r);
+				ctx.fillRect(pr.sx - sh.r * HALF, pr.sy - sh.r * HALF, sh.r * SIDE, sh.r * SIDE);
 			}
 			if (u.accentW > 0.01) {
 				for (const v of ICO_VERTS) {
@@ -64,7 +68,7 @@ export function createCpuRenderer(canvas: HTMLCanvasElement): Renderer | null {
 					project(p, f, pr);
 					shade(p.a, pr.depth, pr.lit, gain, u.dotR * 1.9, sh);
 					ctx.globalAlpha = sh.a * u.fade;
-					ctx.fillRect(pr.sx - sh.r / 2, pr.sy - sh.r / 2, sh.r, sh.r);
+					ctx.fillRect(pr.sx - sh.r * HALF, pr.sy - sh.r * HALF, sh.r * SIDE, sh.r * SIDE);
 				}
 			}
 		},

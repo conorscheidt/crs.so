@@ -20,12 +20,9 @@ function boot(): () => void {
 	return currentKind === "hub" ? bootHub(clock) : bootArticle(clock);
 }
 
-// Pages are fetched on hover and parsed once the main thread is idle, so a
-// swap clones a Document instead of fetching and parsing on click. The fetch
-// promise is cached so concurrent warms share it; a click that beats the idle
-// parse does it there. This is not speculation-rules prerender: that would
-// boot a second WebGPU context per target, and a swapped page is never
-// activated anyway.
+// Pages are fetched on hover and parsed when idle, so a swap clones a ready
+// Document. Not speculation-rules prerender: that would boot a second WebGPU
+// context per target, and a swapped page is never activated anyway.
 interface Page {
 	text: Promise<string | null>;
 	doc?: Document;

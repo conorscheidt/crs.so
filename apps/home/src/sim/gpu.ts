@@ -53,6 +53,7 @@ let pending: Promise<Gpu | null> | null = null;
 /** undefined while nothing has settled, so callers can attach synchronously */
 let ready: Gpu | null | undefined;
 let losses = 0;
+let lostAt = 0;
 let broken = false;
 const lostHandlers = new Set<() => void>();
 
@@ -65,6 +66,9 @@ export function acquireGpu(): Promise<Gpu | null> {
 	if (broken) return Promise.resolve(null);
 	pending ??= build().then((g) => {
 		ready = g;
+		// No adapter right after a loss is usually the GPU process restarting:
+		// fall back for now, and let the next boot try again.
+		if (!g && navigator.gpu) pending = null;
 		return g;
 	});
 	return pending;
@@ -82,6 +86,10 @@ function lose(): void {
 	pending = null;
 	ready = undefined;
 	// A device that keeps dying is not worth chasing; the 2D path takes over.
+	// Losses a minute apart (bfcache restores, driver updates) don't add up.
+	const now = performance.now();
+	if (now - lostAt > 60_000) losses = 0;
+	lostAt = now;
 	if (++losses > 3) broken = true;
 	for (const fn of [...lostHandlers]) fn();
 }

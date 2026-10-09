@@ -1,10 +1,6 @@
-/**
- * Lenis, for notched mouse wheels only. A wheel's coarse steps want smoothing;
- * a trackpad already delivers fine deltas with its own momentum, and routing
- * those through the lerp only adds latency and moves scrolling onto the main
- * thread. Safari gets no Lenis at all: its rAF holds at 60 Hz on faster
- * displays, so a smoothed scroll would run below its native one.
- */
+// Lenis smooths notched mouse wheels only. Trackpads scroll natively, since
+// smoothing their momentum just adds latency; Safari never gets Lenis, as its
+// rAF is held at 60 Hz on faster displays.
 import Lenis from "lenis";
 import { safari } from "./cursor";
 import { MOTION } from "./motion";
@@ -18,12 +14,8 @@ export interface WheelSample {
 	deltaY: number;
 }
 
-/**
- * True for a notched wheel. Each gesture is judged by its first event and the
- * answer holds until it ends, so a trackpad's momentum tail can't flip it.
- * Wheels report lines or pages, or whole-pixel steps of 50 and up; trackpads
- * open with small pixel deltas.
- */
+/** True for a notched wheel (line or page deltas, or whole-pixel steps of 50+),
+ *  judged on a gesture's first event and held until the gesture ends. */
 export function wheelGate(): (ev: WheelSample) => boolean {
 	let last = Number.NEGATIVE_INFINITY;
 	let notched = false;

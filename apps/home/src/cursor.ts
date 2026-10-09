@@ -144,7 +144,8 @@ const latch = (write: (value: string) => void): ((value: string) => void) => {
  * input events instead of jumping whenever one lands.
  */
 export class Trail {
-	static readonly SIZE = 16;
+	// enough for 50 ms of a 1 kHz mouse's coalesced samples
+	static readonly SIZE = 64;
 	/** Samples further apart than this are treated as separate gestures. */
 	static readonly GAP = 50;
 	private readonly t = new Float64Array(Trail.SIZE);
@@ -419,7 +420,9 @@ export function initCursor(clock: Clock): void {
 			const panel = t.closest<HTMLElement>(".panel");
 			if (panel && panel.dataset.panel !== panel.closest<HTMLElement>(".hub")?.dataset.section)
 				continue;
-			if (t.checkVisibility?.({ opacityProperty: true, visibilityProperty: true }) === false)
+			// Inside a panel the section test above decides; the incoming panel is
+			// still transparent when it's measured.
+			if (t.checkVisibility?.({ opacityProperty: !panel, visibilityProperty: true }) === false)
 				continue;
 			let b = t.getBoundingClientRect();
 			const wrap = t.closest("[data-scroll]");

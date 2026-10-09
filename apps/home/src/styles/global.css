@@ -55,9 +55,7 @@
 	--cm-sel: rgba(232, 228, 217, 0.18);
 }
 
-/* The frames of a theme flip (theme.ts). Only the toggle's disc animates, and
-   the cursor keeps its own follow. The id inside :not() lifts these above
-   every class-level transition, so no !important is needed. */
+/* While the theme flips (theme.ts), only the toggle's disc animates. */
 :root.flipping :not(#cursor, .ecl .disc),
 :root.flipping :not(#cursor)::before,
 :root.flipping :not(#cursor)::after {
@@ -210,13 +208,8 @@ html.no-native-cursor *::after {
 		0 1px 0 var(--press-light);
 }
 
-/* Hovering display type softens the letterform (SOFT axis), adds a little
-   weight and blooms, then settles while the hover lasts.
-
-   The axis moves through a registered property stepped to multiples of 4.
-   Each distinct value is a new font instance to shape and lay out; stepping
-   leaves most of the ease-out tail with nothing to redo, and repeat hovers
-   land on instances already cached. */
+/* Hovering display type softens the letterform (SOFT axis) and blooms. The
+   axis steps in 4s: every distinct value is a font instance to lay out. */
 @property --soft {
 	syntax: "<number>";
 	inherits: false;

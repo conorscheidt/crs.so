@@ -87,10 +87,9 @@ export function bootHub(clock: Clock): () => void {
 				colC.setPointerCapture(ev.pointerId);
 			} catch {}
 		});
-		// The dimple follows the ring as drawn, so the two never disagree; without
-		// the ring (touch), it follows the raw pointer. The canvas fills col-c and
-		// the sim may swap it for a fresh one, so measure the column. Its rect
-		// carries the sheet layout's sink scale, which the sim's px do not.
+		// The dimple follows the ring as drawn, or the raw pointer on touch. Measure
+		// the column: the sim may replace the canvas, and the rect includes the
+		// sheet layout's sink scale.
 		// Scrolling and resizing only mark it stale; it is read when next used.
 		let box: DOMRect | null = null;
 		let kx = 1;
