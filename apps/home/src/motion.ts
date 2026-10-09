@@ -10,6 +10,11 @@ export const MOTION = {
 	 * one waits `delay` and settles over `arrive`. The .panel CSS mirrors these.
 	 */
 	panel: { leave: 140, delay: 120, arrive: 220 },
+	/**
+	 * Arriving titles dry from SOFT 64 over `ms` (mirrored in .drying), `stagger`
+	 * apart, at most `count` of them.
+	 */
+	dry: { ms: 600, stagger: 30, count: 6 },
 	/** Interrupted jobs speed up by this factor instead of snapping. */
 	interruptAccel: 3,
 	/**

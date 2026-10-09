@@ -216,26 +216,44 @@ html.no-native-cursor *::after {
 	initial-value: 0;
 }
 
-.inkable {
+.inkable,
+.cvrow h3 {
 	font-variation-settings:
 		"opsz" var(--opsz, 144),
 		"SOFT" var(--soft);
+}
+
+.inkable {
 	transition:
 		--soft 480ms cubic-bezier(0.22, 1, 0.36, 1),
 		text-shadow 480ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @supports (width: round(1px, 1px)) {
-	.inkable {
+	.inkable,
+	.cvrow h3 {
 		font-variation-settings:
 			"opsz" var(--opsz, 144),
 			"SOFT" round(var(--soft), 4);
 	}
 }
 
-.inkable:hover {
+.inkable:hover,
+.wet {
 	--soft: 64;
 	text-shadow: 0 0 3px color-mix(in srgb, var(--ink) 32%, transparent);
+}
+
+/* An arriving panel's first titles land wet and dry off in turn (hub.ts).
+   A hovered one keeps the hover's own timing. Mirrors MOTION.dry. */
+.wet {
+	transition: none;
+}
+
+.drying:not(:hover) {
+	transition:
+		--soft 600ms cubic-bezier(0.22, 1, 0.36, 1) var(--dry-delay, 0ms),
+		text-shadow 600ms cubic-bezier(0.22, 1, 0.36, 1) var(--dry-delay, 0ms);
 }
 
 /* Spectral is a static weight, so its links get a quieter answer. */
@@ -1036,9 +1054,9 @@ html.no-native-cursor *::after {
 }
 
 .cvrow h3 {
+	--opsz: 40;
 	font-family: var(--font-display);
 	font-weight: 260;
-	font-variation-settings: "opsz" 40;
 	font-size: 15.5px;
 	line-height: 1.25;
 }

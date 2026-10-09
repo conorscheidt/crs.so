@@ -9,6 +9,7 @@ import { track } from "./analytics";
 import type { Clock } from "./clock";
 import { invalidateTargets, ring } from "./cursor";
 import { initGitBlock } from "./git";
+import { MOTION } from "./motion";
 import { initNavDot } from "./nav-dot";
 import { interceptable, PATHS, ROUTES, type Section, TITLES } from "./router";
 import { smoothScroll } from "./scroll";
@@ -198,13 +199,14 @@ export function bootHub(clock: Clock): () => void {
 	});
 
 	// A project mark anywhere, or a tag on the Index panel, opens Writing with
-	// that filter applied.
+	// that filter applied. The filter goes on first, so the panel arrives
+	// already narrowed and the titles that dry are the ones left showing.
 	const travel = (fn: () => void): void => {
+		fn();
 		if (section !== "writing") {
 			history.pushState({ section: "writing" }, "", PATHS.writing);
 			apply("writing", true);
 		}
-		fn();
 	};
 	hub.addEventListener("click", (ev) => {
 		const el = ev.target as HTMLElement;
@@ -222,6 +224,40 @@ export function bootHub(clock: Clock): () => void {
 			travel(() => writSearch?.addTag(tag));
 		}
 	});
+
+	// An arriving panel's first titles land wet and dry off in turn as it
+	// settles: the ones in view, from wherever its list was left scrolled.
+	const dries = ".latest-title, .entry:not([hidden]) .entry-title, .cvrow h3";
+	let wet: HTMLElement[] = [];
+	let dryTimer: ReturnType<typeof setTimeout> | undefined;
+	const dryOff = (): void => {
+		clearTimeout(dryTimer);
+		for (const el of wet) {
+			el.classList.remove("wet", "drying");
+			el.style.removeProperty("--dry-delay");
+		}
+		wet = [];
+	};
+	const dry = (panel: HTMLElement): void => {
+		dryOff();
+		if (reducedMotion) return;
+		const { count, stagger, ms } = MOTION.dry;
+		const { delay } = MOTION.panel;
+		const list = desktop.matches ? panel.querySelector("[data-scroll]") : null;
+		const top = list ? list.getBoundingClientRect().top : Number.NEGATIVE_INFINITY;
+		for (const el of panel.querySelectorAll<HTMLElement>(dries)) {
+			if (wet.length === count) break;
+			if (el.getBoundingClientRect().bottom > top) wet.push(el);
+		}
+		for (const el of wet) el.classList.add("wet");
+		// Commit the wet style, so the swap below transitions away from it.
+		for (const el of wet) getComputedStyle(el).getPropertyValue("--soft");
+		for (const [i, el] of wet.entries()) {
+			el.style.setProperty("--dry-delay", `${delay + i * stagger}ms`);
+			el.classList.replace("wet", "drying");
+		}
+		dryTimer = setTimeout(dryOff, delay + count * stagger + ms);
+	};
 
 	const apply = (to: Section, focus: boolean): void => {
 		const from = section;
@@ -243,6 +279,7 @@ export function bootHub(clock: Clock): () => void {
 			if (l) l.scrollTo(remembered, { immediate: true });
 			else wrapper.scrollTop = remembered;
 		}
+		if (panel) dry(panel);
 		if (focus)
 			panel?.querySelector<HTMLElement>("[data-panel-head]")?.focus({ preventScroll: true });
 		// On the sheet layout, a switch made far down a long list should land at
@@ -329,6 +366,7 @@ export function bootHub(clock: Clock): () => void {
 		ac.abort();
 		for (const u of unsubs) u();
 		dot?.destroy();
+		dryOff();
 		for (const l of lenises.values()) l.destroy();
 		sim?.detach();
 		sim = null;
