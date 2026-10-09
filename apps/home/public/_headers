@@ -1,33 +1,29 @@
-# Security + cross-origin isolation for every response.
-# COEP is `credentialless`, not require-corp: the page must stay isolated so
-# the clang worker can block on a SharedArrayBuffer for terminal stdin, while
-# plain cross-origin fetches (the Forgejo git block) keep working.
+# Cross-origin isolation lets the clang worker block on a SharedArrayBuffer for
+# stdin. require-corp rather than credentialless because Safari only supports
+# the former; the one cross-origin subresource (the Web Analytics beacon) sends
+# CORP: cross-origin.
 /*
   Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Embedder-Policy: require-corp
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Permitted-Cross-Domain-Policies: none
   Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
 
-# Content-hashed by the bundler — safe to keep forever.
+# Content-hashed by the bundler.
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable
 
-# The clang toolchain: ~18 MB of wasm, path-versioned (/clang/v1/…), so it is
-# equally safe to keep forever. Bump the directory to ship a new toolchain.
+# The clang toolchain is versioned by directory; bump it to ship a new one.
 /clang/v1/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Social cards + feed: regenerated on deploy, cheap to revalidate.
 /og/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 /rss.xml
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Content-Type: application/rss+xml; charset=utf-8
-
-# Search index ships with the build but is not hashed.
 /search-index.json
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 
@@ -37,9 +33,7 @@
   Cache-Control: public, max-age=604800, must-revalidate
 /apple-touch-icon.png
   Cache-Control: public, max-age=604800, must-revalidate
-/icon-192.png
-  Cache-Control: public, max-age=604800, must-revalidate
-/icon-512.png
+/icon-*.png
   Cache-Control: public, max-age=604800, must-revalidate
 /site.webmanifest
   Cache-Control: public, max-age=86400, must-revalidate
@@ -47,8 +41,5 @@
   Cache-Control: public, max-age=86400, must-revalidate
   Content-Disposition: inline; filename="Conor_Scheidt_Resume.pdf"
 
-# HTML is always revalidated so a deploy is visible immediately.
-/*.html
-  Cache-Control: public, max-age=0, must-revalidate
-/
-  Cache-Control: public, max-age=0, must-revalidate
+# HTML keeps the asset default (max-age=0, must-revalidate, ETag), so a deploy
+# shows up immediately.
