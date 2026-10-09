@@ -81,7 +81,7 @@ export function bootHub(clock: Clock): () => void {
 		// the object is grabbable: drag spins it, release coasts
 		let last: { x: number; y: number } | null = null;
 		colC.addEventListener("pointerdown", (ev) => {
-			sim?.beginDrag();
+			sim?.beginDrag(ev.timeStamp);
 			last = { x: ev.clientX, y: ev.clientY };
 			try {
 				colC.setPointerCapture(ev.pointerId);
@@ -127,17 +127,24 @@ export function bootHub(clock: Clock): () => void {
 		);
 		colC.addEventListener("pointermove", (ev) => {
 			if (!ring.live) point(ev.clientX, ev.clientY, true);
-			if (last) {
-				sim?.dragBy(ev.clientX - last.x, ev.clientY - last.y);
-				last = { x: ev.clientX, y: ev.clientY };
+			if (!last) return;
+			// Every sample since the last frame, each at its own time, so the
+			// release speed comes from what the hand did rather than dispatch.
+			const samples = ev.getCoalescedEvents?.() ?? [];
+			for (const e of samples.length > 0 ? samples : [ev]) {
+				sim?.dragBy(e.clientX - last.x, e.clientY - last.y, e.timeStamp);
+				last = { x: e.clientX, y: e.clientY };
 			}
 		});
-		const drop = (): void => {
+		colC.addEventListener("pointerup", (ev) => {
 			last = null;
-			sim?.endDrag();
-		};
-		colC.addEventListener("pointerup", drop);
-		colC.addEventListener("pointercancel", drop);
+			sim?.endDrag(ev.timeStamp);
+		});
+		// The browser took the gesture (a page scroll, say): no flick.
+		colC.addEventListener("pointercancel", (ev) => {
+			last = null;
+			sim?.endDrag(ev.timeStamp, false);
+		});
 		colC.addEventListener("pointerleave", () => {
 			if (!ring.live) sim?.setPointer(0, 0, false);
 		});

@@ -6,8 +6,10 @@
  * the same pose with no fade-in.
  */
 import type { Clock } from "../clock";
+import { Trail } from "../cursor";
 import { MOTION } from "../motion";
 import { createCpuRenderer } from "./cpu";
+import { flick } from "./flick";
 import {
 	acquireGpu,
 	attachGpu,
@@ -23,10 +25,13 @@ export interface Sim {
 	setSection: (s: Section) => void;
 	setInk: () => void;
 	setPointer: (x: number, y: number, active: boolean) => void;
-	/** grab the object: drag deltas (css px) spin it; release keeps inertia */
-	beginDrag: () => void;
-	dragBy: (dx: number, dy: number) => void;
-	endDrag: () => void;
+	/**
+	 * Grab the object: drag deltas (css px) spin it, and a release keeps the
+	 * spin it had. `t` is the event timeStamp; `coast: false` lets go dead.
+	 */
+	beginDrag: (t: number) => void;
+	dragBy: (dx: number, dy: number, t: number) => void;
+	endDrag: (t: number, coast?: boolean) => void;
 	excite: (strength?: number) => void;
 	/** Skip drawing while nothing can see the canvas; time keeps running. */
 	setVisible: (visible: boolean) => void;
@@ -42,6 +47,8 @@ const SPIN_MAX = 2.2;
 
 interface State {
 	u: Uniforms;
+	/** idle rotation, accumulated so it can pause while the object is held */
+	spin: number;
 	yawOff: number;
 	pitchOff: number;
 	vYaw: number;
@@ -81,6 +88,7 @@ function initState(initial: Section): State {
 			fade: 0,
 			accentW: initial === "projects" ? 1 : 0,
 		},
+		spin: 0,
 		yawOff: 0,
 		pitchOff: 0,
 		vYaw: 0,
@@ -258,7 +266,10 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	const pointer = { x: 0, y: 0, active: false };
 	// Drag to spin: yaw accumulates freely; pitch is clamped and eases home.
 	let dragging = false;
-	let lastDragAt = 0;
+	/** cumulative (yawOff, pitchOff) per input sample, for the release slope */
+	const trail = new Trail();
+	const slope: [number, number] = [0, 0];
+	let spinW = 1;
 
 	const unsubscribe = clock.subscribe((t, dt) => {
 		if (!(renderer && sized)) return;
@@ -276,7 +287,9 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 			s.pitchOff *= Math.exp(-dt / 6);
 		}
 		s.pitchOff = Math.max(-0.7, Math.min(0.7, s.pitchOff));
-		u.yaw = u.phase * 0.2 + s.yawOff;
+		spinW += ((dragging ? 0 : 1) - spinW) * Math.min(1, dt * 6);
+		s.spin += 0.2 * s.speed * dt * spinW;
+		u.yaw = s.spin + s.yawOff;
 		u.fade = Math.max(0, Math.min(1, (t - s.born) / MOTION.budget.simFade));
 
 		const baseTilt = s.pitchFrom + (s.pitchTo - s.pitchFrom) * u.morphT;
@@ -331,28 +344,28 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 			pointer.y = y;
 			pointer.active = active;
 		},
-		beginDrag(): void {
+		beginDrag(t: number): void {
 			dragging = true;
 			s.vYaw = 0;
 			s.vPitch = 0;
-			lastDragAt = performance.now();
+			trail.clear();
+			trail.push(t, s.yawOff, s.pitchOff);
 		},
-		dragBy(dx: number, dy: number): void {
+		dragBy(dx: number, dy: number, t: number): void {
 			if (!dragging) return;
-			const now = performance.now();
-			const step = Math.max(8, Math.min(64, now - lastDragAt)) / 1000;
-			lastDragAt = now;
 			// Dragging down tips the top toward the viewer, so dy subtracts from pitch.
 			s.yawOff += dx * DRAG_YAW;
 			s.pitchOff = Math.max(-0.7, Math.min(0.7, s.pitchOff - dy * DRAG_PITCH));
-			// Release speed comes from the smoothed pointer rate, capped so a hard
-			// flick doesn't launch the object.
-			const clamp = (v: number): number => Math.max(-SPIN_MAX, Math.min(SPIN_MAX, v));
-			s.vYaw = clamp(s.vYaw * 0.55 + ((dx * DRAG_YAW) / step) * 0.45);
-			s.vPitch = clamp(s.vPitch * 0.55 - ((dy * DRAG_PITCH) / step) * 0.45);
+			trail.push(t, s.yawOff, s.pitchOff);
 		},
-		endDrag(): void {
+		endDrag(t: number, coast = true): void {
+			if (!dragging) return;
 			dragging = false;
+			// Capped so a hard flick doesn't launch the object.
+			if (coast) flick(trail, t, SPIN_MAX, slope);
+			else slope.fill(0);
+			s.vYaw = slope[0];
+			s.vPitch = slope[1];
 		},
 		excite(strength = 1): void {
 			s.exciteLevel = Math.max(s.exciteLevel, Math.min(1, strength));
