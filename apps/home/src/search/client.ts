@@ -47,6 +47,8 @@ function warm(): NonNullable<typeof enginePromise> {
 export interface SearchHooks {
 	/** called on keystrokes (weakly) and chip changes (more strongly) */
 	pulse?: (strength: number) => void;
+	/** removes every listener when the hub tears down */
+	signal: AbortSignal;
 }
 
 export interface SearchHandle {
@@ -62,7 +64,7 @@ type Sigil = "#" | "@";
 export function initSearch(
 	panel: HTMLElement,
 	kind: "post" | "project",
-	hooks: SearchHooks = {},
+	hooks: SearchHooks,
 ): SearchHandle {
 	const noop: SearchHandle = { addTag: () => {}, addProject: () => {} };
 	const input = panel.querySelector<HTMLInputElement>(".search input");
@@ -265,9 +267,7 @@ export function initSearch(
 		}
 	}
 
-	input.addEventListener("focus", () => void warm(), { once: true });
-	input.addEventListener("input", onInput);
-	input.addEventListener("keydown", (ev) => {
+	const onKeydown = (ev: KeyboardEvent): void => {
 		if (!auto.hidden) {
 			if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
 				ev.preventDefault();
@@ -321,10 +321,10 @@ export function initSearch(
 			openAuto(last.sigil, last.value);
 			apply();
 		}
-	});
+	};
 
 	// Tag/project buttons in entries + chip removal, scoped to this panel.
-	panel.addEventListener("click", (ev) => {
+	const onClick = (ev: MouseEvent): void => {
 		const el = ev.target as HTMLElement;
 		const hit = el.closest<HTMLElement>(".autoc button");
 		if (hit?.dataset.value) {
@@ -350,10 +350,21 @@ export function initSearch(
 			apply();
 			hooks.pulse?.(0.4);
 		}
-	});
-	document.addEventListener("click", (ev) => {
-		if (!(auto.hidden || auto.contains(ev.target as Node))) closeAuto();
-	});
+	};
+
+	const { signal } = hooks;
+	signal.addEventListener("abort", () => clearTimeout(debounceId));
+	input.addEventListener("focus", () => void warm(), { once: true, signal });
+	input.addEventListener("input", onInput, { signal });
+	input.addEventListener("keydown", onKeydown, { signal });
+	panel.addEventListener("click", onClick, { signal });
+	document.addEventListener(
+		"click",
+		(ev) => {
+			if (!(auto.hidden || auto.contains(ev.target as Node))) closeAuto();
+		},
+		{ signal },
+	);
 
 	return {
 		addTag(tag: string): void {

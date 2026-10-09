@@ -144,9 +144,9 @@ export function bootHub(clock: Clock): () => void {
 	// The search islands share one index; typing and chip changes nudge the sim.
 	const pulse = (strength: number): void => sim?.excite(strength);
 	const projPanel = panels.get("projects");
-	if (projPanel) initSearch(projPanel, "project", { pulse });
+	if (projPanel) initSearch(projPanel, "project", { pulse, signal });
 	const writPanel = panels.get("writing");
-	const writSearch = writPanel ? initSearch(writPanel, "post", { pulse }) : null;
+	const writSearch = writPanel ? initSearch(writPanel, "post", { pulse, signal }) : null;
 
 	// Stays hidden unless basalt's summary loads.
 	const gitb = hub.querySelector<HTMLElement>("[data-git]");
