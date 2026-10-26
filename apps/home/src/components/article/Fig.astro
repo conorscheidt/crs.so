@@ -14,7 +14,7 @@ type Props = {
 	border?: boolean;
 };
 const { kind, id, caption, n = 1, border = false } = Astro.props;
-const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"][n - 1] ?? String(n);
+const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x", "xi", "xii"][n - 1] ?? String(n);
 ---
 
 <figure class:list={["afig", { bordered: border }]} data-fig-root={id} data-kind={kind}>

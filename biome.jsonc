@@ -99,6 +99,18 @@
 	},
 	"overrides": [
 		{
+			// The post's runnable snippets: each is printed in full on the page and
+			// runs in the playground worker, where console.log is the output channel.
+			// Their numeric tables are copied from NumPy and stay as NumPy prints them.
+			"includes": ["apps/home/src/content/writing/**/*.ts"],
+			"linter": {
+				"rules": {
+					"suspicious": { "noConsole": "off" },
+					"style": { "useNumericSeparators": "off" }
+				}
+			}
+		},
+		{
 			// A port of binji/wasm-clang's WASI core. It keeps upstream's idioms
 			// (parameter reassignment, parameter properties) so the two stay diffable.
 			"includes": ["apps/home/src/playground/clang/driver.ts"],

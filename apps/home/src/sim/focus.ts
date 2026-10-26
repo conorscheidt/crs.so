@@ -6,7 +6,7 @@
  * its own share of the focus, so one part crossfades into the next and a dot
  * streaming across a part's edge fades rather than flips.
  */
-import { drawnT, ICO_EDGES, ICO_VERTS, icoS, knotT, LOX_SPAN, loxU, N } from "./shapes";
+import { ICO_EDGES, ICO_VERTS, icoS, knotT, LOX_SPAN, loxU, N } from "./shapes";
 
 export type FocusSpec =
 	| { weeks: number[] }
@@ -90,8 +90,11 @@ export function encodeFocus(spec: FocusSpec | null, out: Focus): void {
 	}
 }
 
-/** How much pool dot i of object `obj` belongs to the focus, 0..1. */
-export function focusHot(obj: number, i: number, phase: number, f: Focus): number {
+/**
+ * How much pool dot i of object `obj` belongs to the focus, 0..1, at the
+ * place it is drawn: strands count laps from `anchor`, as in lapAt().
+ */
+export function focusHot(obj: number, i: number, phase: number, f: Focus, anchor = phase): number {
 	if (obj !== f.obj) return 0;
 	switch (obj) {
 		case 0: {
@@ -108,13 +111,13 @@ export function focusHot(obj: number, i: number, phase: number, f: Focus): numbe
 		}
 		case 1: {
 			const e = ICO_EDGES[i % 30] as readonly [number, number];
-			const s = icoS(i, phase);
+			const s = icoS(i, phase, anchor);
 			if (e[0] === f.vertex) return 1 - VERTEX_FALL * s;
 			if (e[1] === f.vertex) return 1 - VERTEX_FALL * (1 - s);
 			return 0;
 		}
 		case 2: {
-			const lat = (loxU(i, phase) * 2 - 1) * LOX_SPAN;
+			const lat = (loxU(i, phase, anchor) * 2 - 1) * LOX_SPAN;
 			let m = 0;
 			for (const l of f.lats) m = Math.max(m, Math.exp(-(((lat - l) / LAT_BAND) ** 2)));
 			return m;
@@ -126,20 +129,24 @@ export function focusHot(obj: number, i: number, phase: number, f: Focus): numbe
 
 /**
  * The share pool dot i is easing toward. Mid-morph it belongs to each object
- * as far as it has been drawn into it; `k` is its draw key in the target.
+ * as far as it has been drawn into it: `t` is its flightT(), it leaves from
+ * dot `src` of the old object (match.ts), and `anchor` is the phase its
+ * strands count laps from (evalPoint()).
  */
 export function focusTarget(
 	i: number,
+	src: number,
 	fromObj: number,
 	toObj: number,
-	morphT: number,
-	k: number,
+	t: number,
 	phase: number,
 	f: Focus,
+	anchor = phase,
 ): number {
 	if (f.obj < 0) return 0;
-	const t = morphT >= 1 || fromObj === toObj ? 1 : drawnT(morphT, k);
-	return t * focusHot(toObj, i, phase, f) + (1 - t) * focusHot(fromObj, i, phase, f);
+	return (
+		t * focusHot(toObj, i, phase, f, anchor) + (1 - t) * focusHot(fromObj, src, phase, f, anchor)
+	);
 }
 
 /** Share of the way to its target a fade covers in dt s; a held frame lands. */

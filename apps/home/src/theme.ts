@@ -4,7 +4,7 @@
 export type Theme = "day" | "night";
 
 /** Paper colour per theme, for <meta name="theme-color">. Mirrors global.css. */
-export const PAPER: Record<Theme, string> = { night: "#171310", day: "#f2f0ea" };
+export const PAPER: Record<Theme, string> = { night: "#141414", day: "#f2f0ea" };
 
 export function resolveTheme(stored: string | null): Theme {
 	return stored === "day" ? "day" : "night";

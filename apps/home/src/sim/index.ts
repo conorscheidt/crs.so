@@ -7,7 +7,7 @@
  */
 import type { Clock } from "../clock";
 import { Trail } from "../cursor";
-import { easeOutCubic, MOTION } from "../motion";
+import { MOTION, siteCurve } from "../motion";
 import { CPU_N, CPU_N_TOUCH, createCpuRenderer } from "./cpu";
 import { flick } from "./flick";
 import { encodeFocus, type FocusSpec, focusEase, noFocus } from "./focus";
@@ -25,7 +25,11 @@ import { BASE_PITCH, N, OBJECT_INDEX, type Section } from "./shapes";
 export type { FocusSpec } from "./focus";
 
 export interface Sim {
-	setSection: (s: Section) => void;
+	/**
+	 * Morph to a section's object, after any morph in flight. Returns the ms
+	 * until the object comes to rest as it, so the nav can land with it.
+	 */
+	setSection: (s: Section) => number;
 	setInk: () => void;
 	setPointer: (x: number, y: number, active: boolean) => void;
 	/**
@@ -71,6 +75,11 @@ interface State {
 	speed: number;
 	pitchFrom: number;
 	pitchTo: number;
+	/**
+	 * The object last asked for. It differs from u.toObj while a morph to it
+	 * waits behind the one in flight.
+	 */
+	wanted: number;
 	/** when the first frame drew; the fade-in runs once per page load */
 	born: number;
 }
@@ -100,12 +109,12 @@ function initState(initial: Section): State {
 			cursorActive: 0,
 			dotR: 0,
 			fade: 0,
-			accentW: initial === "projects" ? 1 : 0,
 			dt: 0,
 			cursorVX: 0,
 			cursorVY: 0,
 			focus: noFocus(),
 			focusW: 0,
+			morphPhase: 0,
 		},
 		spin: 0,
 		yawOff: 0,
@@ -116,6 +125,7 @@ function initState(initial: Section): State {
 		speed: 1,
 		pitchFrom: tilt,
 		pitchTo: tilt,
+		wanted: obj,
 		born: Number.NaN,
 	};
 }
@@ -133,13 +143,6 @@ export function warmSim(): void {
 	if (!prefersReduced()) void acquireGpu();
 }
 
-function accentTarget(u: Uniforms): number {
-	const k = easeOutCubic(u.morphT);
-	const fromW = u.fromObj === OBJECT_INDEX.projects ? 1 - k : 0;
-	const toW = u.toObj === OBJECT_INDEX.projects ? k : 0;
-	return fromW + toW;
-}
-
 export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): Sim {
 	const reduced = prefersReduced();
 	let dpr = Math.min(2, devicePixelRatio || 1);
@@ -155,7 +158,10 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 	// The theme can flip while the hub is away.
 	[u.inkR, u.inkG, u.inkB] = readInk();
 
-	if (reduced) u.toObj = OBJECT_INDEX[initial];
+	if (reduced) {
+		u.toObj = OBJECT_INDEX[initial];
+		s.wanted = u.toObj;
+	}
 
 	let canvas = el;
 	let renderer: Renderer | null = null;
@@ -226,7 +232,6 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		u.fade = 1;
 		u.morphT = 1;
 		u.fromObj = u.toObj;
-		u.accentW = u.toObj === OBJECT_INDEX.projects ? 1 : 0;
 		u.tiltX = BASE_PITCH[u.toObj] ?? 0.16;
 		if (sized) renderer?.frame(u);
 	}
@@ -277,7 +282,9 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 			kind: "static",
 			setSection(next) {
 				u.toObj = OBJECT_INDEX[next];
+				s.wanted = u.toObj;
 				renderStatic();
+				return 0;
 			},
 			setInk() {
 				renderStatic();
@@ -354,7 +361,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		u.yaw = s.spin + held[0];
 		u.fade = Math.max(0, Math.min(1, (t - s.born) / MOTION.budget.simFade));
 
-		const baseTilt = s.pitchFrom + (s.pitchTo - s.pitchFrom) * easeOutCubic(u.morphT);
+		const baseTilt = s.pitchFrom + (s.pitchTo - s.pitchFrom) * siteCurve.at(u.morphT);
 		const tiltTargetX = baseTilt + held[1];
 		// the hand sets pitch directly; otherwise it eases back to the object's own
 		u.tiltX += (tiltTargetX - u.tiltX) * Math.min(1, dt * (dragging ? 60 : 6));
@@ -379,7 +386,6 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		}
 		wasActive = pointer.active;
 		u.cursorActive += ((pointer.active ? 1 : 0) - u.cursorActive) * (1 - Math.exp(-14 * dt));
-		u.accentW = accentTarget(u);
 		u.focusW += ((u.focus.obj >= 0 ? 1 : 0) - u.focusW) * focusEase(dt);
 		if (visible) {
 			// Motion carries over only from the frame just before. After a long
@@ -396,18 +402,30 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 		get kind() {
 			return renderer?.kind ?? "cpu";
 		},
-		setSection(next: Section): void {
+		setSection(next: Section): number {
 			const target = OBJECT_INDEX[next];
-			if (target === u.toObj) return;
+			const morphMs = MOTION.morph * 1000;
+			if (target === s.wanted) return clock.left() + (target === u.toObj ? 0 : morphMs);
+			s.wanted = target;
+			if (target === u.toObj) {
+				// Back to where the morph in flight is headed: it lands there, and the
+				// morph queued behind it is dropped.
+				const eta = clock.landing(0);
+				clock.request(() => {});
+				return eta;
+			}
+			const eta = clock.landing(morphMs);
 			clock.request(() => {
 				u.fromObj = u.toObj;
 				u.toObj = target;
 				u.morphT = 0;
-				s.pitchFrom = u.tiltX;
+				u.morphPhase = u.phase;
+				// u.tiltX carries the dragged pitch, which the frame adds back on.
+				s.pitchFrom = u.tiltX - held[1];
 				s.pitchTo = BASE_PITCH[target] ?? 0.16;
 				clock.run({
 					kind: "morph",
-					duration: MOTION.morph * 1000,
+					duration: morphMs,
 					step: (t01) => {
 						// each dot eases its own stretch of it (drawnT)
 						u.morphT = t01;
@@ -419,6 +437,7 @@ export function bootSim(el: HTMLCanvasElement, clock: Clock, initial: Section): 
 					},
 				});
 			});
+			return eta;
 		},
 		setInk(): void {
 			[u.inkR, u.inkG, u.inkB] = readInk();

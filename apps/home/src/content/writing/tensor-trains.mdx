@@ -1,0 +1,286 @@
+---
+title: "Tensor trains vs. Monte Carlo"
+description: "Pricing a basket option by compressing its integrand into a tensor train and summing the train exactly, measured against Monte Carlo and randomized quasi-Monte Carlo on baskets of 5, 10 and 20 assets."
+date: 2026-10-23
+minutes: 23
+tags: [quant, numerics, tensor networks]
+draft: false
+---
+
+import Code from "../../components/article/Code.astro";
+import Fig from "../../components/article/Fig.astro";
+import Marginal from "../../components/article/Marginal.astro";
+import { runnable } from "../../lib/snippet";
+import controlSource from "./tensor-trains/control.ts?raw";
+import crossSource from "./tensor-trains/cross.ts?raw";
+import evaluateSource from "./tensor-trains/evaluate.ts?raw";
+import sumSource from "./tensor-trains/sum.ts?raw";
+
+The price of a European option on a basket of $d$ assets is an expectation over $d$ correlated random variables. Monte Carlo is indifferent to $d$ but converges as $N^{-1/2}$, so each additional digit costs a hundred times the samples. This note instead approximates the integrand by a tensor train, a product of small matrices with one factor per variable, and integrates the approximation exactly[^talk]. We compare it with Monte Carlo and randomized quasi-Monte Carlo on baskets of 5, 10 and 20 assets, charging the train for every evaluation spent building it.
+
+At five assets the train reaches a relative error of $10^{-6}$ with about a hundredth of the evaluations quasi-Monte Carlo needs; at ten and twenty, quasi-Monte Carlo is cheaper at every accuracy both reached. The rank of the train, which grows with the number of assets under every correlation structure we tried, explains both.
+
+## The integral
+
+Let $S_1,\dots,S_d$ follow correlated geometric Brownian motions under the <Marginal note="Under Q every asset grows on average at the risk-free rate r.">risk-neutral measure</Marginal> $\mathbb Q$,
+
+$$
+S_i(T) = S_i(0)\exp\!\Big(\big(r-\tfrac12\sigma_i^2\big)T + \sigma_i\sqrt T\,Y_i\Big),\qquad Y\sim\mathcal N(0,R),
+$$
+
+with risk-free rate $r$, maturity $T$, volatilities $\sigma_i$ and correlation matrix $R$. With weights $w_i$ and $x^+=\max(x,0)$, a call on the basket $\sum_i w_iS_i(T)$ with strike $K$ is worth
+
+$$
+V_0 = e^{-rT}\,\mathbb E^{\mathbb Q}\Big[\big(\textstyle\sum_{i=1}^d w_i S_i(T) - K\big)^{+}\Big].
+$$
+
+Writing $Y = Az$ for any $A$ with $AA^{\top}=R$, where $z$ is standard normal in $\mathbb R^d$, gives
+
+$$
+V_0 = \int_{\mathbb R^d} f(z)\,\varphi_d(z)\,dz,
+$$
+
+where $\varphi_d(z)=\prod_k\varphi(z_k)$ is the standard normal density and $f$ the discounted payoff as a function of $z$. The choice of $A$ leaves the price unchanged but orders the variables, which matters to quasi-Monte Carlo and to the train. We take $A = V\Lambda^{1/2}$ from $R = V\Lambda V^{\top}$, eigenvalues decreasing, so that $z_1$ is the first principal component, for an equity basket the market factor.
+
+The test problem is an equally weighted at-the-money call with $S_i(0)=K=100$, $T=1$ and $r=3\%$, volatilities evenly spaced from 15% to 40%, and correlation 0.6 within each of three sectors and 0.3 across, slightly perturbed. The <Marginal note="Each is the inverse-variance-weighted mean of a control-variate estimate on a rank-24 train (2²¹ samples) and a randomized quasi-Monte Carlo estimate (48 × 2¹⁸ points), which must agree within four standard errors.">reference prices</Marginal> are 9.04975, 8.72947 and 8.55218 for $d=5$, 10 and 20, each with a relative standard error below $3\times10^{-7}$.
+
+A quadrature rule replaces $\int g(x)\,\varphi(x)\,dx$ by $\sum_i q_i\,g(x_i)$, with $n$ nodes $x_i$ and weights $q_i$. Applied along every axis it approximates $V_0$ by a sum over <Marginal note="For ten assets at n = 32, NumPy on an Apple M4 would take about three years.">$n^d$ grid points</Marginal>,
+
+$$
+\sum_{i_1,\dots,i_d} q_{i_1}\cdots q_{i_d}\,f(x_{i_1},\dots,x_{i_d}).
+$$
+
+## Monte Carlo
+
+Monte Carlo replaces the grid with independent draws $Z_n\sim\mathcal N(0,I_d)$,
+
+$$
+\htmlClass{vbind vbind-mc-est}{\hat V_N} = \frac1N\sum_{n=1}^{N} f(Z_n),\qquad \operatorname{sd}\big(\hat V_N\big) = \htmlClass{vbind vbind-mc-half}{\frac{\sigma_f}{\sqrt N}}.
+$$
+
+The dimension enters only through $\sigma_f$, the standard deviation of the payoff, 1.49 times the price for ten assets. Figure i runs the estimator seven times on independent seeds, and their spread at each $N$ shows that standard deviation.
+
+<Fig kind="tt-mc" id="mc" n={1} caption="plain Monte Carlo on the ten-asset basket, computed live: the running estimate with its 95% band, six more runs in faint ink, and the envelope ±1.96σ/√N around the reference price." />
+
+At $\htmlClass{vbind vbind-mc-n}{N}=$ <b data-bind="n" data-fig="mc" data-format="int">262,144</b> the estimate is <b data-bind="est" data-fig="mc" data-format="fixed3">8.701</b> with a 95% half-width of <b data-bind="half" data-fig="mc" data-format="fixed3">0.050</b>, and <b data-bind="inside" data-fig="mc" data-format="int">6</b> of the seven runs lie inside the envelope. A relative standard error of $10^{-6}$ would take $2.2\times10^{12}$ samples, two days on an Apple M4.
+
+Randomized quasi-Monte Carlo draws from a scrambled Sobol sequence, which fills the unit cube more evenly, and estimates its error from independent scramblings, each unbiased. It does best on smooth integrands of low <Marginal note="Roughly, how many variables, or how large the groups of interacting variables, account for most of the integrand's variance.">effective dimension</Marginal>; on the smoothed integrands used later its error falls roughly as $1/N$, which makes it the stronger baseline.
+
+## Low rank in two dimensions
+
+Take first the two-asset integrand, payoff times correlated normal density, on a grid as a $64\times64$ matrix $F$. Its singular value decomposition
+
+$$
+F = \sum_{\alpha=1}^{64}\sigma_\alpha\,u_\alpha v_\alpha^{\top},
+$$
+
+with singular values $\sigma_1\ge\sigma_2\ge\dots\ge0$ and orthonormal vectors $u_\alpha$, $v_\alpha$, gives the best rank-$r$ approximation in the <Marginal note="The square root of the sum of the squared entries. The optimality of the truncated SVD in this norm is the Eckart–Young theorem.">Frobenius norm</Marginal> when cut off after $r$ terms. The singular values fall quickly and then slowly (figure ii), because of the kink where the basket crosses the strike.
+
+<Fig kind="tt-svd" id="svd" n={2} caption="the two-asset integrand F, its rank-r truncation, and the singular values of F relative to the largest, on a log scale. Drag r along the spectrum." />
+
+With $\htmlClass{vbind vbind-svd-r}{r}=$ <b data-bind="r" data-fig="svd" data-format="int">3</b> terms the approximation stores <b data-bind="stored" data-fig="svd" data-format="int">387</b> numbers instead of 4,096, with relative Frobenius error <b data-bind="err" data-fig="svd" data-format="sci">4.1×10<sup>−2</sup></b>. Low rank also makes weighted sums cheap:
+
+$$
+\sum_{i,j} q_i q_j F_{ij} \approx \htmlClass{vbind vbind-svd-ierr}{\sum_{\alpha=1}^{r}\sigma_\alpha\Big(\sum_i q_i u_{i\alpha}\Big)\Big(\sum_j q_j v_{j\alpha}\Big)},
+$$
+
+so a two-dimensional quadrature becomes $r$ pairs of one-dimensional ones. With the density inside $F$ the weights are equal; the two sides differ by a relative <b data-bind="ierr" data-fig="svd" data-format="sci">5.0×10<sup>−4</sup></b>, an error that <Marginal note="The discarded terms are small and of mixed sign.">need not fall monotonically</Marginal> with $r$.
+
+## The tensor-train format
+
+A tensor train approximates a function on a product grid by a product of matrices, one per variable[^oseledets],
+
+$$
+\htmlClass{vbind vbind-format-value}{f(x_1,\dots,x_d)}\approx \htmlClass{vbind vbind-format-g1}{G_1(x_1)}\,\htmlClass{vbind vbind-format-g2}{G_2(x_2)}\,\htmlClass{vbind vbind-format-mid}{\cdots}\,\htmlClass{vbind vbind-format-g9}{G_d(x_d)},\qquad \htmlClass{vbind vbind-format-slice}{G_k(x_k)\in\mathbb R^{r_{k-1}\times r_k}},\quad r_0=r_d=1.
+$$
+
+Each core $G_k$ is an $r_{k-1}\times n\times r_k$ array holding a matrix for each of the $n$ grid values of $x_k$. Evaluating $f$ at a grid point multiplies one matrix from each core, passing <span class="vbind vbind-format-carry">a row vector of length $r_k$</span> from core $k$ to core $k+1$ until a number remains, at a cost of $O(dr^2)$ with $r=\max_k r_k$. The train stores $O(dnr^2)$ numbers instead of $n^d$, and the $r_k$ are its <Marginal note="Physicists call the same object a matrix product state.">TT ranks</Marginal>.
+
+The ten-asset train below has nine cores, for $z_2,\dots,z_{10}$, because $z_1$ is integrated out analytically (see the section on the kink). With ten grid points per core and ranks at most eight, it stores <b data-bind="stored" data-fig="format" data-format="int">4,640</b> numbers in place of $10^9$.
+
+<Fig kind="tt-format" id="format" n={3} caption="the ten-asset train at one grid point, x₁, …, x₉ standing for z₂, …, z₁₀: each core's matrix at the chosen node, and below, the row vector after each product, ending in the train's value over the exact one. Blocks are shaded by their own largest entry; open squares are negative. Drag a lane to move its node." />
+
+At the point of figure iii the train returns <b data-bind="value" data-fig="format" data-format="fixed3">8.481</b> after <b data-bind="madds" data-fig="format" data-format="int">464</b> multiply–adds, against <b data-bind="exact" data-fig="format" data-format="fixed3">8.481</b> for the smoothed integrand itself, a relative error of <b data-bind="err" data-fig="format" data-format="sci">5.3×10<sup>−5</sup></b>. Drag any one lane and the error stays below 0.3%; drag several to the <Marginal note="Each outermost node carries 4.3×10⁻⁶ of the quadrature weight, so such points barely enter the integral.">outermost nodes</Marginal> and the train breaks down, even to negative values.
+
+## What the rank measures
+
+The ranks a train needs depend on $f$ and on the accuracy required. Arrange the grid values of $f$ into the matrix $F^{\langle k\rangle}$, the $k$-th unfolding, with rows indexed by $(x_1,\dots,x_k)$ and columns by $(x_{k+1},\dots,x_d)$. Then $f$ has an exact tensor train with $r_k=\operatorname{rank}F^{\langle k\rangle}$ and none with smaller ranks[^oseledets]: $r_k$ is <span class="vbind vbind-format-carry">the number of values the first $k$ variables must pass on</span> for the rest to finish evaluating $f$.
+
+A sum $g_1(x_1)+\dots+g_d(x_d)$ has rank 2 at every cut, since the left half need pass on only its running total and the constant 1:
+
+$$
+\begin{bmatrix} g_1 & 1\end{bmatrix}\begin{bmatrix}1 & 0\\ g_2 & 1\end{bmatrix}\cdots\begin{bmatrix}1 & 0\\ g_{d-1} & 1\end{bmatrix}\begin{bmatrix}1\\ g_d\end{bmatrix}.
+$$
+
+The program below checks this for a basket of independent assets, $g_k=w_kS_k$, then computes the rank of one unfolding for the basket value $s$ and for the call payoff $(s-100)^+$.
+
+<Code lang="ts" runnable code={runnable(sumSource)} />
+
+A basket payoff depends on the first $k$ assets only through the partial sum $s_k=\sum_{i\le k}w_iS_i$. For independent assets, rounding $s_k$ to $m$ levels makes evaluating $f$ a dynamic program with rank at most $m$ at every cut. In the program each half of the grid has 36 distinct partial sums, and the call needs 30 of the 36 ranks they allow. Without the kink a few levels suffice; with correlation every asset depends on several coordinates, and more must cross each cut.
+
+Figure iv draws, at each cut of the <Marginal note="Entries are scaled by the square roots of the quadrature weights, as in the construction below, and the singular values come from a rank-24 train on 16 points per variable.">smoothed ten-asset integrand</Marginal>, the relative error of the best rank-$r$ approximation of $F^{\langle \htmlClass{vbind vbind-cut-k}{k}\rangle}$, $\htmlClass{vbind vbind-cut-rank}{\big(\sum_{\alpha>r}\sigma_\alpha^2\big)^{1/2}\big/\big(\sum_{\alpha}\sigma_\alpha^2\big)^{1/2}}$.
+
+<Fig kind="tt-cut" id="cut" n={4} caption="the ten-asset integrand as a train, each bond labeled with the rank its cut needs for 10⁻⁴; below, the error of the best rank-r approximation at the chosen cut, singular values dotted. Choose smoothed or raw, and drag the cut." />
+
+At cut <b data-bind="k" data-fig="cut" data-format="int">4</b> the unfolding needs rank <b data-bind="rank" data-fig="cut" data-format="int">14</b> for a relative Frobenius error of $10^{-4}$; the ranks peak in the middle, where the cut divides the variables most evenly. This criterion is <Marginal note="At rank 8 the middle cuts each discard about 3×10⁻⁴ of the norm, yet the rank-8 train prices the basket to a relative error of 2.2×10⁻⁵.">stricter than pricing requires</Marginal>.
+
+## Integration by contraction
+
+On each axis we use the $n$-point Gauss–Hermite rule, for which $\sum_i q_i\,p(x_i)=\int p(x)\,\varphi(x)\,dx$ for every polynomial $p$ of degree below $2n$. For a tensor train the product-rule sum factorizes, and computing the right-hand side is called contracting the train:
+
+$$
+\sum_{i_1,\dots,i_d} q_{i_1}\cdots q_{i_d}\,G_1(x_{i_1})\cdots G_d(x_{i_d}) = \Big(\sum_{i_1} q_{i_1}G_1(x_{i_1})\Big)\cdots\Big(\sum_{i_d} q_{i_d}G_d(x_{i_d})\Big).
+$$
+
+Each factor costs $O(nr^2)$ and each product from the left $O(r^2)$, so the integral costs $O(dnr^2)$ instead of $O(n^d)$. The program below sums the $4^6$ weighted entries of a random train with $d=6$, $n=4$ and ranks 3 one at a time, then contracts it, counting multiply–adds.
+
+<Code lang="ts" runnable code={runnable(evaluateSource)} />
+
+Contracting the ten-asset train takes 5,104 multiply–adds. Its relative error of $2.2\times10^{-5}$ comes from the ten-point grid and the rank-8 approximation; the contraction adds only rounding error.
+
+## Construction by cross approximation
+
+The textbook construction, TT-SVD, truncates SVDs of the unfoldings and so needs all $n^d$ values; cross approximation does not. For a matrix $A$ of rank $r$, any $r$ rows $I$ and $r$ columns $J$ whose intersection $A[I,J]$ is nonsingular determine $A$:
+
+$$
+A = \htmlClass{vbind vbind-cross-evaluated}{A[:,J]}\;A[I,J]^{-1}\;\htmlClass{vbind vbind-cross-evaluated}{A[I,:]}.
+$$
+
+If $A$ is only approximately of rank $r$, an intersection of maximal volume[^goreinov], the largest $|\det|$, bounds the entrywise error by $(r+1)\,\sigma_{r+1}(A)$, where $\sigma_{r+1}(A)$ is the spectral-norm error of the best rank-$r$ approximation. Figure v builds a cross greedily: each step requests a row, pivots on its largest residual and requests the column through the pivot, whose largest residual among unused rows picks the next row. No maximal-volume bound covers this partial pivoting.
+
+<Fig kind="tt-cross" id="cross" n={5} caption="greedy cross approximation of F: the rows and columns evaluated so far, and the approximation they determine. Drag the number of steps." />
+
+After <b data-bind="k" data-fig="cross" data-format="int">3</b> steps it has evaluated <b data-bind="evaluated" data-fig="cross" data-format="int">375</b> of the 4,096 entries for a relative error of <b data-bind="err" data-fig="cross" data-format="sci">9.5×10<sup>−2</sup></b>, against <b data-bind="opt" data-fig="cross" data-format="sci">4.1×10<sup>−2</sup></b> for the truncated SVD of the same rank, which needs every entry. Beyond five steps the greedy approximation <Marginal note="Its error stays near 2.5×10⁻² while that of the SVD keeps falling.">stalls</Marginal>.
+
+TT-cross applies the idea at every cut[^ttcross], keeping $r_k$ settings of $(x_1,\dots,x_k)$ and $r_k$ of $(x_{k+1},\dots,x_d)$. At core $k$ it evaluates $f$ at every combination of a kept setting on the left, a grid value of $x_k$ and a kept setting on the right, and picks the settings for the next cut with `maxvol`[^maxvol], which finds a submatrix of locally maximal volume by row exchanges. A sweep along the train and back visits every core twice, so it costs twice the numbers the train stores. Exactly maximal volume at every step would keep the entrywise error within a factor of the best at the same ranks, a factor depending on $r$ and $d$ but not exponentially on $d$[^savostyanov]; `maxvol` finds only a local maximum, and on a black box cross approximation can miss features it never samples.
+
+Each entry is first <Marginal note="Unscaled, our pivots went to the extreme nodes, where the payoff is large and the weight negligible, and convergence was erratic.">multiplied by $\prod_k\sqrt{q_{i_k}}$</Marginal>, so pivoting on large entries means pivoting on those that carry the integral, and contracting against $\sqrt q$ recovers it. As the weights on each axis sum to one, the Cauchy–Schwarz inequality bounds the error the train adds to the quadrature sum by the Frobenius error of the scaled train. The TT-cross listed in the appendix reaches a relative error of $6\times10^{-9}$ on the five-asset basket from 19,968 evaluations, 30% of its $16^4$-point grid.
+
+## The kink
+
+The raw payoff $(B(z)-K)^+$, with $B(z)=\sum_i w_iS_i(z)$, is continuous but not differentiable on the exercise boundary $B(z)=K$. Across this kink polynomial quadrature converges only as a power of the number of nodes instead of exponentially, and the singular values of the unfoldings decay slowly. Switched to raw, figure iv adds $z_1$ and a ninth cut, and every cut shared with the smoothed integrand needs a higher rank, the largest rising from 14 to 23; raw ranks of 22 and 23, just under the rank-24 cap of the plate's trains, are lower bounds.
+
+The remedy is to integrate the kink out analytically, a device known as pre-integration[^gks] or conditional smoothing[^bst]. Write $w_iS_i(T)=c_i\,e^{b_iz_1}$, where $b_i=\sigma_i\sqrt T\,A_{i1}$ is the loading of asset $i$ on the market factor and $c_i$ depends on $z_{2:d}=(z_2,\dots,z_d)$. Every <Marginal note="All correlations here are positive, so by the Perron–Frobenius theorem the leading eigenvector of R has positive entries. For a spread the basket need not be monotone in z₁, and this step fails.">loading is positive</Marginal>, so for fixed $z_{2:d}$ the basket increases in $z_1$ and crosses $K$ at a single point $z_1^\star(z_{2:d})$, found by Newton's method. Each term is lognormal in $z_1$, and with $\Phi$ the standard normal distribution function, $\int_t^\infty e^{bz}\varphi(z)\,dz=e^{b^2/2}\,\Phi(b-t)$ gives a formula of Black–Scholes type, analytic in the remaining $d-1$ variables and with the same integral:
+
+$$
+\htmlClass{vbind vbind-smooth-value}{\mathbb E\big[f\mid z_{2:d}\big]} = e^{-rT}\Big(\sum_{i=1}^{d} c_i\,e^{b_i^2/2}\,\Phi\big(b_i-z_1^\star\big) - K\,\Phi\big(-z_1^\star\big)\Big),\qquad \htmlClass{vbind vbind-smooth-boundary}{\sum_{i=1}^d c_i\,e^{b_iz_1^\star}=K}.
+$$
+
+<Fig kind="tt-smooth" id="smooth" n={6} caption="the ten-asset integrand on the plane z₃ = … = z₁₀ = 0 with its exercise boundary; below, the kinked slice at the chosen z₂, whose area is one point of the smoothed integrand E[f | z₂, …, z₁₀] φ(z₂) on the right. Drag z₂." />
+
+In figure vi, at $\htmlClass{vbind vbind-smooth-z2}{z_2}=$ <b data-bind="z2" data-fig="smooth">0.60</b>, the boundary sits at $\htmlClass{vbind vbind-smooth-boundary}{z_1^\star}=$ <b data-bind="boundary" data-fig="smooth">0.07</b> and the conditional expectation is <b data-bind="value" data-fig="smooth">7.29</b>. On five assets the best raw train reached a relative error of $1.4\times10^{-3}$ from $1.9\times10^{5}$ evaluations, and TT-cross on the smoothed integrand $6\times10^{-9}$ from a tenth as many. Monte Carlo and quasi-Monte Carlo get the same smoothed integrand, which for ten assets cuts the Monte Carlo standard deviation from 1.49 to 0.17 times the price, saving <Marginal note="A smoothed evaluation costs five raw ones in our NumPy code.">a factor of about 80 in samples and 16 in time</Marginal>.
+
+## Accuracy versus cost
+
+Figure vii compares the <Marginal note="For MC the curve is the expected root-mean-square error σ/√N from a 2²²-sample pilot, for RQMC the root-mean-square error over 16 scramblings, and for TT the error of a single construction at each grid size and rank.">errors</Marginal> of Monte Carlo (MC), randomized quasi-Monte Carlo (RQMC) and tensor trains (TT) on the three baskets, raw and smoothed, counting as cost every evaluation of the integrand, repeats included. Train errors are not monotone in rank, so the cheapest train to reach each error is picked with the reference in hand; in practice a second train or the control variate below would have to confirm it, at a cost left out here.
+
+<Fig kind="tt-cost" id="cost" n={7} caption="relative error against integrand evaluations, tensor-train construction included, for d = 5, 10 and 20; the shaded band lies below twice the reference's relative standard error. Drag d." />
+
+For $\htmlClass{vbind vbind-cost-d}{d}=$ <b data-bind="d" data-fig="cost" data-format="int">5</b>, a relative error of $10^{-4}$ costs the tensor train <b data-bind="tt4" data-fig="cost" data-format="int">1,824</b> evaluations against <b data-bind="rq4" data-fig="cost" data-format="int">3,700</b> for smoothed quasi-Monte Carlo, and $10^{-6}$ costs it <b data-bind="tt6" data-fig="cost" data-format="int" data-missing="more than seven million">4,840</b> against <b data-bind="rq6" data-fig="cost" data-format="int">490,000</b>. Monte Carlo on the smoothed integrand would need <b data-bind="mc6" data-fig="cost" data-format="sci">6.9×10<sup>10</sup></b> for $10^{-6}$.
+
+At five assets the train loses only at low accuracy, with seven times the evaluations of quasi-Monte Carlo at $10^{-3}$. At ten it needs 55 times fewer than smoothed Monte Carlo at $10^{-4}$, but quasi-Monte Carlo is cheaper than our trains at every accuracy both reached, thirteen times at $10^{-4}$ and three at $10^{-6}$. At twenty the errors no longer fall with rank: from rank 2 to 40 they scatter between $6.5\times10^{-6}$ and $1.4\times10^{-3}$, and the rank-40 train, built from $7\times10^{6}$ evaluations, is less accurate than the rank-2 train built from 3,456. Quasi-Monte Carlo is cheaper than every train we built.
+
+An independent implementation, `teneva`[^teneva], slows the same way: at rank 16 and $d=20$ it needs 2.8 million evaluations for $9.4\times10^{-5}$, where quasi-Monte Carlo needs 4,096 for $7.8\times10^{-5}$. <Marginal note="At lower accuracy the overhead of TT-cross dominates the small trains: at five assets quasi-Monte Carlo reaches 10⁻⁴ in 1.3 ms and the train in 2.4 ms.">Wall-clock times</Marginal>, measured for every method in one Python process, give the same ordering at errors of $10^{-5}$ and below.
+
+## Why the rank grows
+
+The eigenvalues of the correlation matrix explain the twenty-asset result (figure viii). For $\htmlClass{vbind vbind-growth-d}{d}=$ <b data-bind="d" data-fig="growth" data-format="int">20</b>, the market and two sector directions carry <b data-bind="explained" data-fig="growth" data-format="pct">65%</b> of the variance, and the remaining <b data-bind="rest" data-fig="growth" data-format="int">17</b> directions are of similar size. Each moves every asset, so each cut must carry information about many assets. The largest rank any cut needs for $10^{-4}$ grows with $d$ under all three correlation structures we tried: the sector blocks, a single factor with every pairwise correlation 0.5, and random positive loadings on $d/2$ factors.
+
+<Fig kind="tt-growth" id="growth" n={8} caption="eigenvalues of the d-asset sector-block correlation matrix, and the largest rank any cut needs for 10⁻⁴ as d grows, for three correlation structures. Drag d." />
+
+The same spectrum suits quasi-Monte Carlo, whose effective dimension the three dominant directions keep small: its cost to reach $10^{-6}$ grew by less than a factor of two from ten to twenty assets. Known rank bounds cover Gaussian densities in correlated coordinates[^rohrbach]; in principal-component coordinates the density has rank 1, so the ranks here come from the payoff, for which we know of no bound.
+
+A tensor train therefore needs an integrand that is smooth, or can be made so, and dominated by a few interactions, with strongly coupled variables adjacent, and its construction must be repaid by high accuracy or by many integrals sharing one train. A single ten-asset price to $10^{-3}$ took smoothed quasi-Monte Carlo 256 evaluations, our smallest sample, and the cheapest train 4,608.
+
+## Tensor trains as control variates
+
+A contraction returns a number with no error estimate, and TT-cross supplies none. The usual rule stops the iteration once the integral changes little from one sweep to the next; ours ran a fixed number of sweeps, and figure ix replays the twelve that built the ten-asset train.
+
+<Fig kind="tt-sweep" id="sweep" n={9} caption="the integral of the ten-asset train after each TT-cross sweep, against the evaluations spent, with the reference price, a ±10⁻⁴ relative band, and the chosen sweep's ranks. Drag the sweep." />
+
+After sweep <b data-bind="sweep" data-fig="sweep" data-format="int">12</b> and <b data-bind="evals" data-fig="sweep" data-format="int">110,800</b> evaluations the train integrates to <b data-bind="integral" data-fig="sweep" data-format="fixed5">8.72928</b>, a relative error of <b data-bind="err" data-fig="sweep" data-format="sci">2.2×10<sup>−5</sup></b>, and its relative change from the previous sweep is <b data-bind="change" data-fig="sweep" data-format="sci" data-missing="undefined at the first sweep">1.3×10<sup>−4</sup></b>. The ranks settle at sweep 3; each later sweep costs 9,280 evaluations, and the error moves between $1.3\times10^{-6}$ and $2.5\times10^{-4}$. Drag the sweep and compare <span class="vbind vbind-sweep-change">the dashed step from the previous sweep</span>, all a stopping rule sees, with <span class="vbind vbind-sweep-err">the solid drop to the reference</span>: at sweep 6 the step is $3.7\times10^{-6}$ and the error $1.0\times10^{-4}$.
+
+As a control variate the train gets an error estimate from Monte Carlo, which then estimates only what the train got wrong. Let $f$ now be the smoothed integrand, $f_{TT}$ the train extended off the grid by polynomial interpolation through the Gauss–Hermite nodes, and $I_{TT}$ its integral, which the contraction computes exactly because the rule integrates that polynomial without error. Then
+
+$$
+\hat V_{\mathrm{CV}} = I_{TT} + \frac1N\sum_{n=1}^{N}\big[f(Z_n)-f_{TT}(Z_n)\big]
+$$
+
+is unbiased for any train, however crude. Its variance is $\htmlClass{vbind vbind-cv-ratio}{\operatorname{Var}(f-f_{TT})}/N$, small when the train is accurate, and the central limit theorem gives a confidence interval as for plain Monte Carlo.
+
+<Fig kind="tt-cv" id="cv" n={10} caption="Monte Carlo on the smoothed ten-asset integrand, with and without the rank-8 train as a control variate, on the same scenarios, computed live." />
+
+After <b data-bind="n" data-fig="cv" data-format="int">32,768</b> samples the 95% intervals of figure x are <b data-bind="est" data-fig="cv" data-format="fixed5">8.72948</b> ± <b data-bind="half" data-fig="cv" data-format="sci">7.8×10<sup>−5</sup></b> with the train and <b data-bind="plain" data-fig="cv" data-format="fixed5">8.71382</b> ± <b data-bind="plainHalf" data-fig="cv" data-format="fixed5">0.01548</b> <Marginal note="The plain estimate lies 1.98 standard errors low, just outside its interval, as happens one time in twenty.">without it</Marginal>, against the reference 8.72947. At the estimated variance ratio of <b data-bind="ratio" data-fig="cv" data-format="int">39,408</b> the band with the train is too narrow to see. Over five trains of ranks 2 to 16, each the control variate for 4,096 samples, the variance fell by factors from 24 to $1.2\times10^6$, and all five 95% intervals contained the reference.
+
+The program below shows the mechanism in one dimension, with Taylor polynomials of rising degree in place of the train. Every interval covers the exact value. The degree-8 control divides the variance by 4,190, and the degree-1 control <Marginal note="Each control, like the train, enters with coefficient one. At the variance-minimizing coefficient a control never increases the variance.">increases it</Marginal>.
+
+<Code lang="ts" runnable code={runnable(controlSource)} />
+
+A train used as the proposal in importance sampling or Metropolis–Hastings likewise costs efficiency when inaccurate and leaves the estimator correct. Such a train can be sampled exactly[^dolgov] and kept nonnegative[^cuidolgov], and a defensive mixture with the original density bounds the importance weights[^hesterberg] and makes an independence chain converge geometrically from any start[^mengersen].
+
+## Related work
+
+| work | role of the tensor train | reported result | caveat |
+| --- | --- | --- | --- |
+| Kastoryano and Pancotti[^kp] | integrand in Fourier space, contracted | call-on-min options on up to 15 assets | preprint; compared with an unoptimized Monte Carlo |
+| Glau, Kressner and Statti[^gls] | price as a function of model parameters | 0.5 ms per Heston American-put price against 37 ms for the PDE solver | offline cost excluded; on 25-asset baskets it overtakes Monte Carlo only after 500 to 1,000 prices |
+| Sakurai, Takahashi and Miyamoto[^stm] | parametric Fourier pricing | microseconds per price once built | the build takes about 12.5 minutes at 11 assets |
+| Bayer, Eigel, Sallandt and Trunschke[^bayer] | regression model inside Longstaff–Schwartz | Bermudan max-calls on up to 1,000 assets | Monte Carlo still does the integration |
+| Cui, Dolgov and Scheichl[^cds] | importance-sampling density for rare events | probabilities near $4\times10^{-10}$ in 18 dimensions | compared only with cross-entropy importance sampling |
+| Nicholson and Gingrich[^ng] | full distribution of a stochastic reaction network | $3\times10^{15}$ states at rank 30 | chemical kinetics rather than finance |
+
+Two financial problems suited to these uses remain untested, credit-portfolio tail probabilities and default contagion[^untested].
+
+## Reproducing
+
+The experiments and a Python tensor-train toolkit are at [github.com/conorscheidt/tensor-trains](https://github.com/conorscheidt/tensor-trains). In about ten minutes on an Apple M4, `run_pricing.py` regenerates every measured number here except the `teneva` comparison, which comes from `crosscheck_teneva.py`.
+
+## Appendix: a complete TT-cross
+
+The program below is a one-site TT-cross, updating one core at a time, for the five-asset basket. It approximates the smoothed integrand, scaled by $\sqrt q$, on a 16-point Gauss–Hermite grid in each of $z_2,\dots,z_5$ and checks the result against the dense sum over all 65,536 points.
+
+<Code lang="ts" runnable code={runnable(crossSource)} />
+
+The dense sum agrees with the reference within the reference's standard error, so the $5.6\times10^{-9}$ of TT-cross is compression error. TT-cross requested 19,968 entries, 11,275 of them distinct, in about the dense sum's time. Its count grows linearly in $n$ once $n$ reaches the rank: at <Marginal note="Its error there is 1.8×10⁻⁸; at fixed rank the error does not keep falling with n.">$n=32$</Marginal> it needs 39,936 evaluations against 1,048,576 and runs over ten times faster, while at $n=8$ its 6,656 exceed the 4,096 grid points.
+
+[^talk]: This note grew out of a fifteen-minute talk for the Northwestern University Fintech Club.
+
+[^oseledets]: I. V. Oseledets, [Tensor-train decomposition](https://doi.org/10.1137/090752286), *SIAM Journal on Scientific Computing* 33(5), 2011.
+
+[^goreinov]: S. A. Goreinov and E. E. Tyrtyshnikov, [The maximal-volume concept in approximation by low-rank matrices](https://doi.org/10.1090/conm/280/4620), *Contemporary Mathematics* 280, 2001.
+
+[^ttcross]: I. Oseledets and E. Tyrtyshnikov, [TT-cross approximation for multidimensional arrays](https://doi.org/10.1016/j.laa.2009.07.024), *Linear Algebra and its Applications* 432(1), 2010.
+
+[^maxvol]: S. A. Goreinov, I. V. Oseledets, D. V. Savostyanov, E. E. Tyrtyshnikov and N. L. Zamarashkin, [How to find a good submatrix](https://doi.org/10.1142/9789812836021_0015), in *Matrix Methods: Theory, Algorithms and Applications*, World Scientific, 2010.
+
+[^savostyanov]: D. V. Savostyanov, [Quasioptimality of maximum-volume cross interpolation of tensors](https://doi.org/10.1016/j.laa.2014.06.006), *Linear Algebra and its Applications* 458, 2014.
+
+[^bst]: C. Bayer, M. Siebenmorgen and R. Tempone, [Smoothing the payoff for efficient computation of basket option prices](https://doi.org/10.1080/14697688.2017.1308003), *Quantitative Finance* 18(3), 2018.
+
+[^gks]: M. Griebel, F. Y. Kuo and I. H. Sloan, [The smoothing effect of integration in ℝᵈ and the ANOVA decomposition](https://doi.org/10.1090/S0025-5718-2012-02578-6), *Mathematics of Computation* 82, 2013.
+
+[^teneva]: A. Chertkov and collaborators, [teneva](https://github.com/AndreiChertkov/teneva), a NumPy library for the tensor-train format.
+
+[^rohrbach]: P. B. Rohrbach, S. Dolgov, L. Grasedyck and R. Scheichl, [Rank bounds for approximating Gaussian densities in the tensor-train format](https://arxiv.org/abs/2001.08187), *SIAM/ASA Journal on Uncertainty Quantification* 10(3), 2022.
+
+[^dolgov]: S. Dolgov, K. Anaya-Izquierdo, C. Fox and R. Scheichl, [Approximation and sampling of multivariate probability distributions in the tensor train decomposition](https://doi.org/10.1007/s11222-019-09910-z), *Statistics and Computing* 30, 2020.
+
+[^hesterberg]: T. Hesterberg, [Weighted average importance sampling and defensive mixture distributions](https://doi.org/10.1080/00401706.1995.10484303), *Technometrics* 37(2), 1995.
+
+[^mengersen]: K. L. Mengersen and R. L. Tweedie, [Rates of convergence of the Hastings and Metropolis algorithms](https://doi.org/10.1214/aos/1033066201), *Annals of Statistics* 24(1), 1996.
+
+[^cuidolgov]: T. Cui and S. Dolgov, [Deep composition of tensor-trains using squared inverse Rosenblatt transports](https://doi.org/10.1007/s10208-021-09537-5), *Foundations of Computational Mathematics* 22(6), 2022.
+
+[^cds]: T. Cui, S. Dolgov and R. Scheichl, [Deep importance sampling using tensor trains with application to a priori and a posteriori rare events](https://arxiv.org/abs/2209.01941), *SIAM Journal on Scientific Computing* 46(1), 2024.
+
+[^kp]: M. Kastoryano and N. Pancotti, [A highly efficient tensor network algorithm for multi-asset Fourier options pricing](https://arxiv.org/abs/2203.02804), 2022.
+
+[^gls]: K. Glau, D. Kressner and F. Statti, [Low-rank tensor approximation for Chebyshev interpolation in parametric option pricing](https://arxiv.org/abs/1902.04367), *SIAM Journal on Financial Mathematics* 11(3), 2020.
+
+[^stm]: R. Sakurai, H. Takahashi and K. Miyamoto, [Learning parameter dependence for Fourier-based option pricing with tensor trains](https://arxiv.org/abs/2405.00701), *Mathematics* 13(11), 2025.
+
+[^bayer]: C. Bayer, M. Eigel, L. Sallandt and P. Trunschke, [Pricing high-dimensional Bermudan options with hierarchical tensor formats](https://arxiv.org/abs/2103.01934), *SIAM Journal on Financial Mathematics* 14(2), 2023.
+
+[^ng]: S. B. Nicholson and T. R. Gingrich, [Quantifying rare events in stochastic reaction-diffusion dynamics using tensor networks](https://doi.org/10.1103/PhysRevX.13.041006), *Physical Review X* 13, 041006, 2023.
+
+[^untested]: The ideal importance-sampling density for the tail probability of a credit portfolio has one mode for each way of breaching the loss threshold. A Gaussian mean shift captures one of them (P. Glasserman, W. Kang and P. Shahabuddin, [Fast simulation of multifactor portfolio credit risk](https://doi.org/10.1287/opre.1080.0558), *Operations Research* 56(5), 2008), and a train might capture all. Under default contagion the probabilities of the joint default states follow a master equation, like the reaction networks of Nicholson and Gingrich.

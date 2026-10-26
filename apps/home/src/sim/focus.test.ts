@@ -23,11 +23,13 @@ import {
 	borromean,
 	ICO_EDGES,
 	ICO_VERTS,
+	icoRun,
 	icoS,
 	icosahedron,
 	knotT,
 	LOX_SPAN,
 	loxodrome,
+	loxRun,
 	loxU,
 	N,
 	type Pt,
@@ -35,6 +37,7 @@ import {
 } from "./shapes";
 
 const mk = (): Pt => ({ x: 0, y: 0, z: 0, a: 0, k: 0 });
+const wgsl = (): Promise<string> => Bun.file(new URL("./shader.wgsl", import.meta.url)).text();
 const TAU = Math.PI * 2;
 const adjacent = (a: number, b: number): boolean =>
 	ICO_EDGES.some((e) => (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a));
@@ -171,17 +174,69 @@ test("rings light by mask", () => {
 test("mid-morph, a dot belongs to each object as far as it is drawn into it", () => {
 	const f = noFocus();
 	encodeFocus({ rings: [0, 1, 2] }, f);
-	// Into the rings from the knot: nothing at the start, all at the end.
-	expect(focusTarget(5, 0, 3, 0, 0.4, 0, f)).toBe(0);
-	expect(focusTarget(5, 0, 3, 1, 0.4, 0, f)).toBe(1);
-	const mid = focusTarget(5, 0, 3, 0.5, 0.4, 0, f);
-	expect(mid).toBeGreaterThan(0);
-	expect(mid).toBeLessThan(1);
+	// Into the rings from the knot: nothing before the dot leaves, all once it lands.
+	expect(focusTarget(5, 9, 0, 3, 0, 0, f)).toBe(0);
+	expect(focusTarget(5, 9, 0, 3, 1, 0, f)).toBe(1);
+	expect(focusTarget(5, 9, 0, 3, 0.3, 0, f)).toBeCloseTo(0.3, 12);
 	// Out of the rings, the other way round.
-	expect(focusTarget(5, 3, 0, 1, 0.4, 0, f)).toBe(0);
-	expect(focusTarget(5, 3, 0, 0, 0.4, 0, f)).toBe(1);
+	expect(focusTarget(5, 9, 3, 0, 1, 0, f)).toBe(0);
+	expect(focusTarget(5, 9, 3, 0, 0, 0, f)).toBe(1);
 	encodeFocus(null, f);
-	expect(focusTarget(5, 3, 3, 1, 0.4, 0, f)).toBe(0);
+	expect(focusTarget(5, 9, 3, 3, 1, 0, f)).toBe(0);
+	// Leaving, it is lit as the dot of the old object it leaves from: dot 4 of
+	// ring 1, which the focus leaves out.
+	encodeFocus({ rings: [0, 2] }, f);
+	expect(focusTarget(5, 4, 3, 0, 0, 0, f)).toBe(0);
+	expect(focusTarget(4, 5, 3, 0, 0, 0, f)).toBe(1);
+});
+
+test("a dot held at the end of its strand in flight is lit where it is drawn", () => {
+	const anchor = 3;
+	const phase = 3.4;
+	const f = noFocus();
+	const p = mk();
+	let held = 0;
+	for (let i = 0; i < N; i++) {
+		// strands that ran past their end since the dot left
+		const ico = Math.floor(icoRun(i, phase)) > Math.floor(icoRun(i, anchor));
+		const lox = Math.floor(loxRun(i, phase)) > Math.floor(loxRun(i, anchor));
+		if (ico) {
+			held++;
+			const e = ICO_EDGES[i % 30] as readonly [number, number];
+			encodeFocus({ vertex: e[0] }, f);
+			// Drawn at the far vertex, b, where this vertex's glow is faintest...
+			icosahedron(i, N, phase, p, anchor);
+			const b = ICO_VERTS[e[1]] as readonly number[];
+			expect(
+				Math.hypot(p.x - (b[0] as number), p.y - (b[1] as number), p.z - (b[2] as number)),
+			).toBeLessThan(0.035);
+			expect(focusHot(1, i, phase, f, anchor)).toBeCloseTo(1 - VERTEX_FALL, 12);
+			// ...not lit as though it had already wrapped back to a.
+			expect(focusHot(1, i, phase, f)).toBeGreaterThan(1 - VERTEX_FALL);
+			// Mid-flight into the icosahedron, it counts as far as it has arrived.
+			expect(focusTarget(i, i, 0, 1, 0.5, phase, f, anchor)).toBeCloseTo((1 - VERTEX_FALL) / 2, 12);
+		}
+		if (lox) {
+			held++;
+			// At the north end of its rhumb line, so a band there lights it.
+			encodeFocus({ latitudes: [LOX_SPAN] }, f);
+			expect(focusHot(2, i, phase, f, anchor)).toBeCloseTo(1, 5);
+			expect(focusTarget(i, i, 2, 3, 0.25, phase, f, anchor)).toBeCloseTo(0.75, 5);
+		}
+	}
+	expect(held).toBeGreaterThan(100);
+});
+
+test("WGSL lights a dot where its strands are drawn, from the same anchor", async () => {
+	const src = await wgsl();
+	const hot = src.slice(src.indexOf("fn focus_hot("), src.indexOf("fn focus_target("));
+	expect(hot).toMatch(/ico_s\(i, phase, anchor\)/);
+	expect(hot).toMatch(/lox_u\(i, phase, anchor\)/);
+	expect(src).toMatch(/hot = focus_target\(i, src, t, anchor\);/);
+	// Leaving, a dot is lit as the dot of the old object it leaves from.
+	const target = src.slice(src.indexOf("fn focus_target("), src.indexOf("// World to view"));
+	expect(target).toMatch(/t \* focus_hot\(u\.to_obj, i, u\.phase, anchor\)/);
+	expect(target).toMatch(/\(1\.0 - t\) \* focus_hot\(u\.from_obj, src, u\.phase, anchor\)/);
 });
 
 test("the fade covers about two thirds of the way in one time constant", () => {
@@ -239,8 +294,6 @@ test("posts run south to north by age", () => {
 	expect(1.2).toBeLessThan(LOX_SPAN);
 });
 
-const wgsl = (): Promise<string> => Bun.file(new URL("./shader.wgsl", import.meta.url)).text();
-
 test("WGSL keeps the focus constants", async () => {
 	const src = await wgsl();
 	const c = (name: string): number =>
@@ -266,15 +319,10 @@ test("WGSL places dots by the same parameters", async () => {
 	const nums = (s: string): number[] => [...s.matchAll(/\d+(?:\.\d+)?/g)].map((m) => Number(m[0]));
 	for (const [tsFn, wgslFn] of [
 		["function knotT", "fn knot_t"],
-		["function icoS", "fn ico_s"],
-		["function loxU", "fn lox_u"],
+		["function icoRun", "fn ico_run"],
+		["function loxRun", "fn lox_run"],
 	] as const) {
-		// `% 1` in the TS is fract() in WGSL.
-		const a = nums(
-			body(ts, tsFn)
-				.replace(/^[^{]*\{/, "")
-				.replace(/ % 1\b/, ""),
-		);
+		const a = nums(body(ts, tsFn).replace(/^[^{]*\{/, ""));
 		const b = nums(body(src, wgslFn).replace(/^[^{]*\{/, ""));
 		expect(a.length).toBeGreaterThan(0);
 		expect(b).toEqual(a);

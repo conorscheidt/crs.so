@@ -32,10 +32,12 @@ test("slow dots stay discs; fast ones streak, smoothly and no longer than the ca
 	expect(at(4000)).toBe(SHUTTER_MAX);
 });
 
-test("no streak across an unknown frame or a wrap to the strand's far end", () => {
+test("no streak across an unknown frame or an impossible step", () => {
 	expect(streak(30, 0, 300, 1)).toBe(0);
 	expect(streak(SHUTTER_JUMP * 300 + 1, dt, 300, 1)).toBe(0);
 	expect(streak(SHUTTER_JUMP * 300 - 1, dt, 300, 1)).toBe(SHUTTER_MAX);
+	// A fast morph dot at 30 Hz, nearly half a unit a frame, still streaks.
+	expect(streak(0.45 * 300, 1 / 30, 300, 1)).toBe(SHUTTER_MAX);
 });
 
 test("streaks measure in CSS px whatever the density", () => {

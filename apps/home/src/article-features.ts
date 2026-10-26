@@ -5,6 +5,7 @@
  */
 import { track } from "./analytics";
 import { Trail } from "./cursor";
+import { renderReadout } from "./figures/readout";
 import type { FigureFactory, FigureImpl } from "./figures/registry";
 import {
 	activeSection,
@@ -13,6 +14,7 @@ import {
 	dismissed,
 	type HeadState,
 	minutesLeft,
+	railFill,
 	stepHead,
 	wordsLeft,
 } from "./reading";
@@ -24,6 +26,16 @@ const FIGURES: Partial<Record<string, () => Promise<FigureFactory>>> = {
 	geometry: () => import("./figures/geometry").then((m) => m.geometry),
 	graph: () => import("./figures/graph").then((m) => m.graph),
 	distribution: () => import("./figures/distribution").then((m) => m.distribution),
+	"tt-mc": () => import("./figures/tensor-trains/mc").then((m) => m.ttMc),
+	"tt-svd": () => import("./figures/tensor-trains/svd").then((m) => m.ttSvd),
+	"tt-format": () => import("./figures/tensor-trains/format").then((m) => m.ttFormat),
+	"tt-cut": () => import("./figures/tensor-trains/cut").then((m) => m.ttCut),
+	"tt-cross": () => import("./figures/tensor-trains/cross").then((m) => m.ttCross),
+	"tt-smooth": () => import("./figures/tensor-trains/smooth").then((m) => m.ttSmooth),
+	"tt-cost": () => import("./figures/tensor-trains/cost").then((m) => m.ttCost),
+	"tt-growth": () => import("./figures/tensor-trains/growth").then((m) => m.ttGrowth),
+	"tt-sweep": () => import("./figures/tensor-trains/sweep").then((m) => m.ttSweep),
+	"tt-cv": () => import("./figures/tensor-trains/cv").then((m) => m.ttCv),
 };
 
 /** Scroll travel against the running head's state before it flips, px. */
@@ -40,10 +52,11 @@ export function initReading(): () => void {
 	const ac = new AbortController();
 	const { signal } = ac;
 	const narrow = matchMedia("(width < 900px)");
-	// Both fills are scroll-driven animations in article.css; this is only for
-	// browsers without scroll timelines.
+	// The running head's fill is a scroll-driven animation in article.css (this
+	// only covers browsers without scroll timelines). The rail's is set here, per
+	// section, so it always meets the highlighted entry.
 	const timeline = CSS.supports("animation-timeline: scroll()");
-	const railFill = timeline ? null : document.querySelector<HTMLElement>("[data-toc-progress]");
+	const rail = document.querySelector<HTMLElement>("[data-toc-progress]");
 	const headFill = timeline ? null : document.querySelector<HTMLElement>("[data-rhead-progress]");
 
 	const links = [...document.querySelectorAll<HTMLAnchorElement>("a[data-head]")];
@@ -66,6 +79,8 @@ export function initReading(): () => void {
 	const total = units.reduce((n, u) => n + u.words, 0);
 
 	let tops: number[] = [];
+	let marks: number[] = [];
+	let railLength = 0;
 	let blocks: Block[] = [];
 	let titleEnd = 0;
 	let max = 0;
@@ -79,6 +94,15 @@ export function initReading(): () => void {
 	const measure = (): void => {
 		tops = heads.map((h) => h.getBoundingClientRect().top + scrollY);
 		max = document.documentElement.scrollHeight - innerHeight;
+		const line = rail?.parentElement;
+		if (line) {
+			const origin = line.getBoundingClientRect().top;
+			railLength = line.clientHeight;
+			marks = heads.map((h) => {
+				const entry = line.parentElement?.querySelector<HTMLElement>(`a[data-head="${h.id}"]`);
+				return entry ? entry.getBoundingClientRect().top - origin : 0;
+			});
+		}
 		if (head && narrow.matches) {
 			titleEnd = title ? title.getBoundingClientRect().bottom + scrollY : 0;
 			blocks = units.map(({ el, words }) => {
@@ -118,7 +142,9 @@ export function initReading(): () => void {
 			if (sec) sec.textContent = names[active] ?? title?.textContent ?? "";
 		}
 		const p = max > 0 ? Math.min(1, Math.max(0, y / max)) : 1;
-		if (railFill) railFill.style.transform = `scaleY(${p})`;
+		const reading = innerHeight * 0.33;
+		if (rail)
+			rail.style.transform = `scaleY(${railFill(tops, marks, y + reading, max + reading - 4, railLength)})`;
 		if (!(head && narrow.matches)) return;
 		if (headFill) headFill.style.transform = `scaleX(${p})`;
 
@@ -351,12 +377,15 @@ export function initFootnotes(): void {
 const NOTE_SYMS = ["*", "†", "‡", "§", "‖", "¶"];
 const noteSym = (i: number): string => (NOTE_SYMS[i % 6] ?? "*").repeat(Math.floor(i / 6) + 1);
 
+/** Vertical space a rail note keeps below the one above it. */
+const NOTE_GAP = 12;
+
 export function initMarginals(): () => void {
 	const rail = document.querySelector<HTMLElement>("[data-mrail]");
 	const prose = document.querySelector<HTMLElement>("[data-prose]");
 	if (!(rail && prose)) return () => {};
-	const ros: ResizeObserver[] = [];
 	const wide = matchMedia("(min-width: 1080px)").matches;
+	const placed: { anchor: HTMLElement; note: HTMLElement }[] = [];
 	const anchors = document.querySelectorAll<HTMLElement>("[data-manchor]");
 	for (const [i, anchor] of anchors.entries()) {
 		const note = anchor.querySelector<HTMLElement>("[data-mnote]");
@@ -369,21 +398,35 @@ export function initMarginals(): () => void {
 			continue;
 		}
 		rail.appendChild(note);
-		const place = (): void => {
-			note.style.top = `${anchor.getBoundingClientRect().top + scrollY - (prose.getBoundingClientRect().top + scrollY)}px`;
-		};
-		place();
-		const ro = new ResizeObserver(place);
-		ro.observe(prose);
-		ros.push(ro);
+		placed.push({ anchor, note });
 		anchor.addEventListener("pointerenter", () => note.classList.add("lit"));
 		anchor.addEventListener("pointerleave", () => note.classList.remove("lit"));
 		note.addEventListener("pointerenter", () => anchor.classList.add("mlit"));
 		note.addEventListener("pointerleave", () => anchor.classList.remove("mlit"));
 	}
-	return () => {
-		for (const ro of ros) ro.disconnect();
+	if (placed.length === 0) return () => {};
+	// a note sits level with its phrase unless the note above still runs there;
+	// everything is measured before anything moves, so a pass lays out once
+	const place = (): void => {
+		const origin = prose.getBoundingClientRect().top;
+		const boxes = placed.map(({ anchor, note }) => ({
+			note,
+			at: anchor.getBoundingClientRect().top - origin,
+			height: note.offsetHeight,
+		}));
+		let floor = Number.NEGATIVE_INFINITY;
+		for (const { note, at, height } of boxes) {
+			const top = Math.max(at, floor);
+			note.style.top = `${top}px`;
+			floor = top + height + NOTE_GAP;
+		}
 	};
+	place();
+	// the prose reflows and a note rewraps when fonts arrive
+	const ro = new ResizeObserver(place);
+	ro.observe(prose);
+	for (const { note } of placed) ro.observe(note);
+	return () => ro.disconnect();
 }
 
 export function initFigures(): () => void {
@@ -396,27 +439,53 @@ export function initFigures(): () => void {
 		factory: FigureFactory,
 	): void => {
 		const figId = root.dataset.figRoot ?? "";
-		const binds = document.querySelectorAll<HTMLElement>(
-			`[data-bind][data-fig="${figId}"], [class*="vbind-${figId}-"]`,
-		);
+		const binds = [
+			...document.querySelectorAll<HTMLElement>(
+				`[data-bind][data-fig="${figId}"], [class*="vbind-${figId}-"]`,
+			),
+		];
+		// a readout names its parameter in data-bind, an equation term in its vbind class
+		const prefix = `vbind-${figId}-`;
+		const keyOf = (b: HTMLElement): string =>
+			b.dataset.bind ??
+			[...b.classList].find((c) => c.startsWith(prefix))?.slice(prefix.length) ??
+			"";
+		const light = (params: readonly string[]): void => {
+			for (const b of binds) b.classList.toggle("lit", params.includes(keyOf(b)));
+		};
 		const impl: FigureImpl = factory(mount, {
 			onParams(params) {
 				for (const b of binds) {
 					const v = params[b.dataset.bind ?? ""];
-					if (v !== undefined) b.textContent = v.toFixed(2);
+					if (v !== undefined) renderReadout(b, v);
 				}
 			},
+			onFocus: light,
 		});
+		const { setFocus } = impl;
 		for (const b of binds) {
-			b.addEventListener("pointerenter", () => impl.setLit(true));
-			b.addEventListener("pointerleave", () => impl.setLit(false));
+			b.addEventListener("pointerenter", () => {
+				if (setFocus) {
+					setFocus([keyOf(b)]);
+					light([keyOf(b)]);
+				} else impl.setLit(true);
+			});
+			b.addEventListener("pointerleave", () => {
+				if (setFocus) {
+					setFocus([]);
+					light([]);
+				} else impl.setLit(false);
+			});
 		}
-		root.addEventListener("pointerenter", () => {
-			for (const b of binds) b.classList.add("lit");
-		});
-		root.addEventListener("pointerleave", () => {
-			for (const b of binds) b.classList.remove("lit");
-		});
+		// plates without parts answer as a whole: every bound term lights with them
+		if (!setFocus) {
+			root.addEventListener("pointerenter", () => {
+				for (const b of binds) b.classList.add("lit");
+			});
+			root.addEventListener("pointerleave", () => {
+				for (const b of binds) b.classList.remove("lit");
+			});
+		}
 		root.querySelector("[data-fig-reset]")?.addEventListener("click", () => impl.reset());
 		mount.addEventListener("pointerdown", () => track("figure-touch", { kind }), { once: true });
 		impls.push(impl);

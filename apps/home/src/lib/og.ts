@@ -15,9 +15,9 @@ import { decompress } from "wawoff2";
 export const OG_W = 1200;
 export const OG_H = 630;
 
-const PAPER = "#171310";
-const INK = "#e8e4d9";
-const DIM = "rgba(232,228,217,0.5)";
+const PAPER = "#141414";
+const INK = "#e6e4df";
+const DIM = "rgba(230,228,223,0.5)";
 
 // createRequire, not import.meta.resolve: Vite's dev module runner rewrites
 // the latter into an internal specifier that fails at runtime

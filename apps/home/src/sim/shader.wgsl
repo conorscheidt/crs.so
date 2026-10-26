@@ -21,8 +21,7 @@ struct U {
 	cursor_active: f32,
 	dot_r: f32,
 	fade: f32,
-	accent_w: f32,
-	// seconds since the last frame; 0 when the last one was not drawn
+	// seconds since the last frame was drawn; 0 when it was not
 	dt: f32,
 	// device px/s
 	cursor_vel: vec2f,
@@ -33,6 +32,11 @@ struct U {
 	focus_vertex: f32,
 	focus_rings: f32,
 	focus_lat: array<vec4f, 2>,
+	// the phase when the morph began, which fixes its drawing order
+	morph_phase: f32,
+	// 1 when the wake starts afresh (a new canvas, a resize, a long pause),
+	// else 0; the rest of each Mark carries over
+	settle: f32,
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -47,11 +51,24 @@ struct Mark {
 	tail: vec2f,
 	// radius (device px), alpha
 	look: vec2f,
-	// eased share of the focus; y is unused
+	// eased share of the focus, then the phase the dot's strands counted laps
+	// from when it was last drawn
 	heat: vec2f,
 }
 
 @group(0) @binding(1) var<storage, read_write> marks: array<Mark>;
+
+// match.ts Pairing, rebuilt as each morph begins.
+struct Pairs {
+	// per icosahedron vertex, the draw key its dots leave at, four to a vector
+	leave: array<vec4f, 3>,
+	// per dot, the dot of the old object it leaves from
+	src: array<u32>,
+}
+
+@group(0) @binding(2) var<storage, read> pairs: Pairs;
+// The marks as they stood before a morph began, for rebase().
+@group(0) @binding(3) var<storage, read> held: array<Mark>;
 
 const PI: f32 = 3.14159265359;
 const TAU: f32 = 6.28318530718;
@@ -66,8 +83,10 @@ const WRAP_SQ: f32 = 0.01;
 const MIN_DOT_R: f32 = 1.4;
 const ACCENT_SIZE: f32 = 2.5;
 const ACCENT_ALPHA: f32 = 0.85;
-const ARC_LIFT: f32 = 0.3;
-const DRAW_W: f32 = 0.3;
+const ARC_LIFT: f32 = 0.15;
+const ARC_SPAN: f32 = 1.0;
+const ARC_CORE: f32 = 0.4;
+const DRAW_W: f32 = 0.55;
 const LOX_SPAN: f32 = 1.38;
 // wake.ts
 const WAKE_R: f32 = 46.0;
@@ -79,7 +98,7 @@ const SHUTTER_FROM: f32 = 500.0;
 const SHUTTER_TO: f32 = 1400.0;
 const SHUTTER_EXPOSURE: f32 = 0.012;
 const SHUTTER_MAX: f32 = 16.0;
-const SHUTTER_JUMP: f32 = 0.4;
+const SHUTTER_JUMP: f32 = 1.5;
 // focus.ts
 const FOCUS_TAU: f32 = 0.11;
 const RECEDE: f32 = 0.35;
@@ -143,16 +162,26 @@ fn trefoil(i: f32, phase: f32) -> Dot {
 	return Dot(p, 0.41, i / N);
 }
 
-// icoS() in shapes.ts.
-fn ico_s(i: f32, phase: f32) -> f32 {
-	return fract(hash(i, 5.0) + phase * (0.1 + hash(i, 4.0) * 0.22));
+// lapAt() in shapes.ts.
+fn lap_at(run: f32, anchor_run: f32) -> f32 {
+	return clamp(run - floor(anchor_run), 0.0, 1.0);
 }
 
-fn icosahedron(i: f32, phase: f32) -> Dot {
+// icoRun() in shapes.ts.
+fn ico_run(i: f32, phase: f32) -> f32 {
+	return hash(i, 5.0) + phase * (0.1 + hash(i, 4.0) * 0.22);
+}
+
+// icoS() in shapes.ts.
+fn ico_s(i: f32, phase: f32, anchor: f32) -> f32 {
+	return lap_at(ico_run(i, phase), ico_run(i, anchor));
+}
+
+fn icosahedron(i: f32, phase: f32, anchor: f32) -> Dot {
 	let e = ICO_EDGES[u32(i) % 30u];
 	let a = ICO_VERTS[e.x];
 	let b = ICO_VERTS[e.y];
-	let s = ico_s(i, phase);
+	let s = ico_s(i, phase, anchor);
 	let p = mix(a, b, s) + (vec3f(hash(i, 6.0), hash(i, 7.0), hash(i, 8.0)) - 0.5) * 0.035;
 	// icoKey() in the TS
 	let h0 = ICO_HOP[e.x];
@@ -166,15 +195,20 @@ fn icosahedron(i: f32, phase: f32) -> Dot {
 	return Dot(p, 0.36, (min(h0, h1) + along) / ICO_DEPTH);
 }
 
-// loxU() in shapes.ts.
-fn lox_u(i: f32, phase: f32) -> f32 {
-	return fract(hash(i, 5.0) + phase * (0.05 + hash(i, 4.0) * 0.045));
+// loxRun() in shapes.ts.
+fn lox_run(i: f32, phase: f32) -> f32 {
+	return hash(i, 5.0) + phase * (0.05 + hash(i, 4.0) * 0.045);
 }
 
-fn loxodrome(i: f32, phase: f32) -> Dot {
+// loxU() in shapes.ts.
+fn lox_u(i: f32, phase: f32, anchor: f32) -> f32 {
+	return lap_at(lox_run(i, phase), lox_run(i, anchor));
+}
+
+fn loxodrome(i: f32, phase: f32, anchor: f32) -> Dot {
 	let strands = 4.0;
 	let k = i % strands;
-	let u = lox_u(i, phase);
+	let u = lox_u(i, phase, anchor);
 	let lat = (u * 2.0 - 1.0) * LOX_SPAN;
 	let merc = log(tan(0.78539816 + lat / 2.0));
 	let lon = 3.4 * merc + (k * TAU) / strands + phase * 0.1;
@@ -204,13 +238,33 @@ fn borromean(i: f32, phase: f32) -> Dot {
 	return Dot(p, 0.38, (ring + along) / 3.0);
 }
 
-fn shape(obj: f32, i: f32, phase: f32) -> Dot {
+fn shape(obj: f32, i: f32, phase: f32, anchor: f32) -> Dot {
 	switch (u32(obj)) {
 		case 0u: { return trefoil(i, phase); }
-		case 1u: { return icosahedron(i, phase); }
-		case 2u: { return loxodrome(i, phase); }
+		case 1u: { return icosahedron(i, phase, anchor); }
+		case 2u: { return loxodrome(i, phase, anchor); }
 		default: { return borromean(i, phase); }
 	}
+}
+
+// strandLap() in shapes.ts.
+fn strand_lap(obj: f32, i: f32, phase: f32) -> f32 {
+	switch (u32(obj)) {
+		case 1u: { return floor(ico_run(i, phase)); }
+		case 2u: { return floor(lox_run(i, phase)); }
+		default: { return 0.0; }
+	}
+}
+
+// strandAnchor() in shapes.ts.
+fn strand_anchor(t: f32) -> f32 {
+	return select(u.phase, u.morph_phase, t < 1.0);
+}
+
+// strandWrapped() in shapes.ts.
+fn strand_wrapped(i: f32, src: f32, t: f32, anchor: f32, before: f32) -> bool {
+	return (t < 1.0 && strand_lap(u.from_obj, src, anchor) != strand_lap(u.from_obj, src, before))
+		|| (t > 0.0 && strand_lap(u.to_obj, i, anchor) != strand_lap(u.to_obj, i, before));
 }
 
 fn drawn_t(morph_t: f32, k: f32) -> f32 {
@@ -218,28 +272,44 @@ fn drawn_t(morph_t: f32, k: f32) -> f32 {
 	return c * c * (3.0 - 2.0 * c);
 }
 
-struct Placed {
-	// position, alpha
-	p: vec4f,
-	// how far the dot has been drawn into to_obj
-	t: f32,
+// flightT() in shapes.ts.
+fn flight_t(i: f32) -> f32 {
+	if (u.morph_t >= 1.0 || u.from_obj == u.to_obj) {
+		return 1.0;
+	}
+	return drawn_t(u.morph_t, shape(u.to_obj, i, u.morph_phase, u.morph_phase).k);
 }
 
-// evalPoint() in the TS: position and alpha of pool dot i mid-morph.
-fn pool_dot(i: f32, phase: f32) -> Placed {
-	let b = shape(u.to_obj, i, phase);
-	if (u.morph_t >= 1.0 || u.from_obj == u.to_obj) {
-		return Placed(vec4f(b.p, b.a), 1.0);
+// evalPoint() in shapes.ts: position and alpha of pool dot i, t of the way
+// through its flight from dot src of the old object.
+fn pool_dot(i: f32, src: f32, phase: f32, anchor: f32, t: f32) -> vec4f {
+	let b = shape(u.to_obj, i, phase, anchor);
+	if (t >= 1.0) {
+		return vec4f(b.p, b.a);
 	}
-	let a = shape(u.from_obj, i, phase);
-	let t = drawn_t(u.morph_t, b.k);
+	let a = shape(u.from_obj, src, phase, anchor);
 	let p = mix(a.p, b.p, t);
-	let lift = ARC_LIFT * sin(PI * t) / max(length(p), 1e-4);
-	return Placed(vec4f(p * (1.0 + lift), mix(a.a, b.a, t)), t);
+	let rise = ARC_LIFT * min(1.0, length(b.p - a.p) / ARC_SPAN);
+	let lift = rise * sin(PI * t) / sqrt(dot(p, p) + ARC_CORE * ARC_CORE);
+	return vec4f(p * (1.0 + lift), mix(a.a, b.a, t));
+}
+
+// accentWeight() in shapes.ts.
+fn accent_weight(j: u32) -> f32 {
+	if (u.morph_t >= 1.0 || u.from_obj == u.to_obj) {
+		return select(0.0, 1.0, u.to_obj == 1.0);
+	}
+	if (u.to_obj == 1.0) {
+		return drawn_t(u.morph_t, ICO_HOP[j] / ICO_DEPTH);
+	}
+	if (u.from_obj == 1.0) {
+		return 1.0 - drawn_t(u.morph_t, pairs.leave[j / 4u][j % 4u]);
+	}
+	return 0.0;
 }
 
 // focusHot() in focus.ts.
-fn focus_hot(obj: f32, i: f32, phase: f32) -> f32 {
+fn focus_hot(obj: f32, i: f32, phase: f32, anchor: f32) -> f32 {
 	if (obj != u.focus_obj) {
 		return 0.0;
 	}
@@ -262,7 +332,7 @@ fn focus_hot(obj: f32, i: f32, phase: f32) -> f32 {
 		case 1u: {
 			let e = ICO_EDGES[u32(i) % 30u];
 			let v = u32(u.focus_vertex);
-			let s = ico_s(i, phase);
+			let s = ico_s(i, phase, anchor);
 			if (e.x == v) {
 				return 1.0 - VERTEX_FALL * s;
 			}
@@ -272,7 +342,7 @@ fn focus_hot(obj: f32, i: f32, phase: f32) -> f32 {
 			return 0.0;
 		}
 		case 2u: {
-			let lat = (lox_u(i, phase) * 2.0 - 1.0) * LOX_SPAN;
+			let lat = (lox_u(i, phase, anchor) * 2.0 - 1.0) * LOX_SPAN;
 			var m = 0.0;
 			for (var j = 0u; j < FOCUS_LATS; j++) {
 				let d = (lat - u.focus_lat[j / 4u][j % 4u]) / LAT_BAND;
@@ -287,11 +357,12 @@ fn focus_hot(obj: f32, i: f32, phase: f32) -> f32 {
 }
 
 // focusTarget() in focus.ts.
-fn focus_target(i: f32, t: f32) -> f32 {
+fn focus_target(i: f32, src: f32, t: f32, anchor: f32) -> f32 {
 	if (u.focus_obj < 0.0) {
 		return 0.0;
 	}
-	return t * focus_hot(u.to_obj, i, u.phase) + (1.0 - t) * focus_hot(u.from_obj, i, u.phase);
+	return t * focus_hot(u.to_obj, i, u.phase, anchor)
+		+ (1.0 - t) * focus_hot(u.from_obj, src, u.phase, anchor);
 }
 
 // World to view space, as camera.ts rotate(): yaw (Y), tiltX (X), tiltZ (Z).
@@ -367,26 +438,41 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let angles = vec3f(u.yaw, u.tilt_x, u.tilt_z);
 	let rc = cos(angles);
 	let rs = sin(angles);
+	var m = marks[ii];
+	// The wake starts afresh, in px of the new size.
+	if (u.settle > 0.0) {
+		m.off = vec2f(0.0);
+		m.vel = vec2f(0.0);
+	}
 	var p: vec4f;
 	var size_mul = 1.0;
 	var hot = 0.0;
 	// A vertex has no strand; light it as one seen end-on.
 	var tangent = vec3f(0.0, 0.0, 1.0);
+	// whether the dot jumped back to the start of its strand since the last frame
+	var wrapped = false;
 	if (ii >= u32(N)) {
 		// Icosahedron vertex accents, visible only while the icosahedron has weight.
 		let j = ii - u32(N);
-		p = vec4f(ICO_VERTS[j], ACCENT_ALPHA * u.accent_w);
+		p = vec4f(ICO_VERTS[j], ACCENT_ALPHA * accent_weight(j));
 		size_mul = ACCENT_SIZE;
 		hot = select(0.0, 1.0, u.focus_obj == 1.0 && f32(j) == u.focus_vertex);
 	} else {
-		let placed = pool_dot(i, u.phase);
-		p = placed.p;
-		hot = focus_target(i, placed.t);
+		let t = flight_t(i);
+		// the dot of the old object it leaves from
+		let src = select(i, f32(pairs.src[ii]), t < 1.0);
+		// Until it lands, the dot's strands count laps from the phase its morph
+		// began at, so it flies between the places it was paired on.
+		let anchor = strand_anchor(t);
+		wrapped = strand_wrapped(i, src, t, anchor, m.heat.y);
+		m.heat.y = anchor;
+		p = pool_dot(i, src, u.phase, anchor, t);
+		hot = focus_target(i, src, t, anchor);
 		// Dots stream along their strands, so a step in phase is a step along one.
-		var d = pool_dot(i, u.phase + TANGENT_EPS).p.xyz - p.xyz;
+		var d = pool_dot(i, src, u.phase + TANGENT_EPS, anchor, t).xyz - p.xyz;
 		// one about to wrap to the far end of its strand looks behind instead
 		if (dot(d, d) > WRAP_SQ) {
-			d = p.xyz - pool_dot(i, u.phase - TANGENT_EPS).p.xyz;
+			d = p.xyz - pool_dot(i, src, u.phase - TANGENT_EPS, anchor, t).xyz;
 		}
 		tangent = rotate(d, rc, rs);
 	}
@@ -397,7 +483,6 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let px = u.res * 0.5 + v.xy * k * persp;
 
 	// The wake moves on from where the dot was last drawn.
-	var m = marks[ii];
 	let force = wake_force(px + m.off - u.cursor);
 	let sp = spring(m.off, m.vel, force, u.dt, exp(-WAKE_W0 * u.dt));
 	m.off = sp.x;
@@ -405,7 +490,8 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let pos = px + m.off;
 	let moved = pos - m.pos;
 	let dist = length(moved);
-	let len = streak(dist, k);
+	// A wrap is a jump, not motion: it leaves no streak.
+	let len = select(streak(dist, k), 0.0, wrapped);
 	m.tail = select(vec2f(0.0), moved * (-len / max(dist, 1e-4)), len > 0.0);
 	m.pos = pos;
 	// focusEase() and emphasis() in focus.ts.
@@ -441,6 +527,19 @@ fn advance(@builtin(global_invocation_id) gid: vec3u) {
 	let r = max(size, MIN_DOT_R) * emph_r;
 	m.look = vec2f(r, alpha * keep * keep * u.fade * exposure(r, len));
 	marks[ii] = m;
+}
+
+// On the first frame of a morph, before advance(): dot i now leaves from
+// where dot pairs.src[i] stood, so it takes over that dot's mark (its wake,
+// where it was drawn, its share of the focus, and the phase its laps were
+// counted from) from a copy of the buffer.
+@compute @workgroup_size(64)
+fn rebase(@builtin(global_invocation_id) gid: vec3u) {
+	let ii = gid.x;
+	if (ii >= u32(N)) {
+		return;
+	}
+	marks[ii] = held[pairs.src[ii]];
 }
 
 struct VSOut {

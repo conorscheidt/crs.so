@@ -50,6 +50,18 @@ export interface Pt {
 	k: number;
 }
 
+/**
+ * Where a dot is along a strand it streams round, from how far it has run in
+ * all: the fraction of its current lap, with laps counted from where it had
+ * run to at `anchorRun`. Normally that is the same moment, and the dot wraps
+ * to the start as it reaches the end. A dot in a morph counts from the moment
+ * the morph began instead (strandAnchor()): one that reaches the end waits
+ * there, and wraps as it lands.
+ */
+export function lapAt(run: number, anchorRun: number): number {
+	return Math.min(1, Math.max(0, run - Math.floor(anchorRun)));
+}
+
 /** Where dot i sits along the trefoil, as a fraction of the knot from its start. */
 export function knotT(i: number, n: number, phase: number): number {
 	const t = i / n + phase * (0.26 / TAU);
@@ -131,17 +143,22 @@ export function icoKey(h0: number, h1: number, s: number): number {
 	return (Math.min(h0, h1) + along) / ICO_DEPTH;
 }
 
-/** How far dot i is along its edge, ICO_EDGES[i % 30], from the first vertex. */
-export function icoS(i: number, phase: number): number {
-	return (hash(i, 5) + phase * (0.1 + hash(i, 4) * 0.22)) % 1;
+/** Edge lengths dot i has run along its edge, ICO_EDGES[i % 30], in all. */
+export function icoRun(i: number, phase: number): number {
+	return hash(i, 5) + phase * (0.1 + hash(i, 4) * 0.22);
+}
+
+/** How far dot i is along its edge from the first vertex; `anchor` as in lapAt(). */
+export function icoS(i: number, phase: number, anchor = phase): number {
+	return lapAt(icoRun(i, phase), icoRun(i, anchor));
 }
 
 /** 1 · Projects: points streaming along the 30 icosahedron edges. */
-export function icosahedron(i: number, _n: number, phase: number, out: Pt): void {
+export function icosahedron(i: number, _n: number, phase: number, out: Pt, anchor = phase): void {
 	const e = ICO_EDGES[i % 30] as readonly [number, number];
 	const a = ICO_VERTS[e[0]] as readonly [number, number, number];
 	const b = ICO_VERTS[e[1]] as readonly [number, number, number];
-	const s = icoS(i, phase);
+	const s = icoS(i, phase, anchor);
 	out.x = a[0] + (b[0] - a[0]) * s + (hash(i, 6) - 0.5) * 0.035;
 	out.y = a[1] + (b[1] - a[1]) * s + (hash(i, 7) - 0.5) * 0.035;
 	out.z = a[2] + (b[2] - a[2]) * s + (hash(i, 8) - 0.5) * 0.035;
@@ -152,19 +169,24 @@ export function icosahedron(i: number, _n: number, phase: number, out: Pt): void
 /** Latitude reach of the loxodrome (rad); a dot's latitude is (u·2 − 1)·LOX_SPAN. */
 export const LOX_SPAN = 1.38;
 
-/** How far dot i has climbed its rhumb line, pole to pole, in [0, 1). */
-export function loxU(i: number, phase: number): number {
-	return (hash(i, 5) + phase * (0.05 + hash(i, 4) * 0.045)) % 1;
+/** Pole-to-pole climbs dot i has made up its rhumb line, in all. */
+export function loxRun(i: number, phase: number): number {
+	return hash(i, 5) + phase * (0.05 + hash(i, 4) * 0.045);
+}
+
+/** How far dot i has climbed its rhumb line, pole to pole; `anchor` as in lapAt(). */
+export function loxU(i: number, phase: number, anchor = phase): number {
+	return lapAt(loxRun(i, phase), loxRun(i, anchor));
 }
 
 /**
  * 2 · Writing: a loxodrome sphere, four interleaved rhumb lines spiralling pole
  * to pole, points streaming along each.
  */
-export function loxodrome(i: number, _n: number, phase: number, out: Pt): void {
+export function loxodrome(i: number, _n: number, phase: number, out: Pt, anchor = phase): void {
 	const STRANDS = 4;
 	const k = i % STRANDS;
-	const u = loxU(i, phase);
+	const u = loxU(i, phase, anchor);
 	const lat = (u * 2 - 1) * LOX_SPAN;
 	const merc = Math.log(Math.tan(Math.PI / 4 + lat / 2));
 	const lon = 3.4 * merc + (k * TAU) / STRANDS + phase * 0.1;
@@ -210,13 +232,79 @@ export function borromean(i: number, n: number, phase: number, out: Pt): void {
 	out.k = (ring + along) / 3;
 }
 
-export const SHAPES = [trefoil, icosahedron, loxodrome, borromean] as const;
+/**
+ * One object: dot i of n at `phase`, written to `out`. Objects whose dots
+ * stream round strands also take an anchor phase (lapAt()).
+ */
+export type Shape = (i: number, n: number, phase: number, out: Pt, anchor?: number) => void;
 
-/** Height of a morphing dot's arc, outward from the centre. */
-export const ARC_LIFT = 0.3;
+export const SHAPES: readonly Shape[] = [trefoil, icosahedron, loxodrome, borromean];
+
+/**
+ * The lap dot i of `obj` is on at `phase`, for objects whose strands wrap; a
+ * change between frames means it jumped back to the start of its strand.
+ */
+export function strandLap(obj: number, i: number, phase: number): number {
+	if (obj === 1) return Math.floor(icoRun(i, phase));
+	if (obj === 2) return Math.floor(loxRun(i, phase));
+	return 0;
+}
+
+/**
+ * The phase from which a dot `t` of the way through its flight counts its
+ * strands' laps (lapAt()). Until it lands, that is `morphPhase`: the phase it
+ * was paired at (match.ts) and its draw key read at (flightT()). No strand
+ * wraps under it between the two, so however long it waits to leave, it flies
+ * between the places it was paired on; counted live, a strand that wrapped
+ * meanwhile would send it to or from the far side of the object. A dot that
+ * reaches the end of a strand waits there and wraps as it lands. Once it has
+ * landed, or with no morph under way, laps count from `phase`.
+ */
+export function strandAnchor(t: number, phase: number, morphPhase: number): number {
+	return t < 1 ? morphPhase : phase;
+}
+
+/**
+ * Whether a dot jumped back to the start of a strand between the last frame,
+ * which counted laps from phase `before`, and this one, which counts them from
+ * `anchor`. It lands on dot i of `toObj` and leaves from dot `src` of
+ * `fromObj` (match.ts); only an object it has some weight in counts. Each
+ * renderer keeps the anchor each dot was last drawn with, and hands it over
+ * with the rest of the dot's state when a morph pairs the dots afresh.
+ */
+export function strandWrapped(
+	i: number,
+	src: number,
+	fromObj: number,
+	toObj: number,
+	t: number,
+	anchor: number,
+	before: number,
+): boolean {
+	return (
+		(t < 1 && strandLap(fromObj, src, anchor) !== strandLap(fromObj, src, before)) ||
+		(t > 0 && strandLap(toObj, i, anchor) !== strandLap(toObj, i, before))
+	);
+}
+
+/**
+ * Height of a morphing dot's arc, outward from the centre, for a flight of
+ * ARC_SPAN or longer; a shorter flight arcs in proportion to its length.
+ * Paired dots (match.ts) fly about half a unit. Were every arc this high, a
+ * dot hopping a tenth of a unit would rise half as far again as it travels,
+ * and the object would swell about four times as much mid-morph.
+ */
+export const ARC_LIFT = 0.15;
+export const ARC_SPAN = 1;
+/**
+ * Within about this radius of the centre the arc gives way, falling to
+ * nothing at the centre itself. Scaling by 1/|p| alone would flip a dot whose
+ * path crosses the middle from one side to the other in a single frame.
+ */
+export const ARC_CORE = 0.4;
 
 /** Share of the morph each dot spends in flight. */
-export const DRAW_W = 0.3;
+export const DRAW_W = 0.55;
 
 /**
  * Morph progress for a dot with draw key k: the target object is traced in its
@@ -228,33 +316,81 @@ export function drawnT(morphT: number, k: number): number {
 	return c * c * (3 - 2 * c);
 }
 
-/** The blended object for instance i (used by the fallback and tests). */
-export function evalPoint(
+/**
+ * How far dot i is through its flight from `fromObj` to `toObj`. The draw key
+ * is read at `morphPhase`, the phase when the morph began, so the drawing
+ * order holds still while the strands stream on: a key read live would jump
+ * whenever its strand wrapped.
+ */
+export function flightT(
 	i: number,
 	fromObj: number,
 	toObj: number,
 	morphT: number,
+	morphPhase: number,
+	tmp: Pt,
+): number {
+	if (morphT >= 1 || fromObj === toObj) return 1;
+	(SHAPES[toObj] as Shape)(i, N, morphPhase, tmp);
+	return drawnT(morphT, tmp.k);
+}
+
+/**
+ * Instance i, `t` of the way through its flight (flightT()) from dot `src` of
+ * `fromObj` (match.ts) to dot i of `toObj`, with strands counted from
+ * `anchor` (lapAt()). Used by the fallback and tests.
+ */
+export function evalPoint(
+	i: number,
+	src: number,
+	fromObj: number,
+	toObj: number,
+	t: number,
 	phase: number,
+	anchor: number,
 	out: Pt,
 	tmp: Pt,
 ): void {
-	const to = SHAPES[toObj] as typeof trefoil;
-	if (morphT >= 1 || fromObj === toObj) {
-		to(i, N, phase, out);
+	const to = SHAPES[toObj] as Shape;
+	if (t >= 1) {
+		to(i, N, phase, out, anchor);
 		return;
 	}
-	const from = SHAPES[fromObj] as typeof trefoil;
-	from(i, N, phase, out);
-	to(i, N, phase, tmp);
-	const t = drawnT(morphT, tmp.k);
-	out.x += (tmp.x - out.x) * t;
-	out.y += (tmp.y - out.y) * t;
-	out.z += (tmp.z - out.z) * t;
+	const from = SHAPES[fromObj] as Shape;
+	from(src, N, phase, out, anchor);
+	to(i, N, phase, tmp, anchor);
+	const dx = tmp.x - out.x;
+	const dy = tmp.y - out.y;
+	const dz = tmp.z - out.z;
+	out.x += dx * t;
+	out.y += dy * t;
+	out.z += dz * t;
 	out.a += (tmp.a - out.a) * t;
 	out.k = tmp.k;
 	// A straight chord would cut through the middle of the object.
-	const lift = (ARC_LIFT * Math.sin(Math.PI * t)) / Math.max(Math.hypot(out.x, out.y, out.z), 1e-4);
+	const rise = ARC_LIFT * Math.min(1, Math.hypot(dx, dy, dz) / ARC_SPAN);
+	const r2 = out.x * out.x + out.y * out.y + out.z * out.z;
+	const lift = (rise * Math.sin(Math.PI * t)) / Math.sqrt(r2 + ARC_CORE * ARC_CORE);
 	out.x += out.x * lift;
 	out.y += out.y * lift;
 	out.z += out.z * lift;
+}
+
+/**
+ * Weight of icosahedron vertex accent j. Arriving, each lights as the edges
+ * drawn out toward it reach it. Leaving, each fades as the dots beside it
+ * leave, which they do around draw key `leave` of the next object (match.ts).
+ */
+export function accentWeight(
+	j: number,
+	fromObj: number,
+	toObj: number,
+	morphT: number,
+	leave: number,
+): number {
+	const ico = OBJECT_INDEX.projects;
+	if (morphT >= 1 || fromObj === toObj) return toObj === ico ? 1 : 0;
+	if (toObj === ico) return drawnT(morphT, (ICO_HOP[j] as number) / ICO_DEPTH);
+	if (fromObj === ico) return 1 - drawnT(morphT, leave);
+	return 0;
 }

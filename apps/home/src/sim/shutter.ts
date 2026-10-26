@@ -12,10 +12,13 @@ export const SHUTTER_TO = 1400;
 export const SHUTTER_EXPOSURE = 0.012;
 export const SHUTTER_MAX = 16;
 /**
- * A step longer than this share of the projection's scale is a dot wrapping
- * to the far end of its strand, not motion.
+ * A step longer than this share of the projection's scale is no motion a
+ * frame could show, so it is drawn without a streak. Only a safety net: a dot
+ * wrapping to the start of its strand is caught from the strand itself
+ * (strandWrapped() in shapes.ts), since a hurried morph moves real dots
+ * nearly half a unit a frame at 30 Hz.
  */
-export const SHUTTER_JUMP = 0.4;
+export const SHUTTER_JUMP = 1.5;
 
 /**
  * Streak length (device px) behind a dot that moved `step` device px in `dt`

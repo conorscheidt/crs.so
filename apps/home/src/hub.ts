@@ -358,8 +358,9 @@ export function bootHub(clock: Clock): () => void {
 			if (a.getAttribute("href") === PATHS[to]) a.setAttribute("aria-current", "page");
 			else a.removeAttribute("aria-current");
 		}
-		// land with the object, which finishes any morph in flight first
-		dot?.move(sim ? clock.landing(MOTION.morph * 1000) : undefined);
+		// The dot lands with the object, which finishes any morph in flight first.
+		const lands = sim?.setSection(to);
+		dot?.move(lands);
 		const panel = panels.get(to);
 		const remembered = offsets.get(to) ?? 0;
 		const wrapper = panel?.querySelector<HTMLElement>("[data-scroll]");
@@ -378,7 +379,6 @@ export function bootHub(clock: Clock): () => void {
 			const top = panel.getBoundingClientRect().top + scrollY - nav.offsetHeight;
 			if (scrollY > top) scrollTo({ top, behavior: reducedMotion ? "instant" : "smooth" });
 		}
-		sim?.setSection(to);
 		pointed = null;
 		keyed = null;
 		sim?.setFocus(null);

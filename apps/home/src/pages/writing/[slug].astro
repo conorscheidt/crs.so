@@ -17,10 +17,12 @@ const { Content, headings } = await render(post);
 const toc = headings.filter((h) => h.depth === 2 && h.slug !== "footnote-label");
 const hasToc = toc.length > 1;
 const hasNotes = headings.some((h) => h.slug === "footnote-label");
+// frontmatter dates parse as UTC midnight; format them in UTC or they land a day early west of Greenwich
 const date = post.data.date.toLocaleDateString("en-US", {
 	year: "numeric",
 	month: "long",
 	day: "numeric",
+	timeZone: "UTC",
 });
 ---
 

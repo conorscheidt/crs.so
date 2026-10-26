@@ -5,9 +5,12 @@
  * in compatibility mode. The device, pipelines and buffers are built once and
  * outlive any canvas, since the hub's canvas is replaced on every hub ⇄
  * article swap; a new canvas only configures a context. Device loss, including
- * after a bfcache restore, rebuilds them.
+ * after a bfcache restore, rebuilds them. The morph's pairing (match.ts) lives
+ * with them too: built and uploaded on a morph's first frame, it holds for
+ * whichever canvas draws the rest.
  */
 import type { Focus } from "./focus";
+import { Matcher } from "./match";
 import shaderSrc from "./shader.wgsl?raw";
 import { N, N_ACCENT } from "./shapes";
 
@@ -31,7 +34,6 @@ export interface Uniforms {
 	cursorActive: number;
 	dotR: number;
 	fade: number;
-	accentW: number;
 	/** s since the last drawn frame; 0 holds the wake still */
 	dt: number;
 	/** device px/s */
@@ -40,6 +42,8 @@ export interface Uniforms {
 	focus: Focus;
 	/** 0..1, the fade in and out of any focus */
 	focusW: number;
+	/** the phase when the morph began; it fixes the drawing order */
+	morphPhase: number;
 }
 
 export interface Renderer {
@@ -60,11 +64,18 @@ export interface Gpu {
 	readonly bindGroup: GPUBindGroup;
 	readonly advance: GPUComputePipeline;
 	readonly advanceGroup: GPUBindGroup;
+	readonly rebase: GPUComputePipeline;
+	readonly rebaseGroup: GPUBindGroup;
 	readonly ubo: GPUBuffer;
 	readonly marks: GPUBuffer;
+	/** the WGSL Pairs struct, and the marks as they stood when a morph began */
+	readonly pairs: GPUBuffer;
+	readonly held: GPUBuffer;
+	/** pairs each morph's dots once, for whichever canvas draws it */
+	readonly matcher: Matcher;
 }
 
-const FLOATS = 36;
+const FLOATS = 40;
 const COUNT = N + N_ACCENT;
 /** Bytes per instance in the marks buffer: WGSL struct Mark. */
 const MARK_BYTES = 48;
@@ -144,6 +155,9 @@ async function build(): Promise<Gpu | null> {
 	const advance = device
 		.createComputePipelineAsync({ layout: "auto", compute: { module, entryPoint: "advance" } })
 		.catch(() => null);
+	const rebasing = device
+		.createComputePipelineAsync({ layout: "auto", compute: { module, entryPoint: "rebase" } })
+		.catch(() => null);
 	const render = device
 		.createRenderPipelineAsync({
 			layout: "auto",
@@ -178,9 +192,9 @@ async function build(): Promise<Gpu | null> {
 			primitive: { topology: "triangle-strip" },
 		})
 		.catch(() => null);
-	const [step, pipeline] = await Promise.all([advance, render]);
+	const [step, rebase, pipeline] = await Promise.all([advance, rebasing, render]);
 	const invalid = await device.popErrorScope().catch(() => null);
-	if (!(step && pipeline) || invalid) {
+	if (!(step && rebase && pipeline) || invalid) {
 		device.destroy();
 		return null;
 	}
@@ -207,7 +221,23 @@ async function build(): Promise<Gpu | null> {
 	});
 	const marks = device.createBuffer({
 		size: COUNT * MARK_BYTES,
-		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+		usage:
+			GPUBufferUsage.STORAGE |
+			GPUBufferUsage.VERTEX |
+			GPUBufferUsage.COPY_SRC |
+			GPUBufferUsage.COPY_DST,
+	});
+	const matcher = new Matcher(N, (s) => s);
+	// The page's first pairing runs at a fraction of the speed of later ones,
+	// so it runs here rather than on the first frame of the first morph.
+	matcher.warm();
+	const pairs = device.createBuffer({
+		size: matcher.pairing.bytes.byteLength,
+		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+	});
+	const held = device.createBuffer({
+		size: N * MARK_BYTES,
+		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
 	});
 	const bindGroup = device.createBindGroup({
 		layout: pipeline.getBindGroupLayout(0),
@@ -218,18 +248,43 @@ async function build(): Promise<Gpu | null> {
 		entries: [
 			{ binding: 0, resource: { buffer: ubo } },
 			{ binding: 1, resource: { buffer: marks } },
+			{ binding: 2, resource: { buffer: pairs } },
 		],
 	});
-	return { device, format, pipeline, bindGroup, advance: step, advanceGroup, ubo, marks };
+	const rebaseGroup = device.createBindGroup({
+		layout: rebase.getBindGroupLayout(0),
+		entries: [
+			{ binding: 1, resource: { buffer: marks } },
+			{ binding: 2, resource: { buffer: pairs } },
+			{ binding: 3, resource: { buffer: held } },
+		],
+	});
+	return {
+		device,
+		format,
+		pipeline,
+		bindGroup,
+		advance: step,
+		advanceGroup,
+		rebase,
+		rebaseGroup,
+		ubo,
+		marks,
+		pairs,
+		held,
+		matcher,
+	};
 }
 
 export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null {
 	const ctx = canvas.getContext("webgpu");
 	if (!ctx) return null;
-	const { device, pipeline, bindGroup, advance, advanceGroup, ubo, marks } = gpu;
+	const { device, pipeline, bindGroup, advance, advanceGroup, rebase, rebaseGroup } = gpu;
+	const { ubo, marks, pairs, held, matcher } = gpu;
 	ctx.configure({ device, format: gpu.format, alphaMode: "premultiplied" });
 	let live = true;
-	// The wake belongs to whatever canvas drew it last.
+	// The wake belongs to whatever canvas drew it last, so a new one starts it
+	// afresh.
 	let settle = true;
 
 	return {
@@ -254,8 +309,7 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 			buf[15] = u.cursorActive;
 			buf[16] = u.dotR;
 			buf[17] = u.fade;
-			buf[18] = u.accentW;
-			buf[19] = settle ? 0 : u.dt;
+			buf[18] = settle ? 0 : u.dt;
 			buf[20] = u.cursorVX;
 			buf[21] = u.cursorVY;
 			buf[22] = u.focus.obj;
@@ -265,11 +319,24 @@ export function attachGpu(gpu: Gpu, canvas: HTMLCanvasElement): Renderer | null 
 			buf[26] = u.focus.vertex;
 			buf[27] = u.focus.rings;
 			buf.set(u.focus.lats, 28);
+			buf[36] = u.morphPhase;
+			buf[37] = settle ? 1 : 0;
 			device.queue.writeBuffer(ubo, 0, buf);
 			const encoder = device.createCommandEncoder();
-			if (settle) encoder.clearBuffer(marks);
 			settle = false;
+			// The first frame of a morph: each dot takes over the mark of the dot
+			// whose place it leaves from.
+			const rebased = matcher.sync(u);
+			if (rebased) {
+				device.queue.writeBuffer(pairs, 0, matcher.pairing.bytes);
+				encoder.copyBufferToBuffer(marks, 0, held, 0, N * MARK_BYTES);
+			}
 			const step = encoder.beginComputePass();
+			if (rebased) {
+				step.setPipeline(rebase);
+				step.setBindGroup(0, rebaseGroup);
+				step.dispatchWorkgroups(Math.ceil(N / WORKGROUP));
+			}
 			step.setPipeline(advance);
 			step.setBindGroup(0, advanceGroup);
 			step.dispatchWorkgroups(Math.ceil(COUNT / WORKGROUP));

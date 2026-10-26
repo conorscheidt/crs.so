@@ -31,15 +31,24 @@ export interface ExperienceEntry {
 	org: string;
 	span: string;
 	detail: string;
+	/** The Borromean ring this role lights, for the three held at Northwestern. */
+	ring?: 0 | 1 | 2;
 }
 
 export const experience: ExperienceEntry[] = [
+	{
+		role: "Software Developer",
+		org: "Alter Domus",
+		span: "since July 2026",
+		detail: "Private credit observability.",
+	},
 	{
 		role: "Quantitative Developer",
 		org: "Northwestern Financial Technologies",
 		span: "since Sept 2025",
 		detail:
 			"Event-futures microstructure and exchange design with the trading group. Built the live Kalshi trading bot and the limit order book simulator it's tested against.",
+		ring: 0,
 	},
 	{
 		role: "Undergraduate Researcher",
@@ -47,6 +56,7 @@ export const experience: ExperienceEntry[] = [
 		span: "2024–2025",
 		detail:
 			"Non-equilibrium statistical mechanics: reaction–diffusion and tensor-network models of stochastic chemistry. Wrote browser simulators now used in coursework and made the group's cluster pipelines about five times faster.",
+		ring: 1,
 	},
 	{
 		role: "Undergraduate Researcher",
@@ -54,6 +64,7 @@ export const experience: ExperienceEntry[] = [
 		span: "2023–2024",
 		detail:
 			"Internet measurement research on privacy and data-protection practices across the web. Designed the study's telemetry model and built Plankton, the distributed crawler behind its datasets.",
+		ring: 2,
 	},
 ];
 

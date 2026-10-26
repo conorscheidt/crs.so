@@ -5,6 +5,7 @@ import {
 	dismissed,
 	type HeadState,
 	minutesLeft,
+	railFill,
 	stepHead,
 	wordsLeft,
 } from "./reading";
@@ -118,5 +119,28 @@ describe("dismissed", () => {
 		expect(dismissed(20, 300, 0.8)).toBe(true);
 		expect(dismissed(6, 300, 0.8)).toBe(false);
 		expect(dismissed(20, 300, 0.2)).toBe(false);
+	});
+});
+
+describe("railFill", () => {
+	// three sections of very different lengths, three evenly spaced entries
+	const tops = [100, 200, 2000];
+	const marks = [0, 30, 60];
+	const end = 2400;
+
+	it("is empty before the first section and full at the end", () => {
+		expect(railFill(tops, marks, 50, end, 90)).toBe(0);
+		expect(railFill(tops, marks, end, end, 90)).toBe(1);
+	});
+
+	it("meets each entry exactly as its section starts", () => {
+		expect(railFill(tops, marks, 200, end, 90)).toBeCloseTo(30 / 90, 12);
+		expect(railFill(tops, marks, 2000, end, 90)).toBeCloseTo(60 / 90, 12);
+	});
+
+	it("moves through an entry in proportion to the section, not the page", () => {
+		expect(railFill(tops, marks, 150, end, 90)).toBeCloseTo(15 / 90, 12);
+		expect(railFill(tops, marks, 1100, end, 90)).toBeCloseTo(45 / 90, 12);
+		expect(railFill(tops, marks, 2200, end, 90)).toBeCloseTo(75 / 90, 12);
 	});
 });

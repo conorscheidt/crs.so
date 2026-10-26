@@ -1,5 +1,5 @@
 ---
-import { blurb, contact, education, experience, place, resumeHref } from "../data/about";
+import { blurb, contact, education, experience, place } from "../data/about";
 import { projectBySlug, repoUrl } from "../data/projects";
 import { publishedPosts } from "../lib/posts";
 import { projectsWithPosts } from "../lib/relations";
@@ -12,12 +12,13 @@ const { section } = Astro.props;
 const posts = await publishedPosts();
 const projects = await projectsWithPosts();
 const latest = posts[0];
-const fmt = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+const fmt = (d: Date) =>
+	d.toLocaleDateString("en-US", { year: "numeric", month: "long", timeZone: "UTC" });
 const year = new Date().getUTCFullYear();
 /** A post's project slug, if that project still exists, so a stale
  *  frontmatter reference doesn't render a mark that filters to nothing. */
 const known = (slug?: string): string | undefined => (slug && projectBySlug(slug) ? slug : undefined);
-/** Borromean rings a school stands for: every role was held at Northwestern. */
+/** Borromean rings a school stands for: each ring is a role held there. */
 const rings = (school: string): string | undefined =>
 	school.startsWith("Northwestern") ? "0 1 2" : undefined;
 
@@ -25,6 +26,8 @@ const rings = (school: string): string | undefined =>
 
 // Restore alongside the git block once git.crs.so resolves:
 //   <a href="https://git.crs.so" rel="me">git.crs.so<Out /></a>  (in .meta)
+// Résumé links are held back for now. Restore both, importing resumeHref:
+//   <a href={resumeHref} target="_blank" rel="noopener">résumé<Out /></a>  (in .meta and About .links)
 ---
 
 <div class="hub" data-section={section}>
@@ -41,7 +44,6 @@ const rings = (school: string): string | undefined =>
 			<span class="nav-dot" data-dot aria-hidden="true"></span>
 		</nav>
 		<div class="meta">
-			<a href={resumeHref} target="_blank" rel="noopener">résumé<Out /></a>
 			<button type="button" data-theme-toggle aria-label="Toggle day and night">
 				<svg class="ecl" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
 					<circle class="ring" cx="8" cy="8" r="5.5"></circle>
@@ -127,7 +129,11 @@ const rings = (school: string): string | undefined =>
 						projects.length === 0 && (
 							<div class="hollow">
 								<p class="hollow-lead">Nothing here yet.</p>
-								</div>
+								<p class="hollow-note">
+									I'm building my own git host in Rust first. Projects go up here once it's
+									running at git.crs.so.
+								</p>
+							</div>
 						)
 					}
 					{
@@ -237,7 +243,6 @@ const rings = (school: string): string | undefined =>
 						<a href={`mailto:${contact.email}`}>{contact.email}</a>
 						<a href={contact.github} rel="me">github<Out /></a>
 						<a href={contact.linkedin} rel="me">linkedin<Out /></a>
-						<a href={resumeHref} target="_blank" rel="noopener">résumé<Out /></a>
 					</div>
 					<p class="ptitle">Education</p>
 					{
@@ -252,8 +257,8 @@ const rings = (school: string): string | undefined =>
 					}
 					<p class="ptitle sub">Experience</p>
 					{
-						experience.map((e, i) => (
-							<div class="cvrow" data-rings={i < 3 ? String(i) : undefined}>
+						experience.map((e) => (
+							<div class="cvrow" data-rings={e.ring === undefined ? undefined : String(e.ring)}>
 								<h3>{e.role}</h3>
 								<span>
 									{e.org} · {e.span}

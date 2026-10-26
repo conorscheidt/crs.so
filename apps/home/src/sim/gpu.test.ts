@@ -78,4 +78,15 @@ test("the uniform writes land on the WGSL U struct's fields", async () => {
 	expect(Number(gpu.match(/buf\.set\(u\.focus\.lats, (\d+)\)/)?.[1])).toBe(
 		at.get("focus_lat") as number,
 	);
+	// A settling frame says so in its own slot, holds the wake still, and the
+	// shader clears the wake itself.
+	expect(Number(gpu.match(/buf\[(\d+)\] = settle \? 1 : 0;/)?.[1])).toBe(
+		at.get("settle") as number,
+	);
+	expect(Number(gpu.match(/buf\[(\d+)\] = settle \? 0 : u\.dt;/)?.[1])).toBe(
+		at.get("dt") as number,
+	);
+	expect(wgsl).toMatch(
+		/if \(u\.settle > 0\.0\) \{\s*m\.off = vec2f\(0\.0\);\s*m\.vel = vec2f\(0\.0\);\s*\}/,
+	);
 });

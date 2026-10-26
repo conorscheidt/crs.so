@@ -8,8 +8,8 @@ import sharp from "sharp";
 
 const W = 1600;
 const H = 900;
-const PAPER = "#171310";
-const INK = "#e8e4d9";
+const PAPER = "#141414";
+const INK = "#e6e4df";
 const N = 5200;
 
 const hash = (i: number, s: number): number => {

@@ -15,6 +15,32 @@ export function activeSection(tops: readonly number[], line: number, atEnd: bool
 	return active;
 }
 
+/**
+ * How far down the contents rail the fill reaches, 0..1. Each section's span of
+ * the page maps onto its own stretch of rail, from its entry to the next one, so
+ * the fill meets the highlighted entry however long or short the section is.
+ * `marks` are the entries' offsets along the rail (px), `end` the reading line at
+ * the bottom of the page.
+ */
+export function railFill(
+	tops: readonly number[],
+	marks: readonly number[],
+	line: number,
+	end: number,
+	length: number,
+): number {
+	if (length <= 0 || tops.length === 0) return 0;
+	if (line >= end) return 1;
+	const k = activeSection(tops, line, false);
+	if (k < 0) return 0;
+	const from = tops[k] ?? 0;
+	const to = tops[k + 1] ?? end;
+	const start = marks[k] ?? 0;
+	const stop = marks[k + 1] ?? length;
+	const f = to > from ? Math.min(1, Math.max(0, (line - from) / (to - from))) : 1;
+	return Math.min(1, (start + f * (stop - start)) / length);
+}
+
 export const countWords = (text: string): number => text.match(/\S+/g)?.length ?? 0;
 
 export interface Block {

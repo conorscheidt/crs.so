@@ -10,8 +10,8 @@
 // The home-screen icons get a tile, because iOS and Android paint alpha.
 import sharp from "sharp";
 
-const PAPER = "#171310";
-const INK = "#e8e4d9";
+const PAPER = "#141414";
+const INK = "#e6e4df";
 const DAY_INK = "#221f1a";
 const PUBLIC = "apps/home/public";
 

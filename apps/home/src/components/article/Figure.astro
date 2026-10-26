@@ -25,7 +25,7 @@ type Props = {
 	priority?: boolean;
 };
 const { src, alt, caption, n, border = false, priority = false } = Astro.props;
-const roman = n ? (["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"][n - 1] ?? String(n)) : null;
+const roman = n ? (["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x", "xi", "xii"][n - 1] ?? String(n)) : null;
 ---
 
 <figure class:list={["afig", "araster", { bordered: border }]}>

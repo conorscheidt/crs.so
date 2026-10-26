@@ -59,29 +59,14 @@
 	flex: none;
 }
 
+/* Set per section in article-features.ts (railFill), so the fill meets the
+   highlighted entry rather than tracking the raw scroll fraction. */
 .atoc-fill {
 	position: absolute;
 	inset: 0;
 	background: var(--ink);
 	transform: scaleY(0);
 	transform-origin: top;
-}
-
-/* Tracks reading progress on the compositor, in step with the scroll. */
-@supports (animation-timeline: scroll()) {
-	.atoc-fill {
-		animation: toc-fill linear both;
-		animation-timeline: scroll(root);
-	}
-}
-
-@keyframes toc-fill {
-	from {
-		transform: scaleY(0);
-	}
-	to {
-		transform: scaleY(1);
-	}
 }
 
 .atoc-links {
@@ -437,6 +422,47 @@
 /* ---- figures (plates) ---- */
 
 /* Plates have no frame by default; the `border` prop adds one. */
+/* tables: booktabs rules, no verticals, the column's own type a step down */
+.prose table {
+	width: 100%;
+	margin: var(--s3) 0;
+	border-collapse: collapse;
+	font-size: 0.86em;
+	line-height: 1.45;
+}
+
+.prose thead th {
+	padding: 0.55em 0.9em 0.5em 0;
+	border-top: 1px solid var(--ink-quiet);
+	border-bottom: 1px solid var(--rule);
+	color: var(--ink-70);
+	font-weight: 400;
+	font-style: italic;
+	text-align: left;
+	vertical-align: bottom;
+}
+
+.prose td {
+	padding: 0.55em 0.9em 0.55em 0;
+	vertical-align: top;
+}
+
+.prose tbody tr:last-child td {
+	border-bottom: 1px solid var(--ink-quiet);
+}
+
+.prose th:last-child,
+.prose td:last-child {
+	padding-right: 0;
+}
+
+/* a phone column is narrower than a table's longest words set side by side */
+@media (width < 600px) {
+	.prose td {
+		hyphens: auto;
+	}
+}
+
 .afig {
 	margin: var(--s3) 0;
 	position: relative;
@@ -471,6 +497,50 @@
 }
 
 /* Plates clip, since constructions can run off to infinity. */
+.afig[data-kind="tt-mc"] .figmount,
+.afig[data-kind="tt-cv"] .figmount {
+	height: 230px;
+}
+
+.afig[data-kind="tt-svd"] .figmount {
+	height: 240px;
+}
+
+/* the train plate wraps onto two rows at 300px and taller */
+.afig[data-kind="tt-format"] .figmount {
+	height: 236px;
+}
+
+@media (width < 600px) {
+	.afig[data-kind="tt-format"] .figmount {
+		height: 390px;
+	}
+}
+
+.afig[data-kind="tt-cut"] .figmount {
+	height: 270px;
+}
+
+.afig[data-kind="tt-cross"] .figmount {
+	height: 300px;
+}
+
+.afig[data-kind="tt-smooth"] .figmount {
+	height: 330px;
+}
+
+.afig[data-kind="tt-cost"] .figmount {
+	height: 320px;
+}
+
+.afig[data-kind="tt-growth"] .figmount {
+	height: 250px;
+}
+
+.afig[data-kind="tt-sweep"] .figmount {
+	height: 250px;
+}
+
 .figmount svg {
 	display: block;
 	overflow: hidden;
@@ -548,6 +618,146 @@
 	fill: color-mix(in srgb, var(--ink) 22%, transparent);
 }
 
+.figmount .bar.keep {
+	fill: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+/* series in one ink: weight, dash and markers carry identity, never hue */
+.figmount .curve.faint {
+	stroke: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+.figmount .curve.ghost {
+	stroke: color-mix(in srgb, var(--ink) 20%, transparent);
+	stroke-width: 1;
+}
+
+/* .lit and a drag strengthen every series a step without merging them */
+.figmount svg.lit .curve.faint:not(.focus),
+.figmount svg.dragging .curve.faint:not(.focus) {
+	stroke: color-mix(in srgb, var(--ink) 62%, transparent);
+	stroke-width: 1.4;
+}
+
+.figmount svg.lit .curve.ghost:not(.focus),
+.figmount svg.dragging .curve.ghost:not(.focus) {
+	stroke: color-mix(in srgb, var(--ink) 30%, transparent);
+	stroke-width: 1;
+}
+
+.figmount .curve.dash {
+	stroke-dasharray: 5 3;
+}
+
+.figmount .curve.dot {
+	stroke-dasharray: 1.2 2.8;
+	stroke-linecap: round;
+}
+
+.figmount .mark {
+	fill: var(--paper);
+	stroke: color-mix(in srgb, var(--ink) 78%, transparent);
+	stroke-width: 1.2;
+}
+
+.figmount .mark.solid {
+	fill: color-mix(in srgb, var(--ink) 78%, transparent);
+}
+
+.figmount .bond {
+	stroke: color-mix(in srgb, var(--ink) 70%, transparent);
+	stroke-width: 2;
+}
+
+/* heatmaps are a luminance mask over this rect, so a theme flip recolors them */
+.figmount .heat {
+	fill: color-mix(in srgb, var(--ink) 88%, transparent);
+}
+
+.figmount .heatframe {
+	fill: none;
+	stroke: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+.figmount .cross {
+	fill: color-mix(in srgb, var(--ink) 34%, transparent);
+}
+
+/* matrix entries in the heatmaps' ink, opacity by magnitude; a negative one is open */
+.figmount .cell {
+	fill: color-mix(in srgb, var(--ink) 88%, transparent);
+}
+
+.figmount .cell.neg {
+	fill: none;
+	stroke: color-mix(in srgb, var(--ink) 88%, transparent);
+}
+
+/* an invisible area that takes the pointer for a sparse part, such as a slider's column */
+.figmount .hitbox {
+	fill: transparent;
+}
+
+/* a focused part answers its bound term in full ink; nothing else moves */
+.figmount [data-part] {
+	transition:
+		stroke 240ms cubic-bezier(0.22, 1, 0.36, 1),
+		stroke-width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+		fill 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.figmount .curve.focus,
+.figmount .hair.focus,
+.figmount .bond.focus {
+	stroke: var(--ink);
+	stroke-width: 2;
+}
+
+.figmount .bar.focus,
+.figmount .cross.focus,
+.figmount .mark.solid.focus,
+.figmount .dotmark.focus {
+	fill: var(--ink);
+}
+
+.figmount .mark.focus {
+	stroke: var(--ink);
+}
+
+.figmount .shape.focus {
+	stroke: var(--ink);
+	stroke-width: 1.8;
+}
+
+.figmount .wash.focus {
+	fill: color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+.figmount .heatframe.focus {
+	stroke: var(--ink);
+}
+
+.figmount .vlabel.focus,
+.figmount .tlabel.focus {
+	fill: var(--ink);
+}
+
+.figmount .handle.focus .dot {
+	fill: var(--ink);
+}
+
+.figmount .handle.focus .halo {
+	opacity: 1;
+}
+
+/* a wide invisible stroke, so a thin curve is easy to point at */
+.figmount .parthit {
+	fill: none;
+	stroke: transparent;
+	stroke-width: 10;
+	pointer-events: stroke;
+}
+
 .figmount .vlabel,
 .figmount .readout {
 	font-family: var(--font-text);
@@ -560,6 +770,27 @@
 .figmount svg.lit .vlabel,
 .figmount svg.lit .readout {
 	fill: var(--ink);
+}
+
+/* a choice set in the plate's own voice: the chosen label in full ink, the
+   others quiet until the pointer reaches them */
+.figmount .choice {
+	font-family: var(--font-text);
+	font-style: italic;
+	font-size: 12px;
+	fill: color-mix(in srgb, var(--ink) 40%, transparent);
+	transition:
+		fill 200ms cubic-bezier(0.22, 1, 0.36, 1),
+		text-shadow 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.figmount .choice.on,
+.figmount .choice:hover {
+	fill: var(--ink);
+}
+
+.figmount .choice:hover {
+	text-shadow: 0 0 4px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 .figmount .dotmark {
@@ -778,9 +1009,10 @@
 	padding: 0;
 }
 
+/* programs print aligned columns: a long line scrolls instead of wrapping */
 .outtext {
-	white-space: pre-wrap;
-	word-break: break-word;
+	white-space: pre;
+	overflow-x: auto;
 	margin: 0;
 }
 

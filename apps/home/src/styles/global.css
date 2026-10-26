@@ -1,5 +1,6 @@
-/* Day paper is the ground truth; night is its ink inversion. A theme flip is
-   instant: .flipping holds every transition off while it lands. */
+/* Day paper is the ground truth; night is a neutral ground under faintly warm
+   ink. A theme flip is instant: .flipping holds every transition off while it
+   lands. */
 :root {
 	color-scheme: light;
 	--paper: #f2f0ea;
@@ -35,24 +36,24 @@
 
 :root[data-theme="night"] {
 	color-scheme: dark;
-	--paper: #171310;
-	--paper-deep: #100d0b;
-	--ink: #e8e4d9;
-	--ink-70: rgba(232, 228, 217, 0.7);
-	--ink-quiet: rgba(232, 228, 217, 0.52);
-	--rule: rgba(232, 228, 217, 0.16);
+	--paper: #141414;
+	--paper-deep: #0e0e0e;
+	--ink: #e6e4df;
+	--ink-70: rgba(230, 228, 223, 0.7);
+	--ink-quiet: rgba(230, 228, 223, 0.52);
+	--rule: rgba(230, 228, 223, 0.16);
 	--press-shade: rgba(0, 0, 0, 0.6);
 	--press-light: rgba(255, 255, 255, 0.06);
-	--cm-var: #ddd8cb;
-	--cm-keyword: #fffdf5;
-	--cm-func: #f7f3e8;
-	--cm-type: #a89f8c;
-	--cm-string: #968d7a;
-	--cm-number: #c9c3b2;
-	--cm-comment: rgba(232, 228, 217, 0.36);
-	--cm-punct: rgba(232, 228, 217, 0.46);
-	--cm-caret: #e8e4d9;
-	--cm-sel: rgba(232, 228, 217, 0.18);
+	--cm-var: #dddbd5;
+	--cm-keyword: #fffefb;
+	--cm-func: #f5f4ef;
+	--cm-type: #a5a197;
+	--cm-string: #959083;
+	--cm-number: #c8c5bc;
+	--cm-comment: rgba(230, 228, 223, 0.36);
+	--cm-punct: rgba(230, 228, 223, 0.46);
+	--cm-caret: #e6e4df;
+	--cm-sel: rgba(230, 228, 223, 0.18);
 }
 
 /* While the theme flips (theme.ts), only the toggle's disc animates. */
